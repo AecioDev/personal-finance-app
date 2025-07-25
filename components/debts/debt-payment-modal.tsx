@@ -27,7 +27,7 @@ import { Debt, DebtInstallment, Transaction } from "@/interfaces/finance";
 import {
   debtPaymentSchema,
   DebtPaymentFormData,
-} from "@/interfaces/debt-payment-schema";
+} from "@/schemas/debt-payment-schema";
 import { format, isBefore, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Icon } from "@iconify/react";

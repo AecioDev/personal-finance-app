@@ -6,6 +6,10 @@ import {
   updateDoc,
   deleteDoc,
   serverTimestamp,
+  query,
+  getDocs,
+  writeBatch,
+  where,
 } from "firebase/firestore";
 import { Debt, DebtInstallment } from "@/interfaces/finance";
 import { User as FirebaseUser } from "firebase/auth";
@@ -46,7 +50,6 @@ export const useDebtsCrud = ({
       | "isActive"
     >
   ) => {
-    // ALTERADO: Verifica se user (objeto completo) é null antes de user?.uid
     if (!db || !user || !projectId) {
       setErrorFinanceData("Firestore não inicializado ou usuário não logado.");
       return;
@@ -68,10 +71,7 @@ export const useDebtsCrud = ({
         collection(db, `artifacts/${projectId}/users/${user.uid}/debts`),
         newDebtData
       );
-      console.log(
-        "useDebtsCrud: Dívida adicionada com sucesso. ID:",
-        debtRef.id
-      );
+      console.log("useDebtsCrud: Dívida adicionada com sucesso.");
 
       const generatedInstallments: Omit<
         DebtInstallment,
@@ -141,7 +141,6 @@ export const useDebtsCrud = ({
     debtId: string,
     data: Partial<Omit<Debt, "id" | "uid">>
   ) => {
-    // ALTERADO: Verifica se user (objeto completo) é null antes de user?.uid
     if (!db || !user || !projectId) {
       setErrorFinanceData("Firestore não inicializado ou usuário não logado.");
       return;
@@ -158,20 +157,57 @@ export const useDebtsCrud = ({
     }
   };
 
-  const deleteDebt = async (debtId: string) => {
-    // ALTERADO: Verifica se user (objeto completo) é null antes de user?.uid
+  const deleteDebt = async (debtId: string): Promise<boolean> => {
+    // ALTERADO: Retorna Promise<boolean>
     if (!db || !user || !projectId) {
       setErrorFinanceData("Firestore não inicializado ou usuário não logado.");
-      return;
+      return false;
     }
     try {
-      await deleteDoc(
+      const installmentsQuery = query(
+        collection(
+          db,
+          `artifacts/${projectId}/users/${user.uid}/debtInstallments`
+        ),
+        where("debtId", "==", debtId)
+      );
+      const installmentsSnap = await getDocs(installmentsQuery);
+
+      const batch = writeBatch(db);
+
+      let hasLinkedTransactions = false;
+      installmentsSnap.forEach((installmentDoc) => {
+        const installmentData = installmentDoc.data() as DebtInstallment;
+        if (installmentData.transactionId) {
+          hasLinkedTransactions = true;
+          return;
+        }
+        batch.delete(installmentDoc.ref);
+      });
+
+      if (hasLinkedTransactions) {
+        setErrorFinanceData(
+          "Não é possível excluir esta dívida. Há lançamentos financeiros vinculados a uma ou mais parcelas. Por favor, exclua os lançamentos das parcelas primeiro."
+        );
+        console.warn(
+          "useDebtsCrud: Tentativa de excluir dívida com parcelas vinculadas a lançamentos."
+        );
+        return false;
+      }
+
+      batch.delete(
         doc(db, `artifacts/${projectId}/users/${user.uid}/debts`, debtId)
       );
-      console.log("useDebtsCrud: Dívida deletada com sucesso.");
+
+      await batch.commit();
+      console.log(
+        "useDebtsCrud: Dívida e suas parcelas deletadas com sucesso."
+      );
+      return true; // Retorna true em caso de sucesso
     } catch (error: any) {
       setErrorFinanceData(`Erro ao deletar dívida: ${error.message}`);
       console.error("useDebtsCrud: Erro ao deletar dívida:", error);
+      return false; // Retorna false em caso de erro
     }
   };
 

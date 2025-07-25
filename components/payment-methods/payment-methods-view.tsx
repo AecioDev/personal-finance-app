@@ -239,7 +239,6 @@ export function PaymentMethodsView() {
                       <SelectValue placeholder="Selecione uma conta (Opcional)" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Nenhuma</SelectItem>
                       {accounts.length === 0 ? (
                         <p className="p-2 text-sm text-muted-foreground">
                           Nenhuma conta cadastrada.

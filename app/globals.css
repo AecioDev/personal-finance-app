@@ -6,7 +6,7 @@
   :root {
     --background: 0 0% 100%;
     --foreground: 222.2 84% 4.9%;
-    --card: 210 40% 98%;
+    --card: 210 40% 98%; /* Cinza bem claro no tema claro */
     --card-foreground: 222.2 84% 4.9%;
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 84% 4.9%;
@@ -24,13 +24,14 @@
     --input: 214.3 31.8% 91.4%;
     --ring: 142.1 76.2% 36.3%;
     --radius: 0.5rem;
+
     --header-footer-background: 210 40% 94%;
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
+    --background: 222.2 84% 4.9%; /* Fundo bem escuro */
     --foreground: 210 40% 98%;
-    --card: 217.2 32.6% 17.5%;
+    --card: 217.2 32.6% 25%; /* ALTERADO: Card mais claro no tema escuro para se destacar */
     --card-foreground: 210 40% 98%;
     --popover: 222.2 84% 4.9%;
     --popover-foreground: 210 40% 98%;
@@ -47,6 +48,7 @@
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
     --ring: 142.4 71.8% 29.2%;
+
     --header-footer-background: 222.2 84% 12%;
   }
 }

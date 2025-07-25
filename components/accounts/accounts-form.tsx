@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Account } from "@/interfaces/finance"; // Importa a interface Account
+import { Account } from "@/interfaces/finance";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,7 +13,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { useToast } from "@/components/ui/use-toast"; // Usa useToast do shadcn/ui
+import { useToast } from "@/components/ui/use-toast";
 
 interface AccountsFormProps {
   isOpen: boolean;
@@ -38,7 +38,12 @@ export function AccountsForm({
   useEffect(() => {
     if (editingAccount) {
       setAccountName(editingAccount.name);
-      setAccountBalance(editingAccount.balance.toString());
+      // Converte para string ou para vazio se for null/undefined
+      setAccountBalance(
+        editingAccount.balance !== null && editingAccount.balance !== undefined
+          ? editingAccount.balance.toString()
+          : ""
+      );
     } else {
       setAccountName("");
       setAccountBalance("");
@@ -46,23 +51,26 @@ export function AccountsForm({
   }, [editingAccount]);
 
   const handleSave = async () => {
-    if (!accountName.trim() || !accountBalance.trim()) {
+    if (!accountName.trim()) {
       toast({
         title: "Erro",
-        description: "Nome da conta e Saldo são obrigatórios.",
+        description: "Nome da conta é obrigatório.",
         variant: "destructive",
       });
       return;
     }
 
-    const parsedBalance = parseFloat(accountBalance);
-    if (isNaN(parsedBalance)) {
-      toast({
-        title: "Erro",
-        description: "Saldo deve ser um número válido.",
-        variant: "destructive",
-      });
-      return;
+    let parsedBalance: number | null = null;
+    if (accountBalance.trim() !== "") {
+      parsedBalance = parseFloat(accountBalance);
+      if (isNaN(parsedBalance)) {
+        toast({
+          title: "Erro",
+          description: "Saldo deve ser um número válido.",
+          variant: "destructive",
+        });
+        return;
+      }
     }
 
     if (loadingFinanceData) {
@@ -78,8 +86,8 @@ export function AccountsForm({
     try {
       await onSave({
         name: accountName,
-        balance: parsedBalance,
-        icon: "mdi:bank", // Ícone padrão para contas
+        balance: parsedBalance, // Passa null se o campo estava vazio
+        icon: "mdi:bank",
       });
       onOpenChange(false);
       toast({
@@ -87,6 +95,7 @@ export function AccountsForm({
         description: editingAccount
           ? "Conta atualizada."
           : "Conta adicionada com sucesso!",
+        variant: "success",
       });
     } catch (error) {
       toast({
@@ -95,6 +104,7 @@ export function AccountsForm({
         variant: "destructive",
       });
       console.error("Erro ao salvar conta no formulário:", error);
+      throw error;
     }
   };
 
@@ -127,7 +137,7 @@ export function AccountsForm({
           </div>
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="balance" className="text-right">
-              Saldo Inicial
+              Saldo Inicial (Opcional)
             </Label>
             <Input
               id="balance"

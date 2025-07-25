@@ -6,7 +6,6 @@ import { Account } from "@/interfaces/finance";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Icon } from "@iconify/react";
-import { DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/use-toast";
 import { ButtonNew } from "@/components/ui/button-new";
 import { ButtonBack } from "@/components/ui/button-back";
@@ -64,6 +63,7 @@ export function AccountsView() {
         toast({
           title: "Sucesso",
           description: "Conta excluída.",
+          variant: "success",
         });
       } catch (error) {
         toast({
@@ -102,7 +102,9 @@ export function AccountsView() {
           <ButtonNew
             onClick={() => handleOpenForm()}
             disabled={loadingFinanceData}
-          />
+          >
+            Nova Conta
+          </ButtonNew>
         </div>
       </div>
 
@@ -119,13 +121,12 @@ export function AccountsView() {
             <p className="text-muted-foreground mb-4">
               Adicione sua primeira conta para começar a controlar suas finanças
             </p>
-            <Button
+            <ButtonNew
               onClick={() => handleOpenForm()}
               disabled={loadingFinanceData}
-              className="bg-primary hover:bg-primary/90 text-primary-foreground"
             >
               Adicionar Primeira Conta
-            </Button>
+            </ButtonNew>
           </CardContent>
         </Card>
       ) : (
@@ -143,11 +144,13 @@ export function AccountsView() {
                   <div>
                     <h3 className="text-lg font-semibold">{account.name}</h3>
                     <p className="text-sm text-muted-foreground">
-                      R${" "}
-                      {account.balance.toLocaleString("pt-BR", {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}
+                      R$
+                      {account.balance !== null && account.balance !== undefined
+                        ? account.balance.toLocaleString("pt-BR", {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })
+                        : "0,00"}
                     </p>
                   </div>
                 </div>

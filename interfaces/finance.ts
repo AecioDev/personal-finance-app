@@ -4,7 +4,7 @@
 export interface Account {
   id: string;
   name: string;
-  balance: number;
+  balance: number | null;
   icon?: string; // Ex: 'bank', 'credit-card', 'wallet'
   uid: string;
 }

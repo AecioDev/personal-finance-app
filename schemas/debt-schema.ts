@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { Debt } from "./finance";
+import { Debt } from "../interfaces/finance";
 
 // Função auxiliar para preprocessar números, lidando com strings vazias e valores numéricos
 const preprocessNumber = (schema: z.ZodNumber) =>

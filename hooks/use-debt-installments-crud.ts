@@ -6,6 +6,7 @@ import {
   updateDoc,
   deleteDoc,
   serverTimestamp,
+  getDoc,
 } from "firebase/firestore";
 import { DebtInstallment } from "@/interfaces/finance";
 import { User as FirebaseUser } from "firebase/auth";
@@ -37,7 +38,6 @@ export const useDebtInstallmentsCrud = ({
       | "transactionId"
     >
   ) => {
-    // ALTERADO: Verifica se user (objeto completo) é null antes de user?.uid
     if (!db || !user || !projectId) {
       setErrorFinanceData("Firestore não inicializado ou usuário não logado.");
       return;
@@ -78,7 +78,6 @@ export const useDebtInstallmentsCrud = ({
     installmentId: string,
     data: Partial<Omit<DebtInstallment, "id" | "uid">>
   ) => {
-    // ALTERADO: Verifica se user (objeto completo) é null antes de user?.uid
     if (!db || !user || !projectId) {
       setErrorFinanceData("Firestore não inicializado ou usuário não logado.");
       return;
@@ -106,23 +105,38 @@ export const useDebtInstallmentsCrud = ({
     }
   };
 
-  const deleteDebtInstallment = async (installmentId: string) => {
-    // ALTERADO: Verifica se user (objeto completo) é null antes de user?.uid
+  const deleteDebtInstallment = async (
+    installmentId: string
+  ): Promise<boolean> => {
+    // Assinatura para retornar Promise<boolean>
     if (!db || !user || !projectId) {
       setErrorFinanceData("Firestore não inicializado ou usuário não logado.");
-      return;
+      return false;
     }
     try {
-      await deleteDoc(
-        doc(
-          db,
-          `artifacts/${projectId}/users/${user.uid}/debtInstallments`,
-          installmentId
-        )
+      const installmentRef = doc(
+        db,
+        `artifacts/${projectId}/users/${user.uid}/debtInstallments`,
+        installmentId
       );
+      const installmentSnap = await getDoc(installmentRef);
+      const installmentData = installmentSnap.data() as DebtInstallment;
+
+      if (installmentData && installmentData.transactionId) {
+        setErrorFinanceData(
+          "Não é possível excluir esta parcela. Há um lançamento financeiro vinculado a ela. Por favor, exclua o lançamento primeiro."
+        );
+        console.warn(
+          "useDebtInstallmentsCrud: Tentativa de excluir parcela com lançamento vinculado."
+        );
+        return false;
+      }
+
+      await deleteDoc(installmentRef);
       console.log(
         "useDebtInstallmentsCrud: Parcela de dívida deletada com sucesso."
       );
+      return true; // Retorna true em caso de sucesso
     } catch (error: any) {
       setErrorFinanceData(
         `Erro ao deletar parcela de dívida: ${error.message}`
@@ -131,6 +145,7 @@ export const useDebtInstallmentsCrud = ({
         "useDebtInstallmentsCrud: Erro ao deletar parcela de dívida:",
         error
       );
+      return false; // Retorna false em caso de erro
     }
   };
 

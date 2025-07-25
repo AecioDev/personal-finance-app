@@ -60,7 +60,6 @@ export const useTransactionsCrud = ({
   const addTransaction = async (
     transaction: Omit<Transaction, "id" | "uid" | "createdAt">
   ) => {
-    // ALTERADO: Verifica se user (objeto completo) é null antes de user?.uid
     if (!db || !user || !projectId) {
       setErrorFinanceData("Firestore não inicializado ou usuário não logado.");
       return;
@@ -100,31 +99,41 @@ export const useTransactionsCrud = ({
         if (installment) {
           const expectedAmountValue = installment.expectedAmount || 0;
           const debt = debts.find((d) => d.id === installment.debtId);
+
+          const interestPaid =
+            transaction.amount > expectedAmountValue
+              ? transaction.amount - expectedAmountValue
+              : 0;
+          const finePaid = 0;
+
+          // 1. Atualiza a Parcela (DebtInstallment)
+          await updateDebtInstallment(installment.id, {
+            status: "paid", // Marca como paga
+            actualPaidAmount: transaction.amount, // Valor real pago
+            interestPaidOnInstallment: interestPaid, // Juros pagos na parcela
+            finePaidOnInstallment: finePaid, // Multa paga na parcela
+            paymentDate: transaction.date, // Data do pagamento
+            transactionId: newTransactionRef.id, // Vincula o ID da transação
+          });
+          console.log(
+            "useTransactionsCrud: Parcela atualizada após pagamento."
+          );
+
+          // 2. Atualiza a Dívida Principal (Debt)
           if (debt) {
-            const interestPaid =
-              transaction.amount > expectedAmountValue
-                ? transaction.amount - expectedAmountValue
-                : 0;
-            const finePaid = 0;
-
-            await updateDebtInstallment(installment.id, {
-              status: "paid",
-              actualPaidAmount: transaction.amount,
-              interestPaidOnInstallment: interestPaid,
-              finePaidOnInstallment: finePaid,
-              paymentDate: transaction.date,
-              transactionId: newTransactionRef.id,
-            });
-
+            // Calcula o novo saldo devedor (reduz o valor principal da parcela)
             const newOutstandingBalance =
               (debt.currentOutstandingBalance || 0) - expectedAmountValue;
+            // Atualiza os totais acumulados
             const newTotalPaid =
               (debt.totalPaidOnThisDebt || 0) + transaction.amount;
             const newTotalInterestPaid =
               (debt.totalInterestPaidOnThisDebt || 0) + interestPaid;
             const newTotalFinePaid =
               (debt.totalFinePaidOnThisDebt || 0) + finePaid;
+            // Incrementa o contador de parcelas pagas
             const newPaidInstallments = (debt.paidInstallments || 0) + 1;
+            // Verifica se a dívida ainda está ativa
             const newIsActive = newOutstandingBalance > 0;
 
             await updateDebt(debt.id, {
@@ -136,7 +145,7 @@ export const useTransactionsCrud = ({
               isActive: newIsActive,
             });
             console.log(
-              "useTransactionsCrud: Dívida e parcela atualizadas após pagamento."
+              "useTransactionsCrud: Dívida principal atualizada após pagamento."
             );
           }
         }
@@ -151,7 +160,6 @@ export const useTransactionsCrud = ({
     transactionId: string,
     data: Partial<Omit<Transaction, "id" | "uid" | "createdAt">>
   ) => {
-    // ALTERADO: Verifica se user (objeto completo) é null antes de user?.uid
     if (!db || !user || !projectId) {
       setErrorFinanceData("Firestore não inicializado ou usuário não logado.");
       return;
@@ -173,7 +181,6 @@ export const useTransactionsCrud = ({
   };
 
   const deleteTransaction = async (transactionId: string) => {
-    // ALTERADO: Verifica se user (objeto completo) é null antes de user?.uid
     if (!db || !user || !projectId) {
       setErrorFinanceData("Firestore não inicializado ou usuário não logado.");
       return;

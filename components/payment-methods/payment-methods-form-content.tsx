@@ -125,7 +125,6 @@ export function PaymentMethodsFormContent({
           disabled={loadingFinanceData}
         />
       </div>
-      {/* Campo para Conta Padrão */}
       <div className="grid grid-cols-4 items-center gap-4">
         <Label htmlFor="defaultAccountId" className="text-right">
           Conta Padrão

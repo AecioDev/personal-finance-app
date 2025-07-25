@@ -20,10 +20,11 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ButtonBack } from "@/components/ui/button-back";
 import { useToast } from "@/components/ui/use-toast";
 import { useFinance } from "@/components/providers/finance-provider";
+import { debtSchema, DebtFormData } from "@/schemas/debt-schema";
 import { Icon } from "@iconify/react";
 import { DialogTrigger } from "@/components/ui/dialog";
 import { DebtTypeModal } from "@/components/debt-types/debt-type-modal";
-import { DebtFormData, debtSchema } from "@/interfaces/debt-schema";
+import { format, parse } from "date-fns"; // Importa parse e format
 
 interface DebtFormProps {
   debtId?: string;
@@ -83,7 +84,13 @@ export function DebtForm({ debtId }: DebtFormProps) {
           interestRate: existingDebt.interestRate,
           fineRate: existingDebt.fineRate,
           startDate: existingDebt.startDate,
-          endDate: existingDebt.endDate,
+          // ALTERADO: Garante que endDate seja formatado corretamente para o input type="date"
+          endDate: existingDebt.endDate
+            ? format(
+                parse(existingDebt.endDate, "yyyy-MM-dd", new Date()),
+                "yyyy-MM-dd"
+              )
+            : null,
         });
       } else if (!loadingFinanceData && !errorFinanceData) {
         toast({
@@ -126,7 +133,6 @@ export function DebtForm({ debtId }: DebtFormProps) {
   }, [errors, isSubmitting, toast]);
 
   const onSubmit = async (data: DebtFormData) => {
-    // ALTERADO: Adicionado verificação de !loadingFinanceData aqui também
     if (loadingFinanceData) {
       toast({
         title: "Aguarde",

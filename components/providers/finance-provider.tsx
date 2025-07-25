@@ -72,7 +72,7 @@ interface FinanceContextType {
     debtId: string,
     data: Partial<Omit<Debt, "id" | "uid">>
   ) => Promise<void>;
-  deleteDebt: (debtId: string) => Promise<void>;
+  deleteDebt: (debtId: string) => Promise<boolean>;
 
   addDebtInstallment: (
     installment: Omit<
@@ -92,7 +92,7 @@ interface FinanceContextType {
     installmentId: string,
     data: Partial<Omit<DebtInstallment, "id" | "uid">>
   ) => Promise<void>;
-  deleteDebtInstallment: (installmentId: string) => Promise<void>;
+  deleteDebtInstallment: (installmentId: string) => Promise<boolean>;
 
   addPaymentMethod: (
     method: Omit<PaymentMethod, "id" | "uid" | "createdAt" | "isActive">

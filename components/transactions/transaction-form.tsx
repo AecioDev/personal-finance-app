@@ -21,6 +21,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { useFinance } from "@/components/providers/finance-provider";
 import { z } from "zod";
 import { Checkbox } from "@/components/ui/checkbox";
+import { format } from "date-fns"; // Importa format e parse
 
 // --- Schema de Validação com Zod para Transações ---
 const transactionFormSchema = z.object({
@@ -57,7 +58,7 @@ export function TransactionForm() {
   } = useFinance();
   const { toast } = useToast();
 
-  const [isFormPrefilled, setIsFormPrefilled] = useState(false); // NOVO ESTADO: Para controlar o pré-preenchimento
+  const [isFormPrefilled, setIsFormPrefilled] = useState(false);
 
   const {
     register,
@@ -71,7 +72,7 @@ export function TransactionForm() {
     defaultValues: {
       description: "",
       amount: 0,
-      date: new Date().toISOString().split("T")[0],
+      date: format(new Date(), "yyyy-MM-dd"), // Garante que a data padrão seja local
       type: "expense",
       accountId: "",
       category: "",
@@ -103,8 +104,8 @@ export function TransactionForm() {
             description: `Pagamento Parcela ${
               installment.installmentNumber || ""
             } - ${debt.description}`,
-            amount: installment.expectedAmount || 0,
-            date: new Date().toISOString().split("T")[0],
+            amount: installment.expectedAmount ?? 0,
+            date: format(new Date(), "yyyy-MM-dd"), // Garante que a data de pré-preenchimento seja local
             type: "expense",
             accountId: accounts.length > 0 ? accounts[0].id : "",
             category: "pagamento_divida",
@@ -124,8 +125,10 @@ export function TransactionForm() {
         }
       }
     } else if (transactionFormType) {
-      setValue("type", transactionFormType);
-      setIsFormPrefilled(true);
+      if (watch("type") !== transactionFormType) {
+        setValue("type", transactionFormType);
+        setIsFormPrefilled(true);
+      }
     }
   }, [
     debtInstallmentId,
@@ -137,7 +140,8 @@ export function TransactionForm() {
     transactionFormType,
     setValue,
     isFormPrefilled,
-  ]); // Adicionado isFormPrefilled às dependências
+    watch,
+  ]);
 
   useEffect(() => {
     if (errorFinanceData) {
