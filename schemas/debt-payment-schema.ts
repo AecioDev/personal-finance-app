@@ -1,26 +1,18 @@
 import { z } from "zod";
 
-const preprocessNumber = (schema: z.ZodNumber) =>
-  z.preprocess((val) => {
-    if (val === "" || val === null) return null;
-    if (typeof val === "number") return val;
-    if (typeof val === "string") {
-      const parsed = parseFloat(val);
-      return isNaN(parsed) ? undefined : parsed;
-    }
-    return undefined;
-  }, z.union([schema, z.literal(null)]));
-
+// GÊ: Este schema agora está mais simples e robusto.
 export const debtPaymentSchema = z.object({
+  // GÊ: Alterado de z.string() para z.number().
+  // O react-hook-form com { valueAsNumber: true } no register() cuida da conversão.
   actualPaidAmount: z
-    .string()
-    .min(1, "O valor pago é obrigatório.")
-    .pipe(
-      preprocessNumber(
-        z.number().positive("O valor pago deve ser um número positivo.")
-      )
-    ),
+    .number({
+      required_error: "O valor pago é obrigatório.",
+      invalid_type_error: "O valor pago deve ser um número.",
+    })
+    .positive("O valor pago deve ser maior que zero."),
+
   paymentDate: z.string().min(1, "A data do pagamento é obrigatória."),
+
   paymentMethodId: z.string().min(1, "A forma de pagamento é obrigatória."),
 });
 

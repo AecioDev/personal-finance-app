@@ -55,7 +55,6 @@ export const useDebtTypesCrud = ({
     debtTypeId: string,
     data: Partial<Omit<DebtType, "id" | "uid">>
   ) => {
-    // ALTERADO: Verifica se user (objeto completo) é null antes de user?.uid
     if (!db || !user || !projectId) {
       setErrorFinanceData("Firestore não inicializado ou usuário não logado.");
       return;
@@ -80,7 +79,6 @@ export const useDebtTypesCrud = ({
   };
 
   const deleteDebtType = async (debtTypeId: string) => {
-    // ALTERADO: Verifica se user (objeto completo) é null antes de user?.uid
     if (!db || !user || !projectId) {
       setErrorFinanceData("Firestore não inicializado ou usuário não logado.");
       return;

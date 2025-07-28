@@ -2,9 +2,8 @@
 
 import React, { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Debt } from "@/interfaces/finance";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -20,11 +19,19 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ButtonBack } from "@/components/ui/button-back";
 import { useToast } from "@/components/ui/use-toast";
 import { useFinance } from "@/components/providers/finance-provider";
-import { debtSchema, DebtFormData } from "@/schemas/debt-schema";
 import { Icon } from "@iconify/react";
-import { DialogTrigger } from "@/components/ui/dialog";
 import { DebtTypeModal } from "@/components/debt-types/debt-type-modal";
-import { format, parse } from "date-fns"; // Importa parse e format
+import { DebtFormData, debtSchema } from "@/schemas/debt-schema";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { cn } from "@/lib/utils";
+import { Debt } from "@/interfaces/finance";
 
 interface DebtFormProps {
   debtId?: string;
@@ -32,16 +39,9 @@ interface DebtFormProps {
 
 export function DebtForm({ debtId }: DebtFormProps) {
   const router = useRouter();
-  const {
-    debts,
-    debtTypes,
-    addDebt,
-    updateDebt,
-    loadingFinanceData,
-    errorFinanceData,
-  } = useFinance();
+  const { debts, debtTypes, addDebt, updateDebt, loadingFinanceData } =
+    useFinance();
   const { toast } = useToast();
-
   const [isDebtTypeModalOpen, setIsDebtTypeModalOpen] = React.useState(false);
 
   const {
@@ -50,171 +50,101 @@ export function DebtForm({ debtId }: DebtFormProps) {
     reset,
     watch,
     setValue,
+    control,
     formState: { errors, isSubmitting },
   } = useForm<DebtFormData>({
     resolver: zodResolver(debtSchema),
     defaultValues: {
       description: "",
       originalAmount: 0,
+      totalRepaymentAmount: null,
       type: "credit_card_bill",
       isRecurring: false,
       totalInstallments: null,
       expectedInstallmentAmount: null,
-      interestRate: 0,
-      fineRate: null,
-      startDate: "",
-      endDate: null,
+      startDate: new Date(),
     },
   });
 
   const isRecurring = watch("isRecurring");
   const totalInstallments = watch("totalInstallments");
+  const expectedInstallmentAmount = watch("expectedInstallmentAmount");
+
+  useEffect(() => {
+    if (!isRecurring && totalInstallments && expectedInstallmentAmount) {
+      const total = totalInstallments * expectedInstallmentAmount;
+      setValue("totalRepaymentAmount", total);
+    }
+  }, [totalInstallments, expectedInstallmentAmount, isRecurring, setValue]);
 
   useEffect(() => {
     if (debtId) {
       const existingDebt = debts.find((d) => d.id === debtId);
       if (existingDebt) {
-        reset({
-          description: existingDebt.description,
-          originalAmount: existingDebt.originalAmount,
-          type: existingDebt.type,
-          isRecurring: existingDebt.isRecurring,
-          totalInstallments: existingDebt.totalInstallments,
-          expectedInstallmentAmount: existingDebt.expectedInstallmentAmount,
-          interestRate: existingDebt.interestRate,
-          fineRate: existingDebt.fineRate,
-          startDate: existingDebt.startDate,
-          // ALTERADO: Garante que endDate seja formatado corretamente para o input type="date"
-          endDate: existingDebt.endDate
-            ? format(
-                parse(existingDebt.endDate, "yyyy-MM-dd", new Date()),
-                "yyyy-MM-dd"
-              )
-            : null,
-        });
-      } else if (!loadingFinanceData && !errorFinanceData) {
-        toast({
-          title: "Erro",
-          description: "Dívida não encontrada.",
-          variant: "destructive",
-        });
-        router.back();
+        const debtWithDateObjects = {
+          ...existingDebt,
+          startDate: new Date(existingDebt.startDate),
+          endDate: existingDebt.endDate ? new Date(existingDebt.endDate) : null,
+        };
+        reset(debtWithDateObjects as DebtFormData);
       }
     }
-  }, [
-    debtId,
-    debts,
-    loadingFinanceData,
-    errorFinanceData,
-    router,
-    toast,
-    reset,
-  ]);
-
-  useEffect(() => {
-    if (errorFinanceData) {
-      toast({
-        title: "Erro ao carregar dados",
-        description: errorFinanceData,
-        variant: "destructive",
-      });
-    }
-  }, [errorFinanceData, toast]);
-
-  useEffect(() => {
-    if (Object.keys(errors).length > 0 && !isSubmitting) {
-      console.log("Erros de Validação (objeto completo): ", errors);
-      toast({
-        title: "Erro de Validação",
-        description: "Por favor, corrija os campos destacados no formulário.",
-        variant: "destructive",
-      });
-    }
-  }, [errors, isSubmitting, toast]);
+  }, [debtId, debts, reset]);
 
   const onSubmit = async (data: DebtFormData) => {
-    if (loadingFinanceData) {
-      toast({
-        title: "Aguarde",
-        description:
-          "Os dados financeiros ainda estão sendo carregados. Tente novamente em alguns instantes.",
-        variant: "default",
-      });
-      return;
-    }
-
-    const debtToSave: Omit<
-      Debt,
-      | "id"
-      | "uid"
-      | "createdAt"
-      | "currentOutstandingBalance"
-      | "totalPaidOnThisDebt"
-      | "totalInterestPaidOnThisDebt"
-      | "totalFinePaidOnThisDebt"
-      | "paidInstallments"
-      | "isActive"
-    > = {
-      description: data.description,
-      originalAmount: data.originalAmount,
-      type: data.type,
-      isRecurring: data.isRecurring,
-      interestRate: data.interestRate,
-      fineRate: data.fineRate,
-      startDate: data.startDate,
-      endDate: data.isRecurring ? null : data.endDate || null,
-      totalInstallments: data.isRecurring
-        ? null
-        : data.totalInstallments || null,
-      expectedInstallmentAmount: data.isRecurring
-        ? null
-        : data.expectedInstallmentAmount || null,
-    };
-
     try {
       if (debtId) {
-        await updateDebt(debtId, debtToSave);
+        const existingDebt = debts.find((d) => d.id === debtId);
+        if (!existingDebt) {
+          toast({
+            title: "Erro",
+            description: "Dívida original não encontrada para atualizar.",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        // GÊ: AQUI ESTÁ A NOVA LÓGICA!
+        // Recalcula o saldo devedor com base no novo valor a pagar.
+        const totalPaid = existingDebt.totalPaidOnThisDebt || 0;
+        const newOutstandingBalance =
+          (data.totalRepaymentAmount || data.originalAmount) - totalPaid;
+
+        const dataToUpdate = {
+          ...data,
+          currentOutstandingBalance: newOutstandingBalance,
+        };
+
+        await updateDebt(debtId, dataToUpdate as Partial<Debt>);
         toast({
           title: "Sucesso",
-          description: "Dívida atualizada com sucesso!",
+          description: "Dívida atualizada!",
           variant: "success",
         });
       } else {
-        await addDebt(debtToSave);
+        await addDebt(data);
         toast({
           title: "Sucesso",
-          description: "Dívida cadastrada com sucesso!",
+          description: "Dívida cadastrada!",
           variant: "success",
         });
-        reset();
       }
-      router.back();
+      router.push("/debts");
     } catch (error) {
       toast({
         title: "Erro",
         description: "Não foi possível salvar a dívida.",
         variant: "destructive",
       });
-      console.error("Erro ao salvar dívida:", error);
     }
   };
-
-  if (loadingFinanceData) {
-    return (
-      <div className="flex justify-center items-center h-48">
-        <p className="text-gray-500 dark:text-gray-400">
-          Carregando dados financeiros...
-        </p>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between mb-6">
         <ButtonBack onClick={() => router.back()} />
-        <h1 className="text-2xl font-bold">
-          {debtId ? "Editar Dívida" : "Cadastro de Dívida"}
+        <h1 className="text-2xl font-bold text-center mx-4">
+          {debtId ? "Editar Dívida" : "Nova Dívida"}
         </h1>
         <div className="w-10 h-10"></div>
       </div>
@@ -223,32 +153,26 @@ export function DebtForm({ debtId }: DebtFormProps) {
         <CardHeader>
           <CardTitle>Detalhes da Dívida</CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-4">
-          <form onSubmit={handleSubmit(onSubmit)} className="grid gap-4">
+        <CardContent>
+          <form onSubmit={handleSubmit(onSubmit)} className="grid gap-6">
             <div className="space-y-2">
               <Label htmlFor="description">Descrição</Label>
-              <Input
-                id="description"
-                {...register("description")}
-                placeholder="Ex: Fatura Cartão Nubank, Empréstimo Pessoal"
-                disabled={isSubmitting || loadingFinanceData}
-              />
+              <Input id="description" {...register("description")} />
               {errors.description && (
                 <p className="text-red-500 text-sm">
                   {errors.description.message}
                 </p>
               )}
             </div>
-
             <div className="space-y-2">
-              <Label htmlFor="originalAmount">Valor Original</Label>
+              <Label htmlFor="originalAmount">
+                Valor Original (o que entrou na conta)
+              </Label>
               <Input
                 id="originalAmount"
                 type="number"
                 step="0.01"
                 {...register("originalAmount", { valueAsNumber: true })}
-                placeholder="0.00"
-                disabled={isSubmitting || loadingFinanceData}
               />
               {errors.originalAmount && (
                 <p className="text-red-500 text-sm">
@@ -256,7 +180,6 @@ export function DebtForm({ debtId }: DebtFormProps) {
                 </p>
               )}
             </div>
-
             <div className="flex items-center space-x-2">
               <Checkbox
                 id="isRecurring"
@@ -264,76 +187,17 @@ export function DebtForm({ debtId }: DebtFormProps) {
                 onCheckedChange={(checked) =>
                   setValue("isRecurring", checked as boolean)
                 }
-                disabled={isSubmitting || loadingFinanceData}
               />
-              <Label htmlFor="isRecurring">
-                Dívida Recorrente (Ex: Contas Fixas)
-              </Label>
+              <Label htmlFor="isRecurring">Dívida Recorrente</Label>
             </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="type">Tipo de Dívida</Label>
-              <div className="flex items-center gap-2">
-                <Select
-                  value={watch("type") || "credit_card_bill"}
-                  onValueChange={(value: Debt["type"]) =>
-                    setValue("type", value)
-                  }
-                  disabled={isSubmitting || loadingFinanceData}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Selecione o tipo" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {debtTypes.map((dt) => (
-                      <SelectItem key={dt.id} value={dt.name}>
-                        {dt.name}
-                      </SelectItem>
-                    ))}
-                    {!debtTypes.length && (
-                      <>
-                        <SelectItem value="credit_card_bill">
-                          Fatura de Cartão de Crédito
-                        </SelectItem>
-                        <SelectItem value="loan">Empréstimo Pessoal</SelectItem>
-                        <SelectItem value="financing">Financiamento</SelectItem>
-                        <SelectItem value="overdraft">
-                          Cheque Especial
-                        </SelectItem>
-                        <SelectItem value="other">Outro</SelectItem>
-                      </>
-                    )}
-                  </SelectContent>
-                </Select>
-                <DialogTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    onClick={() => setIsDebtTypeModalOpen(true)}
-                    disabled={isSubmitting || loadingFinanceData}
-                  >
-                    <Icon icon="mdi:plus" className="h-5 w-5" />
-                  </Button>
-                </DialogTrigger>
-              </div>
-              {errors.type && (
-                <p className="text-red-500 text-sm">{errors.type.message}</p>
-              )}
-            </div>
-
             {!isRecurring && (
               <>
                 <div className="space-y-2">
-                  <Label htmlFor="totalInstallments">
-                    Total de Parcelas (Opcional)
-                  </Label>
+                  <Label htmlFor="totalInstallments">Total de Parcelas</Label>
                   <Input
                     id="totalInstallments"
                     type="number"
                     {...register("totalInstallments", { valueAsNumber: true })}
-                    placeholder="Ex: 12"
-                    disabled={isSubmitting || loadingFinanceData}
                   />
                   {errors.totalInstallments && (
                     <p className="text-red-500 text-sm">
@@ -341,114 +205,52 @@ export function DebtForm({ debtId }: DebtFormProps) {
                     </p>
                   )}
                 </div>
-
-                {totalInstallments && totalInstallments > 0 && (
-                  <div className="space-y-2">
-                    <Label htmlFor="expectedInstallmentAmount">
-                      Valor da Parcela
-                    </Label>
-                    <Input
-                      id="expectedInstallmentAmount"
-                      type="number"
-                      step="0.01"
-                      {...register("expectedInstallmentAmount", {
-                        valueAsNumber: true,
-                      })}
-                      placeholder="0.00"
-                      disabled={isSubmitting || loadingFinanceData}
-                    />
-                    {errors.expectedInstallmentAmount && (
-                      <p className="text-red-500 text-sm">
-                        {errors.expectedInstallmentAmount.message}
-                      </p>
-                    )}
-                  </div>
-                )}
+                <div className="space-y-2">
+                  <Label htmlFor="expectedInstallmentAmount">
+                    Valor da Parcela
+                  </Label>
+                  <Input
+                    id="expectedInstallmentAmount"
+                    type="number"
+                    step="0.01"
+                    {...register("expectedInstallmentAmount", {
+                      valueAsNumber: true,
+                    })}
+                  />
+                  {errors.expectedInstallmentAmount && (
+                    <p className="text-red-500 text-sm">
+                      {errors.expectedInstallmentAmount.message}
+                    </p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="totalRepaymentAmount">
+                    Valor Total a Pagar (calculado)
+                  </Label>
+                  <Input
+                    id="totalRepaymentAmount"
+                    type="number"
+                    step="0.01"
+                    {...register("totalRepaymentAmount", {
+                      valueAsNumber: true,
+                    })}
+                    readOnly
+                    className="bg-muted/50"
+                  />
+                  {errors.totalRepaymentAmount && (
+                    <p className="text-red-500 text-sm">
+                      {errors.totalRepaymentAmount.message}
+                    </p>
+                  )}
+                </div>
               </>
             )}
-
-            <div className="space-y-2">
-              <Label htmlFor="interestRate">
-                Taxa de Juros Anual (%) (Opcional)
-              </Label>
-              <Input
-                id="interestRate"
-                type="number"
-                step="0.01"
-                {...register("interestRate", { valueAsNumber: true })}
-                placeholder="Ex: 12.5"
-                disabled={isSubmitting || loadingFinanceData}
-              />
-              {errors.interestRate && (
-                <p className="text-red-500 text-sm">
-                  {errors.interestRate.message}
-                </p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="fineRate">
-                Taxa de Multa por Atraso (%) (Opcional)
-              </Label>
-              <Input
-                id="fineRate"
-                type="number"
-                step="0.01"
-                {...register("fineRate", { valueAsNumber: true })}
-                placeholder="Ex: 2.0"
-                disabled={isSubmitting || loadingFinanceData}
-              />
-              {errors.fineRate && (
-                <p className="text-red-500 text-sm">
-                  {errors.fineRate.message}
-                </p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="startDate">Data de Início</Label>
-              <Input
-                id="startDate"
-                type="date"
-                {...register("startDate")}
-                disabled={isSubmitting || loadingFinanceData}
-              />
-              {errors.startDate && (
-                <p className="text-red-500 text-sm">
-                  {errors.startDate.message}
-                </p>
-              )}
-            </div>
-
-            {!isRecurring && (
-              <div className="space-y-2">
-                <Label htmlFor="endDate">Data de Término (Opcional)</Label>
-                <Input
-                  id="endDate"
-                  type="date"
-                  {...register("endDate")}
-                  disabled={isSubmitting || loadingFinanceData}
-                />
-                {errors.endDate && (
-                  <p className="text-red-500 text-sm">
-                    {errors.endDate.message}
-                  </p>
-                )}
-              </div>
-            )}
-
             <Button type="submit" disabled={isSubmitting || loadingFinanceData}>
               {isSubmitting ? "Salvando..." : "Salvar Dívida"}
             </Button>
           </form>
         </CardContent>
       </Card>
-
-      <DebtTypeModal
-        isOpen={isDebtTypeModalOpen}
-        onOpenChange={setIsDebtTypeModalOpen}
-        loadingFinanceData={loadingFinanceData}
-      />
     </div>
   );
 }

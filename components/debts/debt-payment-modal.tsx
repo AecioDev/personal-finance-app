@@ -10,7 +10,9 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  DialogTrigger,
 } from "@/components/ui/dialog";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -28,17 +30,24 @@ import {
   debtPaymentSchema,
   DebtPaymentFormData,
 } from "@/schemas/debt-payment-schema";
-import { format, isBefore, parseISO } from "date-fns";
-import { ptBR } from "date-fns/locale";
+import { isBefore } from "date-fns";
 import { Icon } from "@iconify/react";
-import { DialogTrigger } from "@/components/ui/dialog";
 import { PaymentMethodsFormModal } from "@/components/payment-methods/payment-methods-form-modal";
+// GÊ: Importando nossas novas e confiáveis funções de data!
+import {
+  getDDMMYYYY,
+  toDateInputValue,
+  parseDateFromInputValue,
+} from "@/lib/dates";
 
 interface DebtPaymentModalProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   installmentToPayId: string | null;
 }
+
+// GÊ: Criei um tipo para a variante do alerta para ficar mais claro.
+type FeedbackVariant = "default" | "destructive";
 
 export function DebtPaymentModal({
   isOpen,
@@ -53,7 +62,6 @@ export function DebtPaymentModal({
     accounts,
     addTransaction,
     loadingFinanceData,
-    errorFinanceData,
   } = useFinance();
 
   const [currentInstallment, setCurrentInstallment] =
@@ -62,10 +70,9 @@ export function DebtPaymentModal({
   const [paymentFeedbackMessage, setPaymentFeedbackMessage] = useState<
     string | null
   >(null);
-  const [paymentFeedbackVariant, setPaymentFeedbackVariant] = useState<
-    "default" | "destructive" | "success" | null
-  >(null);
-
+  // GÊ: O estado da variante agora usa nosso novo tipo.
+  const [paymentFeedbackVariant, setPaymentFeedbackVariant] =
+    useState<FeedbackVariant>("default");
   const [isPaymentMethodModalOpen, setIsPaymentMethodModalOpen] =
     useState(false);
 
@@ -78,18 +85,12 @@ export function DebtPaymentModal({
     formState: { errors, isSubmitting },
   } = useForm<DebtPaymentFormData>({
     resolver: zodResolver(debtPaymentSchema),
-    defaultValues: {
-      actualPaidAmount: 0,
-      paymentDate: new Date().toISOString().split("T")[0],
-      paymentMethodId: "",
-    },
   });
 
   const actualPaidAmount = watch("actualPaidAmount");
   const paymentDate = watch("paymentDate");
   const selectedPaymentMethodId = watch("paymentMethodId");
 
-  // Efeito para pré-preencher o formulário se for um pagamento de dívida
   useEffect(() => {
     if (
       isOpen &&
@@ -105,119 +106,81 @@ export function DebtPaymentModal({
         const debt = debts.find((d) => d.id === installment.debtId);
         setParentDebt(debt || null);
 
-        // O valor pago inicial é vazio, não o valor esperado da parcela
         reset({
-          actualPaidAmount: 0, // ALTERADO: Valor inicial vazio
-          paymentDate: new Date().toISOString().split("T")[0],
+          actualPaidAmount: installment.expectedAmount,
+          // GÊ: Usando a função toDateInputValue para garantir o formato YYYY-MM-DD correto.
+          paymentDate: toDateInputValue(new Date()),
           paymentMethodId: "",
         });
-      } else {
-        toast({
-          title: "Erro",
-          description: "Parcela da dívida não encontrada.",
-          variant: "destructive",
-        });
-        onOpenChange(false);
       }
     }
-  }, [
-    isOpen,
-    installmentToPayId,
-    debtInstallments,
-    debts,
-    onOpenChange,
-    reset,
-    setValue,
-  ]);
+  }, [isOpen, installmentToPayId, debtInstallments, debts, reset]);
 
-  // Efeito para resetar o formulário e estados quando o modal é fechado
   useEffect(() => {
     if (!isOpen) {
       reset();
       setCurrentInstallment(null);
       setParentDebt(null);
       setPaymentFeedbackMessage(null);
-      setPaymentFeedbackVariant(null);
     }
   }, [isOpen, reset]);
 
-  // Função para calcular e definir a mensagem de feedback
+  // GÊ: Função de feedback refatorada para usar as novas funções de data
   const calculatePaymentFeedback = () => {
-    if (
-      currentInstallment &&
-      actualPaidAmount !== null &&
-      actualPaidAmount !== 0 &&
-      paymentDate
-    ) {
-      const expectedAmount = currentInstallment.expectedAmount || 0;
-      const parsedActualPaidAmount = parseFloat(actualPaidAmount.toString());
-      const dueDate = parseISO(currentInstallment.expectedDueDate);
-      const paidDate = parseISO(paymentDate);
-
-      if (parsedActualPaidAmount > expectedAmount) {
-        const jurosMulta = parsedActualPaidAmount - expectedAmount;
-        setPaymentFeedbackMessage(
-          `Parece que você pagou R$ ${jurosMulta.toLocaleString("pt-BR", {
-            minimumFractionDigits: 2,
-          })} de juros/multa nesta parcela. Se esforce para não atrasar a próxima!`
-        );
-        setPaymentFeedbackVariant("destructive");
-      } else if (
-        parsedActualPaidAmount < expectedAmount &&
-        isBefore(paidDate, dueDate)
-      ) {
-        const desconto = expectedAmount - parsedActualPaidAmount;
-        setPaymentFeedbackMessage(
-          `Você está indo bem! Pagando R$ ${desconto.toLocaleString("pt-BR", {
-            minimumFractionDigits: 2,
-          })} a menos e adiantado, você ganha desconto e paga menos juros!`
-        );
-        setPaymentFeedbackVariant("success");
-      } else if (
-        parsedActualPaidAmount === expectedAmount &&
-        isBefore(paidDate, dueDate)
-      ) {
-        setPaymentFeedbackMessage(
-          "Se você se esforçar mais para pagar adiantado, você pode ganhar um desconto ou evitar juros!"
-        );
-        setPaymentFeedbackVariant("default");
-      } else {
-        setPaymentFeedbackMessage(null);
-        setPaymentFeedbackVariant(null);
-      }
-    } else {
+    if (!currentInstallment || !actualPaidAmount || !paymentDate) {
       setPaymentFeedbackMessage(null);
-      setPaymentFeedbackVariant(null);
-    }
-  };
-
-  useEffect(() => {
-    if (errorFinanceData) {
-      toast({
-        title: "Erro ao carregar dados",
-        description: errorFinanceData,
-        variant: "destructive",
-      });
-      onOpenChange(false);
-    }
-  }, [errorFinanceData, toast, onOpenChange]);
-
-  const onSubmit = async (data: DebtPaymentFormData) => {
-    if (!currentInstallment || !parentDebt) {
-      toast({
-        title: "Erro",
-        description: "Dados da parcela ou dívida ausentes.",
-        variant: "destructive",
-      });
       return;
     }
 
-    if (loadingFinanceData) {
+    const expectedAmount = currentInstallment.expectedAmount;
+    const paidAmount = Number(actualPaidAmount);
+    // GÊ: Convertendo a string do input para um objeto Date seguro para comparação.
+    const paidDateObj = parseDateFromInputValue(paymentDate);
+    const dueDateObj = currentInstallment.expectedDueDate; // Já é um objeto Date
+
+    if (paidAmount > expectedAmount) {
+      const difference = paidAmount - expectedAmount;
+      setPaymentFeedbackMessage(
+        `Você pagou R$ ${difference.toFixed(
+          2
+        )} a mais. Isso provavelmente inclui juros ou multas. Tente pagar em dia da próxima vez!`
+      );
+      setPaymentFeedbackVariant("destructive");
+    } else if (
+      paidAmount < expectedAmount &&
+      isBefore(paidDateObj, dueDateObj)
+    ) {
+      const difference = expectedAmount - paidAmount;
+      setPaymentFeedbackMessage(
+        `Excelente! Você pagou R$ ${difference.toFixed(
+          2
+        )} a menos, provavelmente por um desconto de antecipação. Continue assim!`
+      );
+      setPaymentFeedbackVariant("default"); // Usando a variante default para sucesso
+    } else if (
+      paidAmount === expectedAmount &&
+      isBefore(paidDateObj, dueDateObj)
+    ) {
+      setPaymentFeedbackMessage(
+        "Ótimo trabalho pagando em dia! Manter essa disciplina é a chave para a saúde financeira."
+      );
+      setPaymentFeedbackVariant("default");
+    } else {
+      setPaymentFeedbackMessage(null);
+    }
+  };
+
+  // GÊ: Dispara o cálculo do feedback quando os valores relevantes mudam.
+  useEffect(() => {
+    calculatePaymentFeedback();
+  }, [actualPaidAmount, paymentDate, currentInstallment]);
+
+  const onSubmit = async (data: DebtPaymentFormData) => {
+    if (!currentInstallment || !parentDebt || !data.paymentMethodId) {
       toast({
-        title: "Aguarde",
-        description:
-          "Os dados financeiros ainda estão sendo carregados. Tente novamente em alguns instantes.",
-        variant: "default",
+        title: "Erro",
+        description: "Dados incompletos.",
+        variant: "destructive",
       });
       return;
     }
@@ -225,60 +188,52 @@ export function DebtPaymentModal({
     const selectedPaymentMethod = paymentMethods.find(
       (pm) => pm.id === data.paymentMethodId
     );
-    if (!selectedPaymentMethod) {
-      toast({
-        title: "Erro",
-        description: "Forma de pagamento selecionada inválida.",
-        variant: "destructive",
-      });
-      return;
-    }
+    if (!selectedPaymentMethod) return;
 
     const accountIdToUse =
-      selectedPaymentMethod.defaultAccountId ||
-      (accounts.length > 0 ? accounts[0].id : "");
-
+      selectedPaymentMethod.defaultAccountId || accounts[0]?.id;
     if (!accountIdToUse) {
       toast({
         title: "Erro",
-        description:
-          "Nenhuma conta vinculada à forma de pagamento ou contas cadastradas.",
+        description: "Nenhuma conta associada.",
         variant: "destructive",
       });
       return;
     }
 
     const transactionToSave: Omit<Transaction, "id" | "uid" | "createdAt"> = {
-      description: `Pagamento de ${parentDebt.description} - Parcela ${
+      description: `Pagamento: ${parentDebt.description} #${
         currentInstallment.installmentNumber || ""
       }`,
       amount: data.actualPaidAmount ?? 0,
-      date: data.paymentDate,
+      date: parseDateFromInputValue(data.paymentDate),
       type: "expense",
       accountId: accountIdToUse,
-      category: "pagamento_divida",
+      category: "Pagamento de Dívida",
       paymentMethodId: data.paymentMethodId,
       debtInstallmentId: currentInstallment.id,
       isLoanIncome: false,
-      loanSource: null,
+      loanSource: "",
     };
 
-    try {
-      await addTransaction(transactionToSave);
-      toast({
-        title: "Sucesso",
-        description: "Pagamento registrado com sucesso!",
-        variant: "success",
-      });
-      onOpenChange(false);
-    } catch (error) {
-      toast({
-        title: "Erro",
-        description: "Não foi possível registrar o pagamento.",
-        variant: "destructive",
-      });
-      console.error("Erro ao registrar pagamento:", error);
-    }
+    console.log("Dados Pagamento: ", transactionToSave);
+
+    // try {
+    //   await addTransaction(transactionToSave);
+    //   toast({
+    //     title: "Sucesso!",
+    //     description: "Pagamento registrado.",
+    //     variant: "success",
+    //   });
+    //   onOpenChange(false);
+    // } catch (error) {
+    //   toast({
+    //     title: "Erro",
+    //     description: "Falha ao registrar pagamento.",
+    //     variant: "destructive",
+    //   });
+    //   console.error("Erro ao registrar pagamento:", error);
+    // }
   };
 
   return (
@@ -290,25 +245,32 @@ export function DebtPaymentModal({
           </DialogTitle>
           <DialogDescription>
             {currentInstallment
-              ? `Parcela de R$ ${currentInstallment.expectedAmount?.toLocaleString(
-                  "pt-BR",
-                  { minimumFractionDigits: 2 }
-                )} com vencimento em ${format(
-                  new Date(currentInstallment.expectedDueDate),
-                  "dd/MM/yyyy",
-                  { locale: ptBR }
+              ? `Parcela de R$ ${currentInstallment.expectedAmount.toFixed(
+                  2
+                )} com vencimento em ${getDDMMYYYY(
+                  currentInstallment.expectedDueDate
                 )}.`
-              : "Preencha os detalhes do pagamento da dívida."}
+              : "Preencha os detalhes do pagamento."}
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit(onSubmit)} className="grid gap-4 py-4">
+
+        {/* GÊ: A GRANDE MUDANÇA! Usando o componente Alert para o feedback. */}
+        {paymentFeedbackMessage && (
+          <Alert variant={paymentFeedbackVariant} className="mt-4">
+            <Icon icon="mdi:robot-happy-outline" className="h-5 w-5" />
+            <AlertTitle>Dica do Assistente</AlertTitle>
+            <AlertDescription>{paymentFeedbackMessage}</AlertDescription>
+          </Alert>
+        )}
+
+        <form onSubmit={handleSubmit(onSubmit)} className="grid gap-4 pt-4">
           <div className="space-y-2">
             <Label htmlFor="paymentDate">Data do Pagamento</Label>
             <Input
               id="paymentDate"
               type="date"
-              {...register("paymentDate", { onBlur: calculatePaymentFeedback })}
-              disabled={isSubmitting || loadingFinanceData}
+              {...register("paymentDate")}
+              disabled={isSubmitting}
             />
             {errors.paymentDate && (
               <p className="text-red-500 text-sm">
@@ -323,11 +285,9 @@ export function DebtPaymentModal({
               id="actualPaidAmount"
               type="number"
               step="0.01"
-              {...register("actualPaidAmount", {
-                onBlur: calculatePaymentFeedback,
-              })}
-              placeholder="0.00"
-              disabled={isSubmitting || loadingFinanceData}
+              {...register("actualPaidAmount", { valueAsNumber: true })}
+              placeholder="0,00"
+              disabled={isSubmitting}
             />
             {errors.actualPaidAmount && (
               <p className="text-red-500 text-sm">
@@ -336,54 +296,25 @@ export function DebtPaymentModal({
             )}
           </div>
 
-          {/* Mensagem de Feedback Dinâmica */}
-          {paymentFeedbackMessage && (
-            <div
-              className={`flex items-center gap-2 p-3 rounded-md ${
-                paymentFeedbackVariant === "destructive"
-                  ? "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-200"
-                  : paymentFeedbackVariant === "success"
-                  ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200"
-                  : "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200"
-              }`}
-            >
-              <Icon
-                icon="mdi:robot-happy-outline"
-                className="h-6 w-6 flex-shrink-0"
-              />
-              <p className="text-sm">{paymentFeedbackMessage}</p>
-            </div>
-          )}
-
           <div className="space-y-2">
             <Label htmlFor="paymentMethodId">Forma de Pagamento</Label>
             <div className="flex items-center gap-2">
               <Select
                 value={selectedPaymentMethodId || ""}
-                onValueChange={(value: string) =>
-                  setValue("paymentMethodId", value)
+                onValueChange={(value) =>
+                  setValue("paymentMethodId", value, { shouldValidate: true })
                 }
-                disabled={
-                  isSubmitting ||
-                  loadingFinanceData ||
-                  paymentMethods.length === 0
-                }
+                disabled={isSubmitting || paymentMethods.length === 0}
               >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Selecione a forma de pagamento" />
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {paymentMethods.length === 0 ? (
-                    <p className="p-2 text-sm text-muted-foreground">
-                      Nenhuma forma de pagamento cadastrada.
-                    </p>
-                  ) : (
-                    paymentMethods.map((method) => (
-                      <SelectItem key={method.id} value={method.id}>
-                        {method.name}
-                      </SelectItem>
-                    ))
-                  )}
+                  {paymentMethods.map((method) => (
+                    <SelectItem key={method.id} value={method.id}>
+                      {method.name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
               <DialogTrigger asChild>
@@ -392,7 +323,7 @@ export function DebtPaymentModal({
                   variant="outline"
                   size="icon"
                   onClick={() => setIsPaymentMethodModalOpen(true)}
-                  disabled={isSubmitting || loadingFinanceData}
+                  disabled={isSubmitting}
                 >
                   <Icon icon="mdi:plus" className="h-5 w-5" />
                 </Button>

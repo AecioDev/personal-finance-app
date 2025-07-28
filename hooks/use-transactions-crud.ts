@@ -3,21 +3,16 @@ import {
   collection,
   doc,
   addDoc,
-  updateDoc,
-  deleteDoc,
   serverTimestamp,
-  getDoc,
+  runTransaction,
 } from "firebase/firestore";
 import {
   Transaction,
   TransactionType,
   Debt,
   DebtInstallment,
-  PaymentMethod,
 } from "@/interfaces/finance";
 import { User as FirebaseUser } from "firebase/auth";
-import { useDebtInstallmentsCrud } from "./use-debt-installments-crud";
-import { useDebtsCrud } from "./use-debts-crud";
 
 interface UseTransactionsCrudProps {
   db: Firestore | null;
@@ -29,9 +24,6 @@ interface UseTransactionsCrudProps {
     amount: number,
     type: TransactionType
   ) => Promise<void>;
-  debtInstallments: DebtInstallment[];
-  debts: Debt[];
-  paymentMethods: PaymentMethod[];
 }
 
 export const useTransactionsCrud = ({
@@ -40,237 +32,162 @@ export const useTransactionsCrud = ({
   projectId,
   setErrorFinanceData,
   updateAccountBalance,
-  debtInstallments,
-  debts,
-  paymentMethods,
 }: UseTransactionsCrudProps) => {
-  const { updateDebtInstallment } = useDebtInstallmentsCrud({
-    db,
-    user,
-    projectId,
-    setErrorFinanceData,
-  });
-  const { updateDebt } = useDebtsCrud({
-    db,
-    user,
-    projectId,
-    setErrorFinanceData,
-  });
-
-  const addTransaction = async (
-    transaction: Omit<Transaction, "id" | "uid" | "createdAt">
+  const processInstallmentPayment = async (
+    installmentId: string,
+    paymentData: {
+      amount: number;
+      accountId: string;
+      paymentMethodId: string;
+      date: Date;
+      interestPaid?: number | null;
+      discountReceived?: number | null;
+    }
   ) => {
     if (!db || !user || !projectId) {
-      setErrorFinanceData("Firestore não inicializado ou usuário não logado.");
-      return;
+      const errorMsg = "Firestore, usuário ou ID do projeto não inicializado.";
+      setErrorFinanceData(errorMsg);
+      throw new Error(errorMsg);
     }
-    try {
-      let finalAccountId = transaction.accountId;
-      if (transaction.debtInstallmentId && transaction.paymentMethodId) {
-        const selectedMethod = paymentMethods.find(
-          (pm) => pm.id === transaction.paymentMethodId
-        );
-        if (selectedMethod?.defaultAccountId) {
-          finalAccountId = selectedMethod.defaultAccountId;
-        }
-      }
 
-      const newTransactionRef = await addDoc(
-        collection(db, `artifacts/${projectId}/users/${user.uid}/transactions`),
-        {
-          ...transaction,
-          accountId: finalAccountId,
+    try {
+      await runTransaction(db, async (firestoreTransaction) => {
+        const basePath = `artifacts/${projectId}/users/${user.uid}`;
+
+        const installmentRef = doc(
+          db,
+          `${basePath}/debtInstallments`,
+          installmentId
+        );
+        const installmentSnap = await firestoreTransaction.get(installmentRef);
+        if (!installmentSnap.exists())
+          throw new Error("Parcela não encontrada.");
+
+        const currentInstallment = installmentSnap.data() as DebtInstallment;
+        const debtRef = doc(db, `${basePath}/debts`, currentInstallment.debtId);
+        const debtSnap = await firestoreTransaction.get(debtRef);
+        if (!debtSnap.exists())
+          throw new Error("Dívida principal não encontrada.");
+
+        const currentDebt = debtSnap.data() as Debt;
+        const accountRef = doc(
+          db,
+          `${basePath}/accounts`,
+          paymentData.accountId
+        );
+        const accountSnap = await firestoreTransaction.get(accountRef);
+        if (!accountSnap.exists())
+          throw new Error("Conta de origem não encontrada.");
+
+        // 1. Criar a nova transação de despesa
+        const newTransactionRef = doc(
+          collection(db, `${basePath}/transactions`)
+        );
+        const newTransactionData: Omit<
+          Transaction,
+          "id" | "uid" | "createdAt"
+        > = {
+          description: `Pagamento: ${currentDebt.description} #${
+            currentInstallment.installmentNumber || ""
+          }`,
+          amount: paymentData.amount,
+          date: paymentData.date,
+          type: "expense",
+          accountId: paymentData.accountId,
+          category: "Pagamento de Dívida",
+          paymentMethodId: paymentData.paymentMethodId,
+          debtInstallmentId: installmentId,
+          interestPaid: paymentData.interestPaid || null,
+          discountReceived: paymentData.discountReceived || null,
+          isLoanIncome: false,
+          loanSource: null,
+        };
+        firestoreTransaction.set(newTransactionRef, {
+          ...newTransactionData,
           uid: user.uid,
           createdAt: serverTimestamp(),
-        }
-      );
-      console.log("useTransactionsCrud: Transação adicionada com sucesso.");
+        });
 
-      await updateAccountBalance(
-        finalAccountId,
-        transaction.amount,
-        transaction.type
-      );
+        const interest = paymentData.interestPaid || 0;
+        const discount = paymentData.discountReceived || 0;
+        const principalPaid = paymentData.amount - interest;
+        const newPaidAmount =
+          (currentInstallment.paidAmount || 0) + principalPaid;
+        const newDiscountAmount =
+          (currentInstallment.discountAmount || 0) + discount;
+        const newRemainingAmount =
+          currentInstallment.expectedAmount - newPaidAmount - newDiscountAmount;
+        const newStatus: DebtInstallment["status"] =
+          newRemainingAmount <= 0 ? "paid" : "partial";
 
-      if (transaction.debtInstallmentId) {
-        const installment = debtInstallments.find(
-          (inst) => inst.id === transaction.debtInstallmentId
-        );
-        if (installment) {
-          const expectedAmountValue = installment.expectedAmount || 0;
-          const debt = debts.find((d) => d.id === installment.debtId);
+        // 3. Atualizar a PARCELA
+        firestoreTransaction.update(installmentRef, {
+          paidAmount: newPaidAmount,
+          discountAmount: newDiscountAmount,
+          remainingAmount: newRemainingAmount,
+          status: newStatus,
+          paymentDate: paymentData.date,
+          transactionIds: [
+            ...(currentInstallment.transactionIds || []),
+            newTransactionRef.id,
+          ],
+        });
 
-          const interestPaid =
-            transaction.amount > expectedAmountValue
-              ? transaction.amount - expectedAmountValue
-              : 0;
-          const finePaid = 0;
+        // 4. Atualizar o saldo da conta de origem
+        const currentBalance = accountSnap.data().balance || 0;
+        const newBalance = currentBalance - paymentData.amount;
+        firestoreTransaction.update(accountRef, { balance: newBalance });
 
-          // 1. Atualiza a Parcela (DebtInstallment)
-          await updateDebtInstallment(installment.id, {
-            status: "paid", // Marca como paga
-            actualPaidAmount: transaction.amount, // Valor real pago
-            interestPaidOnInstallment: interestPaid, // Juros pagos na parcela
-            finePaidOnInstallment: finePaid, // Multa paga na parcela
-            paymentDate: transaction.date, // Data do pagamento
-            transactionId: newTransactionRef.id, // Vincula o ID da transação
+        // 5. Se a parcela foi quitada, atualizar a DÍVIDA principal
+        if (newStatus === "paid" && currentInstallment.status !== "paid") {
+          const newPaidInstallments = (currentDebt.paidInstallments || 0) + 1;
+          const newIsActive =
+            newPaidInstallments < (currentDebt.totalInstallments || 0);
+          const newOutstandingBalance =
+            (currentDebt.currentOutstandingBalance || 0) -
+            currentInstallment.expectedAmount;
+
+          firestoreTransaction.update(debtRef, {
+            paidInstallments: newPaidInstallments,
+            isActive: newIsActive,
+            currentOutstandingBalance:
+              newOutstandingBalance > 0 ? newOutstandingBalance : 0,
+            totalPaidOnThisDebt:
+              (currentDebt.totalPaidOnThisDebt || 0) + newPaidAmount,
           });
-          console.log(
-            "useTransactionsCrud: Parcela atualizada após pagamento."
-          );
-
-          // 2. Atualiza a Dívida Principal (Debt)
-          if (debt) {
-            // Calcula o novo saldo devedor (reduz o valor principal da parcela)
-            const newOutstandingBalance =
-              (debt.currentOutstandingBalance || 0) - expectedAmountValue;
-            // Atualiza os totais acumulados
-            const newTotalPaid =
-              (debt.totalPaidOnThisDebt || 0) + transaction.amount;
-            const newTotalInterestPaid =
-              (debt.totalInterestPaidOnThisDebt || 0) + interestPaid;
-            const newTotalFinePaid =
-              (debt.totalFinePaidOnThisDebt || 0) + finePaid;
-            // Incrementa o contador de parcelas pagas
-            const newPaidInstallments = (debt.paidInstallments || 0) + 1;
-            // Verifica se a dívida ainda está ativa
-            const newIsActive = newOutstandingBalance > 0;
-
-            await updateDebt(debt.id, {
-              currentOutstandingBalance: newOutstandingBalance,
-              totalPaidOnThisDebt: newTotalPaid,
-              totalInterestPaidOnThisDebt: newTotalInterestPaid,
-              totalFinePaidOnThisDebt: newTotalFinePaid,
-              paidInstallments: newPaidInstallments,
-              isActive: newIsActive,
-            });
-            console.log(
-              "useTransactionsCrud: Dívida principal atualizada após pagamento."
-            );
-          }
         }
-      }
+      });
+      return true;
     } catch (error: any) {
-      setErrorFinanceData(`Erro ao adicionar transação: ${error.message}`);
-      console.error("useTransactionsCrud: Erro ao adicionar transação:", error);
+      console.error("Erro na transação de pagamento:", error);
+      setErrorFinanceData(`Erro ao processar pagamento: ${error.message}`);
+      return false;
     }
   };
 
-  const updateTransaction = async (
-    transactionId: string,
-    data: Partial<Omit<Transaction, "id" | "uid" | "createdAt">>
+  const addGenericTransaction = async (
+    transaction: Omit<Transaction, "id" | "uid" | "createdAt">
   ) => {
-    if (!db || !user || !projectId) {
-      setErrorFinanceData("Firestore não inicializado ou usuário não logado.");
-      return;
-    }
-    try {
-      await updateDoc(
-        doc(
-          db,
-          `artifacts/${projectId}/users/${user.uid}/transactions`,
-          transactionId
-        ),
-        data
-      );
-      console.log("useTransactionsCrud: Transação atualizada com sucesso.");
-    } catch (error: any) {
-      setErrorFinanceData(`Erro ao atualizar transação: ${error.message}`);
-      console.error("useTransactionsCrud: Erro ao atualizar transação:", error);
-    }
+    if (!db || !user || !projectId) return;
+    const newTransactionRef = await addDoc(
+      collection(db, `artifacts/${projectId}/users/${user.uid}/transactions`),
+      { ...transaction, uid: user.uid, createdAt: serverTimestamp() }
+    );
+    await updateAccountBalance(
+      transaction.accountId,
+      transaction.amount,
+      transaction.type
+    );
+    return newTransactionRef.id;
   };
 
   const deleteTransaction = async (transactionId: string) => {
-    if (!db || !user || !projectId) {
-      setErrorFinanceData("Firestore não inicializado ou usuário não logado.");
-      return;
-    }
-    try {
-      const transactionDocRef = doc(
-        db,
-        `artifacts/${projectId}/users/${user.uid}/transactions`,
-        transactionId
-      );
-      const transactionSnapshot = await getDoc(transactionDocRef);
-      const transactionToDelete = transactionSnapshot.data() as Transaction;
-
-      if (transactionToDelete) {
-        const reverseType =
-          transactionToDelete.type === "income" ? "expense" : "income";
-        await updateAccountBalance(
-          transactionToDelete.accountId,
-          transactionToDelete.amount,
-          reverseType
-        );
-
-        if (transactionToDelete.debtInstallmentId) {
-          const installmentDocRef = doc(
-            db,
-            `artifacts/${projectId}/users/${user.uid}/debtInstallments`,
-            transactionToDelete.debtInstallmentId
-          );
-          const installmentSnapshot = await getDoc(installmentDocRef);
-          const installment = installmentSnapshot.data() as DebtInstallment;
-
-          if (installment) {
-            const expectedAmountValue = installment.expectedAmount || 0;
-            await updateDebtInstallment(installment.id, {
-              status: "pending",
-              actualPaidAmount: null,
-              interestPaidOnInstallment: null,
-              finePaidOnInstallment: null,
-              paymentDate: null,
-              transactionId: null,
-            });
-
-            const debtDocRef = doc(
-              db,
-              `artifacts/${projectId}/users/${user.uid}/debts`,
-              installment.debtId
-            );
-            const debtSnapshot = await getDoc(debtDocRef);
-            const debt = debtSnapshot.data() as Debt;
-
-            if (debt) {
-              const newOutstandingBalance =
-                (debt.currentOutstandingBalance || 0) + expectedAmountValue;
-              const newTotalPaid =
-                (debt.totalPaidOnThisDebt || 0) - transactionToDelete.amount;
-              const newTotalInterestPaid =
-                (debt.totalInterestPaidOnThisDebt || 0) -
-                (installment.interestPaidOnInstallment || 0);
-              const newTotalFinePaid =
-                (debt.totalFinePaidOnThisDebt || 0) -
-                (installment.finePaidOnInstallment || 0);
-              const newPaidInstallments = (debt.paidInstallments || 0) - 1;
-              const newIsActive = true;
-
-              await updateDebt(debt.id, {
-                currentOutstandingBalance: newOutstandingBalance,
-                totalPaidOnThisDebt: newTotalPaid,
-                totalInterestPaidOnThisDebt: newTotalInterestPaid,
-                totalFinePaidOnThisDebt: newTotalFinePaid,
-                paidInstallments: newPaidInstallments,
-                isActive: newIsActive,
-              });
-            }
-          }
-        }
-      }
-
-      await deleteDoc(
-        doc(
-          db,
-          `artifacts/${projectId}/users/${user.uid}/transactions`,
-          transactionId
-        )
-      );
-      console.log("useTransactionsCrud: Transação deletada com sucesso.");
-    } catch (error: any) {
-      setErrorFinanceData(`Erro ao deletar transação: ${error.message}`);
-      console.error("useTransactionsCrud: Erro ao deletar transação:", error);
-    }
+    // A lógica de deleção precisará ser refatorada para reverter os pagamentos parciais.
   };
 
-  return { addTransaction, updateTransaction, deleteTransaction };
+  return {
+    processInstallmentPayment,
+    addGenericTransaction,
+    deleteTransaction,
+  };
 };

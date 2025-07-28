@@ -7,33 +7,31 @@ import { DebtInstallment } from "@/interfaces/finance";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/use-toast";
-import {
-  DebtInstallmentFormData,
-  debtInstallmentSchema,
-} from "@/schemas/debt-installment-schema";
+import { z } from "zod";
+import { toDateInputValue, parseDateFromInputValue } from "@/lib/dates";
+
+const simplifiedInstallmentSchema = z.object({
+  expectedDueDate: z.string().min(1, "A data de vencimento é obrigatória."),
+  expectedAmount: z.number().positive("O valor esperado deve ser positivo."),
+});
+
+type SimplifiedInstallmentFormData = z.infer<
+  typeof simplifiedInstallmentSchema
+>;
 
 interface DebtInstallmentFormContentProps {
   editingInstallment: DebtInstallment | null;
-  onSave: (
-    installmentData: Partial<Omit<DebtInstallment, "id" | "uid" | "createdAt">>
-  ) => Promise<void>;
-  loadingFinanceData: boolean;
+  onSave: (installmentData: Partial<DebtInstallment>) => Promise<void>;
+  loading: boolean;
   onClose: () => void;
 }
 
 export function DebtInstallmentFormContent({
   editingInstallment,
   onSave,
-  loadingFinanceData,
+  loading,
   onClose,
 }: DebtInstallmentFormContentProps) {
   const { toast } = useToast();
@@ -42,78 +40,31 @@ export function DebtInstallmentFormContent({
     register,
     handleSubmit,
     reset,
-    watch,
-    setValue,
     formState: { errors, isSubmitting },
-  } = useForm<DebtInstallmentFormData>({
-    resolver: zodResolver(debtInstallmentSchema),
-    defaultValues: {
-      installmentNumber: null,
-      expectedDueDate: "",
-      expectedAmount: 0,
-      status: "pending",
-      actualPaidAmount: null,
-      interestPaidOnInstallment: null,
-      finePaidOnInstallment: null,
-      paymentDate: null,
-      transactionId: null,
-    },
+  } = useForm<SimplifiedInstallmentFormData>({
+    resolver: zodResolver(simplifiedInstallmentSchema),
   });
-
-  const installmentStatus = watch("status");
 
   useEffect(() => {
     if (editingInstallment) {
       reset({
-        installmentNumber: editingInstallment.installmentNumber,
-        expectedDueDate: editingInstallment.expectedDueDate,
+        expectedDueDate: toDateInputValue(editingInstallment.expectedDueDate),
         expectedAmount: editingInstallment.expectedAmount,
-        status: editingInstallment.status,
-        actualPaidAmount: editingInstallment.actualPaidAmount,
-        interestPaidOnInstallment: editingInstallment.interestPaidOnInstallment,
-        finePaidOnInstallment: editingInstallment.finePaidOnInstallment,
-        paymentDate: editingInstallment.paymentDate,
-        transactionId: editingInstallment.transactionId,
       });
-    } else {
-      reset();
     }
   }, [editingInstallment, reset]);
 
-  useEffect(() => {
-    if (Object.keys(errors).length > 0 && !isSubmitting) {
-      console.log("Erros de Validação da Parcela (objeto completo): ", errors); // NOVO LOG AQUI
-      toast({
-        title: "Erro de Validação",
-        description: "Por favor, corrija os campos destacados no formulário.",
-        variant: "destructive",
-      });
-    }
-  }, [errors, isSubmitting, toast]);
+  const onSubmit = async (data: SimplifiedInstallmentFormData) => {
+    if (!editingInstallment) return;
 
-  const onSubmit = async (data: DebtInstallmentFormData) => {
-    if (loadingFinanceData) {
-      toast({
-        title: "Aguarde",
-        description:
-          "Os dados financeiros ainda estão sendo carregados. Tente novamente em alguns instantes.",
-        variant: "default",
-      });
-      return;
-    }
-
-    const installmentToSave: Partial<
-      Omit<DebtInstallment, "id" | "uid" | "createdAt">
-    > = {
-      installmentNumber: data.installmentNumber ?? 0,
-      expectedDueDate: data.expectedDueDate,
+    const installmentToSave: Partial<DebtInstallment> = {
+      expectedDueDate: parseDateFromInputValue(data.expectedDueDate),
       expectedAmount: data.expectedAmount,
-      status: data.status,
-      actualPaidAmount: data.actualPaidAmount,
-      interestPaidOnInstallment: data.interestPaidOnInstallment,
-      finePaidOnInstallment: data.finePaidOnInstallment,
-      paymentDate: data.paymentDate,
-      transactionId: data.transactionId,
+      // Recalcula o valor restante baseado no novo valor esperado
+      remainingAmount:
+        data.expectedAmount -
+        (editingInstallment.paidAmount || 0) -
+        (editingInstallment.discountAmount || 0),
     };
 
     try {
@@ -121,9 +72,7 @@ export function DebtInstallmentFormContent({
       onClose();
       toast({
         title: "Sucesso",
-        description: editingInstallment
-          ? "Parcela atualizada."
-          : "Parcela adicionada.",
+        description: "Parcela atualizada.",
         variant: "success",
       });
     } catch (error) {
@@ -132,36 +81,18 @@ export function DebtInstallmentFormContent({
         description: "Não foi possível salvar a parcela.",
         variant: "destructive",
       });
-      console.error("Erro ao salvar parcela no formulário:", error);
-      throw error;
     }
   };
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="grid gap-4 py-4">
       <div className="space-y-2">
-        <Label htmlFor="installmentNumber">Número da Parcela (Opcional)</Label>
-        <Input
-          id="installmentNumber"
-          type="number"
-          {...register("installmentNumber", { valueAsNumber: true })}
-          placeholder="Ex: 1"
-          disabled={isSubmitting || loadingFinanceData}
-        />
-        {errors.installmentNumber && (
-          <p className="text-red-500 text-sm">
-            {errors.installmentNumber.message}
-          </p>
-        )}
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="expectedDueDate">Data de Vencimento Esperada</Label>
+        <Label htmlFor="expectedDueDate">Data de Vencimento</Label>
         <Input
           id="expectedDueDate"
           type="date"
           {...register("expectedDueDate")}
-          disabled={isSubmitting || loadingFinanceData}
+          disabled={isSubmitting || loading}
         />
         {errors.expectedDueDate && (
           <p className="text-red-500 text-sm">
@@ -177,8 +108,7 @@ export function DebtInstallmentFormContent({
           type="number"
           step="0.01"
           {...register("expectedAmount", { valueAsNumber: true })}
-          placeholder="0.00"
-          disabled={isSubmitting || loadingFinanceData}
+          disabled={isSubmitting || loading}
         />
         {errors.expectedAmount && (
           <p className="text-red-500 text-sm">
@@ -187,103 +117,9 @@ export function DebtInstallmentFormContent({
         )}
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="status">Status</Label>
-        <Select
-          value={installmentStatus}
-          onValueChange={(value: DebtInstallment["status"]) =>
-            setValue("status", value)
-          }
-          disabled={isSubmitting || loadingFinanceData}
-        >
-          <SelectTrigger className="w-full">
-            <SelectValue placeholder="Selecione o status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="pending">Pendente</SelectItem>
-            <SelectItem value="paid">Paga</SelectItem>
-            <SelectItem value="overdue">Atrasada</SelectItem>
-          </SelectContent>
-        </Select>
-        {errors.status && (
-          <p className="text-red-500 text-sm">{errors.status.message}</p>
-        )}
-      </div>
-
-      {installmentStatus === "paid" && (
-        <>
-          <div className="space-y-2">
-            <Label htmlFor="actualPaidAmount">Valor Realmente Pago</Label>
-            <Input
-              id="actualPaidAmount"
-              type="number"
-              step="0.01"
-              {...register("actualPaidAmount", { valueAsNumber: true })}
-              placeholder="0.00"
-              disabled={isSubmitting || loadingFinanceData}
-            />
-            {errors.actualPaidAmount && (
-              <p className="text-red-500 text-sm">
-                {errors.actualPaidAmount.message}
-              </p>
-            )}
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="interestPaidOnInstallment">
-              Juros Pagos (Opcional)
-            </Label>
-            <Input
-              id="interestPaidOnInstallment"
-              type="number"
-              step="0.01"
-              {...register("interestPaidOnInstallment", {
-                valueAsNumber: true,
-              })}
-              placeholder="0.00"
-              disabled={isSubmitting || loadingFinanceData}
-            />
-            {errors.interestPaidOnInstallment && (
-              <p className="text-red-500 text-sm">
-                {errors.interestPaidOnInstallment.message}
-              </p>
-            )}
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="finePaidOnInstallment">Multa Paga (Opcional)</Label>
-            <Input
-              id="finePaidOnInstallment"
-              type="number"
-              step="0.01"
-              {...register("finePaidOnInstallment", { valueAsNumber: true })}
-              placeholder="0.00"
-              disabled={isSubmitting || loadingFinanceData}
-            />
-            {errors.finePaidOnInstallment && (
-              <p className="text-red-500 text-sm">
-                {errors.finePaidOnInstallment.message}
-              </p>
-            )}
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="paymentDate">Data do Pagamento</Label>
-            <Input
-              id="paymentDate"
-              type="date"
-              {...register("paymentDate")}
-              disabled={isSubmitting || loadingFinanceData}
-            />
-            {errors.paymentDate && (
-              <p className="text-red-500 text-sm">
-                {errors.paymentDate.message}
-              </p>
-            )}
-          </div>
-        </>
-      )}
-
       <DialogFooter>
-        <Button type="submit" disabled={isSubmitting || loadingFinanceData}>
-          {isSubmitting ? "Salvando..." : "Salvar Parcela"}
+        <Button type="submit" disabled={isSubmitting || loading}>
+          {isSubmitting ? "Salvando..." : "Salvar Alterações"}
         </Button>
       </DialogFooter>
     </form>

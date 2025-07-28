@@ -28,6 +28,7 @@ import { useDebtsCrud } from "@/hooks/use-debts-crud";
 import { useDebtInstallmentsCrud } from "@/hooks/use-debt-installments-crud";
 import { usePaymentMethodsCrud } from "@/hooks/use-payment-methods-crud";
 import { useDebtTypesCrud } from "@/hooks/use-debt-types-crud";
+import { DebtFormData } from "@/schemas/debt-schema"; // Import necessário
 
 interface FinanceContextType {
   accounts: Account[];
@@ -37,55 +38,47 @@ interface FinanceContextType {
   paymentMethods: PaymentMethod[];
   debtTypes: DebtType[];
 
+  processInstallmentPayment: (
+    installmentId: string,
+    paymentData: {
+      amount: number;
+      accountId: string;
+      paymentMethodId: string;
+      date: Date;
+      interestPaid?: number | null;
+      discountReceived?: number | null;
+    }
+  ) => Promise<boolean>;
+
+  addGenericTransaction: (
+    transaction: Omit<Transaction, "id" | "uid" | "createdAt">
+  ) => Promise<string | undefined>;
   addAccount: (account: Omit<Account, "id" | "uid">) => Promise<void>;
   updateAccount: (
     accountId: string,
     data: Partial<Omit<Account, "id" | "uid">>
   ) => Promise<void>;
   deleteAccount: (accountId: string) => Promise<void>;
-
-  addTransaction: (
-    transaction: Omit<Transaction, "id" | "uid" | "createdAt">
-  ) => Promise<void>;
-  updateTransaction: (
-    transactionId: string,
-    data: Partial<Omit<Transaction, "id" | "uid" | "createdAt">>
-  ) => Promise<void>;
   deleteTransaction: (transactionId: string) => Promise<void>;
 
-  addDebt: (
-    debt: Omit<
-      Debt,
-      | "id"
-      | "uid"
-      | "createdAt"
-      | "currentOutstandingBalance"
-      | "totalPaidOnThisDebt"
-      | "totalInterestPaidOnThisDebt"
-      | "totalFinePaidOnThisDebt"
-      | "paidInstallments"
-      | "isActive"
-    >,
-    initialInstallments?: Omit<DebtInstallment, "id" | "uid" | "createdAt">[]
-  ) => Promise<void>;
-  updateDebt: (
-    debtId: string,
-    data: Partial<Omit<Debt, "id" | "uid">>
-  ) => Promise<void>;
-  deleteDebt: (debtId: string) => Promise<boolean>;
+  // GÊ: AQUI ESTÁ A MUDANÇA!
+  // A assinatura agora reflete exatamente o que o formulário envia e o hook espera.
+  addDebt: (debtData: DebtFormData) => Promise<void>;
 
+  updateDebt: (debtId: string, data: Partial<Debt>) => Promise<void>;
+  deleteDebt: (debtId: string) => Promise<boolean>;
   addDebtInstallment: (
     installment: Omit<
       DebtInstallment,
       | "id"
       | "uid"
       | "createdAt"
+      | "paidAmount"
+      | "remainingAmount"
+      | "discountAmount"
       | "status"
-      | "actualPaidAmount"
-      | "interestPaidOnInstallment"
-      | "finePaidOnInstallment"
       | "paymentDate"
-      | "transactionId"
+      | "transactionIds"
     >
   ) => Promise<void>;
   updateDebtInstallment: (
@@ -93,7 +86,6 @@ interface FinanceContextType {
     data: Partial<Omit<DebtInstallment, "id" | "uid">>
   ) => Promise<void>;
   deleteDebtInstallment: (installmentId: string) => Promise<boolean>;
-
   addPaymentMethod: (
     method: Omit<PaymentMethod, "id" | "uid" | "createdAt" | "isActive">
   ) => Promise<void>;
@@ -102,7 +94,6 @@ interface FinanceContextType {
     data: Partial<Omit<PaymentMethod, "id" | "uid">>
   ) => Promise<void>;
   deletePaymentMethod: (methodId: string) => Promise<void>;
-
   addDebtType: (
     debtType: Omit<DebtType, "id" | "uid" | "createdAt" | "isActive">
   ) => Promise<void>;
@@ -111,11 +102,7 @@ interface FinanceContextType {
     data: Partial<Omit<DebtType, "id" | "uid">>
   ) => Promise<void>;
   deleteDebtType: (debtTypeId: string) => Promise<void>;
-
   getAccountById: (id: string) => Account | undefined;
-  getDebtById: (id: string) => Debt | undefined;
-  getPaymentMethodById: (id: string) => PaymentMethod | undefined;
-  getDebtTypeById: (id: string) => DebtType | undefined;
 
   loadingFinanceData: boolean;
   errorFinanceData: string | null;
@@ -143,43 +130,18 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({
   );
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [debtTypes, setDebtTypes] = useState<DebtType[]>([]);
-
   const [loadingFinanceData, setLoadingFinanceData] = useState(true);
   const [errorFinanceData, setErrorFinanceData] = useState<string | null>(null);
-
   const dbRef = React.useRef<Firestore | null>(null);
-  const [isFirestoreInitialized, setIsFirestoreInitialized] = useState(false);
 
   useEffect(() => {
-    console.log(
-      "FinanceProvider: Iniciando useEffect de inicialização do Firestore..."
-    );
-    if (!authLoading && projectId) {
+    if (!authLoading && projectId && user) {
       try {
         const app = getApp();
         dbRef.current = getFirestore(app);
-        setIsFirestoreInitialized(true);
-        setErrorFinanceData(null);
-        console.log("FinanceProvider: Firestore inicializado.");
       } catch (error: any) {
-        setErrorFinanceData(
-          `FinanceProvider: Erro ao inicializar Firestore: ${error.message}`
-        );
         console.error("FinanceProvider: Erro ao inicializar Firestore:", error);
-        setIsFirestoreInitialized(false);
       }
-    } else if (authLoading) {
-      setLoadingFinanceData(true);
-      setIsFirestoreInitialized(false);
-    } else if (!user && !authLoading) {
-      setAccounts([]);
-      setTransactions([]);
-      setDebts([]);
-      setDebtInstallments([]);
-      setPaymentMethods([]);
-      setDebtTypes([]);
-      setLoadingFinanceData(false);
-      setIsFirestoreInitialized(false);
     }
   }, [authLoading, projectId, user]);
 
@@ -196,40 +158,34 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({
   });
 
   useEffect(() => {
-    if (!isFirestoreInitialized || !user) {
+    if (authLoading) {
       setLoadingFinanceData(true);
     } else {
       setLoadingFinanceData(false);
     }
-  }, [isFirestoreInitialized, user]);
+  }, [authLoading]);
 
   const updateAccountBalance = async (
     accountId: string,
     amount: number,
     type: TransactionType
   ) => {
-    if (!dbRef.current || !user?.uid || !projectId) {
-      setErrorFinanceData("Firestore não inicializado ou usuário não logado.");
-      return;
-    }
+    if (!dbRef.current || !user?.uid || !projectId) return;
     const accountRef = doc(
       dbRef.current,
       `artifacts/${projectId}/users/${user.uid}/accounts`,
       accountId
     );
-    console.log("FinanceProvider: Atualizando saldo da conta:", accountId);
     try {
       const currentAccount = accounts.find((acc) => acc.id === accountId);
-      if (currentAccount) {
+      if (currentAccount && typeof currentAccount.balance === "number") {
         const newBalance =
           type === "income"
             ? currentAccount.balance + amount
             : currentAccount.balance - amount;
         await updateDoc(accountRef, { balance: newBalance });
-        console.log("FinanceProvider: Saldo da conta atualizado com sucesso.");
       }
     } catch (error: any) {
-      setErrorFinanceData(`Erro ao atualizar saldo da conta: ${error.message}`);
       console.error(
         "FinanceProvider: Erro ao atualizar saldo da conta:",
         error
@@ -270,24 +226,19 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({
     setErrorFinanceData,
   });
 
-  const { addTransaction, updateTransaction, deleteTransaction } =
-    useTransactionsCrud({
-      db: dbRef.current,
-      user,
-      projectId,
-      setErrorFinanceData,
-      updateAccountBalance,
-      debtInstallments,
-      debts,
-      paymentMethods,
-    });
+  const {
+    processInstallmentPayment,
+    addGenericTransaction,
+    deleteTransaction,
+  } = useTransactionsCrud({
+    db: dbRef.current,
+    user,
+    projectId,
+    setErrorFinanceData,
+    updateAccountBalance,
+  });
 
   const getAccountById = (id: string) => accounts.find((acc) => acc.id === id);
-  const getDebtById = (id: string) => debts.find((debt) => debt.id === id);
-  const getPaymentMethodById = (id: string) =>
-    paymentMethods.find((method) => method.id === id);
-  const getDebtTypeById = (id: string) =>
-    debtTypes.find((type) => type.id === id);
 
   return (
     <FinanceContext.Provider
@@ -298,11 +249,11 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({
         debtInstallments,
         paymentMethods,
         debtTypes,
+        loadingFinanceData,
+        errorFinanceData,
         addAccount,
         updateAccount,
         deleteAccount,
-        addTransaction,
-        updateTransaction,
         deleteTransaction,
         addDebt,
         updateDebt,
@@ -317,11 +268,8 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({
         updateDebtType,
         deleteDebtType,
         getAccountById,
-        getDebtById,
-        getPaymentMethodById,
-        getDebtTypeById,
-        loadingFinanceData,
-        errorFinanceData,
+        processInstallmentPayment,
+        addGenericTransaction,
       }}
     >
       {children}

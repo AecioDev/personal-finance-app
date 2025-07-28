@@ -14,7 +14,8 @@ import {
 import { Debt, DebtInstallment } from "@/interfaces/finance";
 import { User as FirebaseUser } from "firebase/auth";
 import { useDebtInstallmentsCrud } from "./use-debt-installments-crud";
-import { addMonths, format } from "date-fns";
+import { addMonths } from "date-fns";
+import { DebtFormData } from "@/schemas/debt-schema";
 
 interface UseDebtsCrudProps {
   db: Firestore | null;
@@ -36,30 +37,32 @@ export const useDebtsCrud = ({
     setErrorFinanceData,
   });
 
-  const addDebt = async (
-    debt: Omit<
-      Debt,
-      | "id"
-      | "uid"
-      | "createdAt"
-      | "currentOutstandingBalance"
-      | "totalPaidOnThisDebt"
-      | "totalInterestPaidOnThisDebt"
-      | "totalFinePaidOnThisDebt"
-      | "paidInstallments"
-      | "isActive"
-    >
-  ) => {
+  const addDebt = async (debtData: DebtFormData) => {
     if (!db || !user || !projectId) {
       setErrorFinanceData("Firestore não inicializado ou usuário não logado.");
       return;
     }
     try {
+      let totalRepaymentAmount: number | null = null;
+      if (
+        !debtData.isRecurring &&
+        debtData.totalInstallments &&
+        debtData.expectedInstallmentAmount
+      ) {
+        totalRepaymentAmount =
+          debtData.totalInstallments * debtData.expectedInstallmentAmount;
+      } else if (!debtData.isRecurring) {
+        totalRepaymentAmount = debtData.originalAmount;
+      }
+
       const newDebtData = {
-        ...debt,
+        ...debtData,
+        totalRepaymentAmount,
         uid: user.uid,
         createdAt: serverTimestamp(),
-        currentOutstandingBalance: debt.isRecurring ? 0 : debt.originalAmount,
+        // GÊ: AQUI ESTÁ A CORREÇÃO!
+        // O saldo devedor inicial é o valor total a pagar.
+        currentOutstandingBalance: totalRepaymentAmount,
         totalPaidOnThisDebt: 0,
         totalInterestPaidOnThisDebt: 0,
         totalFinePaidOnThisDebt: 0,
@@ -71,61 +74,50 @@ export const useDebtsCrud = ({
         collection(db, `artifacts/${projectId}/users/${user.uid}/debts`),
         newDebtData
       );
-      console.log("useDebtsCrud: Dívida adicionada com sucesso.");
 
       const generatedInstallments: Omit<
         DebtInstallment,
         | "id"
         | "uid"
         | "createdAt"
+        | "paidAmount"
+        | "remainingAmount"
+        | "discountAmount"
         | "status"
-        | "actualPaidAmount"
-        | "interestPaidOnInstallment"
-        | "finePaidOnInstallment"
         | "paymentDate"
-        | "transactionId"
+        | "transactionIds"
       >[] = [];
-      const startDate = new Date(debt.startDate);
+      const startDate = debtData.startDate;
 
-      if (debt.isRecurring) {
-        const numInstallmentsToGenerate = 12;
-        for (let i = 0; i < numInstallmentsToGenerate; i++) {
-          const expectedDueDate = addMonths(startDate, i);
+      if (debtData.isRecurring) {
+        for (let i = 0; i < 12; i++) {
           generatedInstallments.push({
             debtId: debtRef.id,
             installmentNumber: i + 1,
-            expectedDueDate: format(expectedDueDate, "yyyy-MM-dd"),
-            expectedAmount: debt.originalAmount,
+            expectedDueDate: addMonths(startDate, i),
+            expectedAmount: debtData.originalAmount,
           });
         }
-        console.log(
-          `useDebtsCrud: Geradas ${numInstallmentsToGenerate} ocorrências para dívida recorrente.`
-        );
       } else if (
-        debt.totalInstallments &&
-        debt.totalInstallments > 0 &&
-        debt.expectedInstallmentAmount
+        debtData.totalInstallments &&
+        debtData.totalInstallments > 0 &&
+        debtData.expectedInstallmentAmount
       ) {
-        for (let i = 0; i < debt.totalInstallments; i++) {
-          const expectedDueDate = addMonths(startDate, i);
+        for (let i = 0; i < debtData.totalInstallments; i++) {
           generatedInstallments.push({
             debtId: debtRef.id,
             installmentNumber: i + 1,
-            expectedDueDate: format(expectedDueDate, "yyyy-MM-dd"),
-            expectedAmount: debt.expectedInstallmentAmount,
+            expectedDueDate: addMonths(startDate, i),
+            expectedAmount: debtData.expectedInstallmentAmount,
           });
         }
-        console.log(
-          `useDebtsCrud: Geradas ${debt.totalInstallments} parcelas para dívida parcelada.`
-        );
       } else {
         generatedInstallments.push({
           debtId: debtRef.id,
           installmentNumber: 1,
-          expectedDueDate: format(startDate, "yyyy-MM-dd"),
-          expectedAmount: debt.originalAmount,
+          expectedDueDate: startDate,
+          expectedAmount: debtData.originalAmount,
         });
-        console.log("useDebtsCrud: Gerada 1 parcela para dívida única.");
       }
 
       for (const inst of generatedInstallments) {
@@ -133,32 +125,23 @@ export const useDebtsCrud = ({
       }
     } catch (error: any) {
       setErrorFinanceData(`Erro ao adicionar dívida: ${error.message}`);
-      console.error("useDebtsCrud: Erro ao adicionar dívida:", error);
     }
   };
 
-  const updateDebt = async (
-    debtId: string,
-    data: Partial<Omit<Debt, "id" | "uid">>
-  ) => {
+  const updateDebt = async (debtId: string, data: Partial<Debt>) => {
     if (!db || !user || !projectId) {
       setErrorFinanceData("Firestore não inicializado ou usuário não logado.");
       return;
     }
-    try {
-      await updateDoc(
-        doc(db, `artifacts/${projectId}/users/${user.uid}/debts`, debtId),
-        data
-      );
-      console.log("useDebtsCrud: Dívida atualizada com sucesso.");
-    } catch (error: any) {
-      setErrorFinanceData(`Erro ao atualizar dívida: ${error.message}`);
-      console.error("useDebtsCrud: Erro ao atualizar dívida:", error);
-    }
+    const debtRef = doc(
+      db,
+      `artifacts/${projectId}/users/${user.uid}/debts`,
+      debtId
+    );
+    await updateDoc(debtRef, data);
   };
 
   const deleteDebt = async (debtId: string): Promise<boolean> => {
-    // ALTERADO: Retorna Promise<boolean>
     if (!db || !user || !projectId) {
       setErrorFinanceData("Firestore não inicializado ou usuário não logado.");
       return false;
@@ -178,36 +161,34 @@ export const useDebtsCrud = ({
       let hasLinkedTransactions = false;
       installmentsSnap.forEach((installmentDoc) => {
         const installmentData = installmentDoc.data() as DebtInstallment;
-        if (installmentData.transactionId) {
+        if (
+          installmentData.transactionIds &&
+          installmentData.transactionIds.length > 0
+        ) {
           hasLinkedTransactions = true;
-          return;
         }
         batch.delete(installmentDoc.ref);
       });
 
       if (hasLinkedTransactions) {
         setErrorFinanceData(
-          "Não é possível excluir esta dívida. Há lançamentos financeiros vinculados a uma ou mais parcelas. Por favor, exclua os lançamentos das parcelas primeiro."
-        );
-        console.warn(
-          "useDebtsCrud: Tentativa de excluir dívida com parcelas vinculadas a lançamentos."
+          "Não é possível excluir. Há pagamentos vinculados a uma ou mais parcelas."
         );
         return false;
       }
 
-      batch.delete(
-        doc(db, `artifacts/${projectId}/users/${user.uid}/debts`, debtId)
+      const debtRef = doc(
+        db,
+        `artifacts/${projectId}/users/${user.uid}/debts`,
+        debtId
       );
+      batch.delete(debtRef);
 
       await batch.commit();
-      console.log(
-        "useDebtsCrud: Dívida e suas parcelas deletadas com sucesso."
-      );
-      return true; // Retorna true em caso de sucesso
+      return true;
     } catch (error: any) {
       setErrorFinanceData(`Erro ao deletar dívida: ${error.message}`);
-      console.error("useDebtsCrud: Erro ao deletar dívida:", error);
-      return false; // Retorna false em caso de erro
+      return false;
     }
   };
 

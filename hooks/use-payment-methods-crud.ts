@@ -26,7 +26,6 @@ export const usePaymentMethodsCrud = ({
   const addPaymentMethod = async (
     method: Omit<PaymentMethod, "id" | "uid" | "createdAt" | "isActive">
   ) => {
-    // ALTERADO: Verifica se user (objeto completo) é null antes de user?.uid
     if (!db || !user || !projectId) {
       setErrorFinanceData("Firestore não inicializado ou usuário não logado.");
       return;
@@ -62,7 +61,6 @@ export const usePaymentMethodsCrud = ({
     methodId: string,
     data: Partial<Omit<PaymentMethod, "id" | "uid">>
   ) => {
-    // ALTERADO: Verifica se user (objeto completo) é null antes de user?.uid
     if (!db || !user || !projectId) {
       setErrorFinanceData("Firestore não inicializado ou usuário não logado.");
       return;
@@ -91,7 +89,6 @@ export const usePaymentMethodsCrud = ({
   };
 
   const deletePaymentMethod = async (methodId: string) => {
-    // ALTERADO: Verifica se user (objeto completo) é null antes de user?.uid
     if (!db || !user || !projectId) {
       setErrorFinanceData("Firestore não inicializado ou usuário não logado.");
       return;

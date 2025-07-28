@@ -24,18 +24,23 @@ export const useDebtInstallmentsCrud = ({
   projectId,
   setErrorFinanceData,
 }: UseDebtInstallmentsCrudProps) => {
+  /**
+   * GÊ: AQUI ESTÁ A CORREÇÃO!
+   * Esta função agora cria uma nova parcela já com os campos necessários
+   * para o sistema de pagamento parcial.
+   */
   const addDebtInstallment = async (
     installment: Omit<
       DebtInstallment,
       | "id"
       | "uid"
       | "createdAt"
+      | "paidAmount"
+      | "remainingAmount"
+      | "discountAmount"
       | "status"
-      | "actualPaidAmount"
-      | "interestPaidOnInstallment"
-      | "finePaidOnInstallment"
       | "paymentDate"
-      | "transactionId"
+      | "transactionIds"
     >
   ) => {
     if (!db || !user || !projectId) {
@@ -51,25 +56,19 @@ export const useDebtInstallmentsCrud = ({
         {
           ...installment,
           uid: user.uid,
-          status: "pending",
-          actualPaidAmount: null,
-          interestPaidOnInstallment: null,
-          finePaidOnInstallment: null,
-          paymentDate: null,
-          transactionId: null,
           createdAt: serverTimestamp(),
+          // Inicializando os novos campos com valores padrão
+          paidAmount: 0,
+          discountAmount: 0,
+          remainingAmount: installment.expectedAmount, // O valor restante inicial é o valor total esperado
+          status: "pending",
+          paymentDate: null,
+          transactionIds: [], // Começa com um array vazio de transações
         }
-      );
-      console.log(
-        "useDebtInstallmentsCrud: Parcela de dívida adicionada com sucesso."
       );
     } catch (error: any) {
       setErrorFinanceData(
         `Erro ao adicionar parcela de dívida: ${error.message}`
-      );
-      console.error(
-        "useDebtInstallmentsCrud: Erro ao adicionar parcela de dívida:",
-        error
       );
     }
   };
@@ -91,16 +90,9 @@ export const useDebtInstallmentsCrud = ({
         ),
         data
       );
-      console.log(
-        "useDebtInstallmentsCrud: Parcela de dívida atualizada com sucesso."
-      );
     } catch (error: any) {
       setErrorFinanceData(
         `Erro ao atualizar parcela de dívida: ${error.message}`
-      );
-      console.error(
-        "useDebtInstallmentsCrud: Erro ao atualizar parcela de dívida:",
-        error
       );
     }
   };
@@ -108,7 +100,6 @@ export const useDebtInstallmentsCrud = ({
   const deleteDebtInstallment = async (
     installmentId: string
   ): Promise<boolean> => {
-    // Assinatura para retornar Promise<boolean>
     if (!db || !user || !projectId) {
       setErrorFinanceData("Firestore não inicializado ou usuário não logado.");
       return false;
@@ -122,30 +113,25 @@ export const useDebtInstallmentsCrud = ({
       const installmentSnap = await getDoc(installmentRef);
       const installmentData = installmentSnap.data() as DebtInstallment;
 
-      if (installmentData && installmentData.transactionId) {
+      // GÊ: Lógica de deleção atualizada para o novo campo 'transactionIds'
+      if (
+        installmentData &&
+        installmentData.transactionIds &&
+        installmentData.transactionIds.length > 0
+      ) {
         setErrorFinanceData(
-          "Não é possível excluir esta parcela. Há um lançamento financeiro vinculado a ela. Por favor, exclua o lançamento primeiro."
-        );
-        console.warn(
-          "useDebtInstallmentsCrud: Tentativa de excluir parcela com lançamento vinculado."
+          "Não é possível excluir esta parcela, pois existem pagamentos vinculados a ela."
         );
         return false;
       }
 
       await deleteDoc(installmentRef);
-      console.log(
-        "useDebtInstallmentsCrud: Parcela de dívida deletada com sucesso."
-      );
-      return true; // Retorna true em caso de sucesso
+      return true;
     } catch (error: any) {
       setErrorFinanceData(
         `Erro ao deletar parcela de dívida: ${error.message}`
       );
-      console.error(
-        "useDebtInstallmentsCrud: Erro ao deletar parcela de dívida:",
-        error
-      );
-      return false; // Retorna false em caso de erro
+      return false;
     }
   };
 

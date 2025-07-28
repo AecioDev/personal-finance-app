@@ -1,5 +1,11 @@
 import { useEffect } from "react";
-import { Firestore, collection, query, onSnapshot } from "firebase/firestore";
+import {
+  Firestore,
+  collection,
+  query,
+  onSnapshot,
+  Timestamp, // 1. Importa o tipo Timestamp
+} from "firebase/firestore";
 import {
   Account,
   Transaction,
@@ -22,6 +28,17 @@ interface UseFinanceDataProps {
   setDebtTypes: React.Dispatch<React.SetStateAction<DebtType[]>>;
 }
 
+// 2. Função auxiliar para converter Timestamps em Dates
+const convertTimestampsToDates = (data: any) => {
+  const convertedData = { ...data };
+  for (const key in convertedData) {
+    if (convertedData[key] instanceof Timestamp) {
+      convertedData[key] = convertedData[key].toDate();
+    }
+  }
+  return convertedData;
+};
+
 export const useFinanceData = ({
   db,
   user,
@@ -42,10 +59,6 @@ export const useFinanceData = ({
     let unsubscribeDebtTypes: () => void = () => {};
 
     if (user && db && projectId) {
-      console.log(
-        "useFinanceData: Usuário logado e Firestore pronto. Configurando listeners..."
-      );
-
       const getUserCollectionRef = (collectionName: string) =>
         collection(
           db,
@@ -55,15 +68,10 @@ export const useFinanceData = ({
       unsubscribeAccounts = onSnapshot(
         query(getUserCollectionRef("accounts")),
         (snapshot) => {
-          const fetchedAccounts: Account[] = [];
-          snapshot.forEach((doc) => {
-            fetchedAccounts.push({ id: doc.id, ...doc.data() } as Account);
-          });
+          const fetchedAccounts: Account[] = snapshot.docs.map(
+            (doc) => ({ id: doc.id, ...doc.data() } as Account)
+          );
           setAccounts(fetchedAccounts);
-          console.log("useFinanceData: Contas carregadas.");
-        },
-        (error) => {
-          console.error("useFinanceData: Erro ao carregar contas:", error);
         }
       );
 
@@ -72,25 +80,20 @@ export const useFinanceData = ({
         (snapshot) => {
           const fetchedTransactions: Transaction[] = [];
           snapshot.forEach((doc) => {
+            // 3. Aplica a conversão aqui
+            const convertedData = convertTimestampsToDates(doc.data());
             fetchedTransactions.push({
               id: doc.id,
-              ...doc.data(),
+              ...convertedData,
             } as Transaction);
           });
           fetchedTransactions.sort((a, b) => {
-            const dateA = a.createdAt?.toDate
-              ? a.createdAt.toDate().getTime()
-              : new Date(a.date).getTime();
-            const dateB = b.createdAt?.toDate
-              ? b.createdAt.toDate().getTime()
-              : new Date(b.date).getTime();
+            // 4. Agora podemos usar .getTime() com segurança
+            const dateA = a.createdAt?.getTime() ?? a.date.getTime();
+            const dateB = b.createdAt?.getTime() ?? b.date.getTime();
             return dateB - dateA;
           });
           setTransactions(fetchedTransactions);
-          console.log("useFinanceData: Transações carregadas.");
-        },
-        (error) => {
-          console.error("useFinanceData: Erro ao carregar transações:", error);
         }
       );
 
@@ -99,13 +102,11 @@ export const useFinanceData = ({
         (snapshot) => {
           const fetchedDebts: Debt[] = [];
           snapshot.forEach((doc) => {
-            fetchedDebts.push({ id: doc.id, ...doc.data() } as Debt);
+            // 3. Aplica a conversão aqui
+            const convertedData = convertTimestampsToDates(doc.data());
+            fetchedDebts.push({ id: doc.id, ...convertedData } as Debt);
           });
           setDebts(fetchedDebts);
-          console.log("useFinanceData: Dívidas carregadas.");
-        },
-        (error) => {
-          console.error("useFinanceData: Erro ao carregar dívidas:", error);
         }
       );
 
@@ -114,68 +115,42 @@ export const useFinanceData = ({
         (snapshot) => {
           const fetchedInstallments: DebtInstallment[] = [];
           snapshot.forEach((doc) => {
+            // 3. Aplica a conversão aqui
+            const convertedData = convertTimestampsToDates(doc.data());
             fetchedInstallments.push({
               id: doc.id,
-              ...doc.data(),
+              ...convertedData,
             } as DebtInstallment);
           });
           fetchedInstallments.sort(
-            (a, b) =>
-              new Date(a.expectedDueDate).getTime() -
-              new Date(b.expectedDueDate).getTime()
+            // 4. Agora podemos usar .getTime() com segurança
+            (a, b) => a.expectedDueDate.getTime() - b.expectedDueDate.getTime()
           );
           setDebtInstallments(fetchedInstallments);
-          console.log("useFinanceData: Parcelas de dívidas carregadas.");
-        },
-        (error) => {
-          console.error(
-            "useFinanceData: Erro ao carregar parcelas de dívidas:",
-            error
-          );
         }
       );
 
       unsubscribePaymentMethods = onSnapshot(
         query(getUserCollectionRef("paymentMethods")),
         (snapshot) => {
-          const fetchedPaymentMethods: PaymentMethod[] = [];
-          snapshot.forEach((doc) => {
-            fetchedPaymentMethods.push({
-              id: doc.id,
-              ...doc.data(),
-            } as PaymentMethod);
-          });
-          setPaymentMethods(fetchedPaymentMethods);
-          console.log("useFinanceData: Formas de pagamento carregadas.");
-        },
-        (error) => {
-          console.error(
-            "useFinanceData: Erro ao carregar formas de pagamento:",
-            error
+          const fetchedPaymentMethods: PaymentMethod[] = snapshot.docs.map(
+            (doc) => ({ id: doc.id, ...doc.data() } as PaymentMethod)
           );
+          setPaymentMethods(fetchedPaymentMethods);
         }
       );
 
       unsubscribeDebtTypes = onSnapshot(
         query(getUserCollectionRef("debtTypes")),
         (snapshot) => {
-          const fetchedDebtTypes: DebtType[] = [];
-          snapshot.forEach((doc) => {
-            fetchedDebtTypes.push({ id: doc.id, ...doc.data() } as DebtType);
-          });
-          setDebtTypes(fetchedDebtTypes);
-          console.log("useFinanceData: Tipos de dívida carregados.");
-        },
-        (error) => {
-          console.error(
-            "useFinanceData: Erro ao carregar tipos de dívida:",
-            error
+          const fetchedDebtTypes: DebtType[] = snapshot.docs.map(
+            (doc) => ({ id: doc.id, ...doc.data() } as DebtType)
           );
+          setDebtTypes(fetchedDebtTypes);
         }
       );
 
       return () => {
-        console.log("useFinanceData: Limpando todos os listeners de dados.");
         unsubscribeAccounts();
         unsubscribeTransactions();
         unsubscribeDebts();

@@ -8,10 +8,12 @@ import { TransactionList } from "./transaction-list";
 import { useRouter } from "next/navigation";
 import { useFinance } from "@/components/providers/finance-provider";
 import { useToast } from "@/components/ui/use-toast";
-import { DebtInstallment } from "@/interfaces/finance";
+import { Debt, DebtInstallment } from "@/interfaces/finance";
 import { differenceInDays, isPast, isFuture, parseISO, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { DebtPaymentModal } from "@/components/debts/debt-payment-modal";
+import { SimpleTooltip } from "../common/simple-tooltip";
+import { DebtInstallmentModal } from "../debts/debt-installment-modal";
 
 export function DashboardView() {
   const { toast } = useToast();
@@ -29,6 +31,9 @@ export function DashboardView() {
   const [selectedInstallmentId, setSelectedInstallmentId] = useState<
     string | null
   >(null);
+  const [isInstallmentModalOpen, setIsInstallmentModalOpen] = useState(false);
+  const [editingInstallment, setEditingInstallment] =
+    useState<DebtInstallment | null>(null);
 
   useEffect(() => {
     if (errorFinanceData) {
@@ -47,7 +52,7 @@ export function DashboardView() {
   const overdueDebts: DebtInstallment[] = [];
 
   debtInstallments.forEach((installment) => {
-    const dueDate = parseISO(installment.expectedDueDate);
+    const dueDate = installment.expectedDueDate;
     if (installment.status === "paid") {
       return;
     }
@@ -59,14 +64,10 @@ export function DashboardView() {
   });
 
   overdueDebts.sort(
-    (a, b) =>
-      parseISO(a.expectedDueDate).getTime() -
-      parseISO(b.expectedDueDate).getTime()
+    (a, b) => a.expectedDueDate.getTime() - b.expectedDueDate.getTime()
   );
   upcomingDebts.sort(
-    (a, b) =>
-      parseISO(a.expectedDueDate).getTime() -
-      parseISO(b.expectedDueDate).getTime()
+    (a, b) => a.expectedDueDate.getTime() - b.expectedDueDate.getTime()
   );
 
   const nextDebtToPayInstallment =
@@ -80,7 +81,7 @@ export function DashboardView() {
     : null;
 
   const getDebtStatusColor = (installment: DebtInstallment) => {
-    const dueDate = parseISO(installment.expectedDueDate);
+    const dueDate = installment.expectedDueDate;
     const daysDiff = differenceInDays(today, dueDate);
 
     if (installment.status === "paid") {
@@ -102,6 +103,11 @@ export function DashboardView() {
   const handleInformPayment = (installmentId: string) => {
     setSelectedInstallmentId(installmentId);
     setIsPaymentModalOpen(true);
+  };
+
+  const handleEditInstallment = (installment: DebtInstallment) => {
+    setEditingInstallment(installment);
+    setIsInstallmentModalOpen(true);
   };
 
   const recentTransactionsFiltered = transactions
@@ -127,11 +133,20 @@ export function DashboardView() {
             <CardTitle className="text-lg">Próxima Dívida a Vencer</CardTitle>
           </CardHeader>
           <CardContent>
+            {" "}
+            {/* Próxima Dívida */}
             {nextDebtToPayInstallment && nextDebtToPay ? (
               <div>
-                <p className="text-2xl font-bold">
-                  {nextDebtToPay.description}
-                </p>
+                <div className="flex flex-col md:flex-row justify-between md:items-end">
+                  <p className="text-2xl font-bold">
+                    {nextDebtToPay.description}
+                  </p>
+                  <p className="text-xl">
+                    {nextDebtToPayInstallment.installmentNumber
+                      ? `Parcela ${nextDebtToPayInstallment.installmentNumber}`
+                      : `Ocorrência`}
+                  </p>
+                </div>
                 <p className="text-xl">
                   R${" "}
                   {nextDebtToPayInstallment.expectedAmount?.toLocaleString(
@@ -142,19 +157,52 @@ export function DashboardView() {
                 <p className="text-sm">
                   Vence em:{" "}
                   {format(
-                    parseISO(nextDebtToPayInstallment.expectedDueDate),
+                    nextDebtToPayInstallment.expectedDueDate,
                     "dd/MM/yyyy",
                     { locale: ptBR }
                   )}
                 </p>
-                <Button
-                  onClick={() =>
-                    handleInformPayment(nextDebtToPayInstallment.id)
-                  }
-                  className="mt-4 w-full bg-white text-primary hover:bg-gray-100"
-                >
-                  Informar Pagamento
-                </Button>
+                <div className="flex justify-end gap-2 mt-2">
+                  {nextDebtToPayInstallment.status !== "paid" && (
+                    <Button
+                      size="sm"
+                      className="bg-white text-primary font-semibold hover:bg-gray-100"
+                      onClick={() =>
+                        handleInformPayment(nextDebtToPayInstallment.id)
+                      }
+                      disabled={loadingFinanceData}
+                    >
+                      <Icon icon="mdi:cash-check" className="w-4 h-4" />
+                      Informar Pagamento
+                    </Button>
+                  )}
+                  <SimpleTooltip
+                    label="Editar Parcela"
+                    side="top"
+                    variant="text"
+                  >
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        handleEditInstallment(nextDebtToPayInstallment)
+                      }
+                      disabled={loadingFinanceData}
+                    >
+                      <Icon icon="mdi:pencil" className="w-4 h-4" />
+                    </Button>
+                  </SimpleTooltip>
+                  <SimpleTooltip label="Ver Dívida" side="top" variant="text">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => router.push(`/debts/${nextDebtToPay.id}`)}
+                      disabled={loadingFinanceData}
+                    >
+                      <Icon icon="mdi:eye" className="w-4 h-4" />
+                    </Button>
+                  </SimpleTooltip>
+                </div>
               </div>
             ) : (
               <p className="text-lg">Nenhuma dívida próxima a vencer.</p>
@@ -236,11 +284,9 @@ export function DashboardView() {
                       <p className="font-semibold">{debt.description}</p>
                       <p className="text-sm">
                         Venceu em:{" "}
-                        {format(
-                          parseISO(installment.expectedDueDate),
-                          "dd/MM/yyyy",
-                          { locale: ptBR }
-                        )}
+                        {format(installment.expectedDueDate, "dd/MM/yyyy", {
+                          locale: ptBR,
+                        })}
                       </p>
                     </div>
                     <div className="flex flex-col items-end">
@@ -287,11 +333,9 @@ export function DashboardView() {
                       <p className="font-semibold">{debt.description}</p>
                       <p className="text-sm">
                         Vence em:{" "}
-                        {format(
-                          parseISO(installment.expectedDueDate),
-                          "dd/MM/yyyy",
-                          { locale: ptBR }
-                        )}
+                        {format(installment.expectedDueDate, "dd/MM/yyyy", {
+                          locale: ptBR,
+                        })}
                       </p>
                     </div>
                     <div className="flex flex-col items-end">
@@ -338,6 +382,13 @@ export function DashboardView() {
         isOpen={isPaymentModalOpen}
         onOpenChange={setIsPaymentModalOpen}
         installmentToPayId={selectedInstallmentId}
+      />
+
+      {/* Modal de Editar Parcela */}
+      <DebtInstallmentModal
+        isOpen={isInstallmentModalOpen}
+        onOpenChange={setIsInstallmentModalOpen}
+        editingInstallment={editingInstallment}
       />
     </div>
   );
