@@ -62,9 +62,20 @@ export function DebtForm({ debtId }: DebtFormProps) {
       isRecurring: false,
       totalInstallments: null,
       expectedInstallmentAmount: null,
+      interestRate: null,
+      fineRate: null,
       startDate: new Date(),
+      endDate: null,
     },
   });
+
+  // GÊ: AQUI ESTÁ O NOSSO ESPIÃO!
+  // Este useEffect vai mostrar no console o objeto de erros sempre que ele mudar.
+  useEffect(() => {
+    if (Object.keys(errors).length > 0) {
+      console.log("Erros de Validação do Zod:", errors);
+    }
+  }, [errors]);
 
   const isRecurring = watch("isRecurring");
   const totalInstallments = watch("totalInstallments");
@@ -74,6 +85,8 @@ export function DebtForm({ debtId }: DebtFormProps) {
     if (!isRecurring && totalInstallments && expectedInstallmentAmount) {
       const total = totalInstallments * expectedInstallmentAmount;
       setValue("totalRepaymentAmount", total);
+    } else {
+      setValue("totalRepaymentAmount", null);
     }
   }, [totalInstallments, expectedInstallmentAmount, isRecurring, setValue]);
 
@@ -98,23 +111,18 @@ export function DebtForm({ debtId }: DebtFormProps) {
         if (!existingDebt) {
           toast({
             title: "Erro",
-            description: "Dívida original não encontrada para atualizar.",
+            description: "Dívida original não encontrada.",
             variant: "destructive",
           });
           return;
         }
-
-        // GÊ: AQUI ESTÁ A NOVA LÓGICA!
-        // Recalcula o saldo devedor com base no novo valor a pagar.
         const totalPaid = existingDebt.totalPaidOnThisDebt || 0;
         const newOutstandingBalance =
           (data.totalRepaymentAmount || data.originalAmount) - totalPaid;
-
         const dataToUpdate = {
           ...data,
           currentOutstandingBalance: newOutstandingBalance,
         };
-
         await updateDebt(debtId, dataToUpdate as Partial<Debt>);
         toast({
           title: "Sucesso",
@@ -245,6 +253,84 @@ export function DebtForm({ debtId }: DebtFormProps) {
                 </div>
               </>
             )}
+            {/* GÊ: CAMPOS DE DATA RESTAURADOS */}
+            <div className="space-y-2">
+              <Label htmlFor="startDate">Data de Início</Label>
+              <Controller
+                control={control}
+                name="startDate"
+                render={({ field }) => (
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-full justify-start text-left font-normal",
+                          !field.value && "text-muted-foreground"
+                        )}
+                      >
+                        <Icon icon="mdi:calendar" className="mr-2 h-4 w-4" />
+                        {field.value ? (
+                          format(new Date(field.value), "PPP", { locale: ptBR })
+                        ) : (
+                          <span>Escolha uma data</span>
+                        )}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                      <Calendar
+                        mode="single"
+                        selected={field.value ?? undefined}
+                        onSelect={field.onChange}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                )}
+              />
+              {errors.startDate && (
+                <p className="text-red-500 text-sm">
+                  {errors.startDate.message}
+                </p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="endDate">Data de Término (Opcional)</Label>
+              <Controller
+                control={control}
+                name="endDate"
+                render={({ field }) => (
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-full justify-start text-left font-normal",
+                          !field.value && "text-muted-foreground"
+                        )}
+                      >
+                        <Icon icon="mdi:calendar" className="mr-2 h-4 w-4" />
+                        {field.value ? (
+                          format(new Date(field.value), "PPP", { locale: ptBR })
+                        ) : (
+                          <span>Escolha uma data</span>
+                        )}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                      <Calendar
+                        mode="single"
+                        selected={field.value ?? undefined}
+                        onSelect={field.onChange}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                )}
+              />
+              {errors.endDate && (
+                <p className="text-red-500 text-sm">{errors.endDate.message}</p>
+              )}
+            </div>
             <Button type="submit" disabled={isSubmitting || loadingFinanceData}>
               {isSubmitting ? "Salvando..." : "Salvar Dívida"}
             </Button>
