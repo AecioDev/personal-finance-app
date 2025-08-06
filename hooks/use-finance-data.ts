@@ -8,6 +8,7 @@ import {
 } from "firebase/firestore";
 import {
   Account,
+  Category,
   Transaction,
   Debt,
   DebtInstallment,
@@ -21,6 +22,7 @@ interface UseFinanceDataProps {
   user: FirebaseUser | null;
   projectId: string | null;
   setAccounts: React.Dispatch<React.SetStateAction<Account[]>>;
+  setCategories: React.Dispatch<React.SetStateAction<Category[]>>;
   setTransactions: React.Dispatch<React.SetStateAction<Transaction[]>>;
   setDebts: React.Dispatch<React.SetStateAction<Debt[]>>;
   setDebtInstallments: React.Dispatch<React.SetStateAction<DebtInstallment[]>>;
@@ -44,6 +46,7 @@ export const useFinanceData = ({
   user,
   projectId,
   setAccounts,
+  setCategories,
   setTransactions,
   setDebts,
   setDebtInstallments,
@@ -52,6 +55,7 @@ export const useFinanceData = ({
 }: UseFinanceDataProps) => {
   useEffect(() => {
     let unsubscribeAccounts: () => void = () => {};
+    let unsubscribeCategories: () => void = () => {};
     let unsubscribeTransactions: () => void = () => {};
     let unsubscribeDebts: () => void = () => {};
     let unsubscribeDebtInstallments: () => void = () => {};
@@ -72,6 +76,20 @@ export const useFinanceData = ({
             (doc) => ({ id: doc.id, ...doc.data() } as Account)
           );
           setAccounts(fetchedAccounts);
+        }
+      );
+
+      unsubscribeCategories = onSnapshot(
+        query(getUserCollectionRef("categories")),
+        (snapshot) => {
+          const fetchedCategories: Category[] = snapshot.docs.map(
+            (doc) =>
+              ({
+                id: doc.id,
+                ...convertTimestampsToDates(doc.data()),
+              } as Category)
+          );
+          setCategories(fetchedCategories);
         }
       );
 
@@ -152,6 +170,7 @@ export const useFinanceData = ({
 
       return () => {
         unsubscribeAccounts();
+        unsubscribeCategories();
         unsubscribeTransactions();
         unsubscribeDebts();
         unsubscribeDebtInstallments();
@@ -160,6 +179,7 @@ export const useFinanceData = ({
       };
     } else {
       setAccounts([]);
+      setCategories([]);
       setTransactions([]);
       setDebts([]);
       setDebtInstallments([]);

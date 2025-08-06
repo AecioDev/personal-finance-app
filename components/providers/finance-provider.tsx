@@ -12,6 +12,7 @@ import { getFirestore, Firestore, doc, updateDoc } from "firebase/firestore";
 
 import {
   Account,
+  Category,
   Transaction,
   TransactionType,
   Debt,
@@ -28,10 +29,14 @@ import { useDebtsCrud } from "@/hooks/use-debts-crud";
 import { useDebtInstallmentsCrud } from "@/hooks/use-debt-installments-crud";
 import { usePaymentMethodsCrud } from "@/hooks/use-payment-methods-crud";
 import { useDebtTypesCrud } from "@/hooks/use-debt-types-crud";
-import { DebtFormData } from "@/schemas/debt-schema"; // Import necessário
+import { useCategoriesCrud } from "@/hooks/use-categories-crud";
+
+// schemas
+import { DebtFormData } from "@/schemas/debt-schema";
 
 interface FinanceContextType {
   accounts: Account[];
+  categories: Category[];
   transactions: Transaction[];
   debts: Debt[];
   debtInstallments: DebtInstallment[];
@@ -61,10 +66,7 @@ interface FinanceContextType {
   deleteAccount: (accountId: string) => Promise<void>;
   deleteTransaction: (transactionId: string) => Promise<void>;
 
-  // GÊ: AQUI ESTÁ A MUDANÇA!
-  // A assinatura agora reflete exatamente o que o formulário envia e o hook espera.
   addDebt: (debtData: DebtFormData) => Promise<void>;
-
   updateDebt: (debtId: string, data: Partial<Debt>) => Promise<void>;
   deleteDebt: (debtId: string) => Promise<boolean>;
   addDebtInstallment: (
@@ -102,6 +104,14 @@ interface FinanceContextType {
     data: Partial<Omit<DebtType, "id" | "uid">>
   ) => Promise<void>;
   deleteDebtType: (debtTypeId: string) => Promise<void>;
+
+  addCategory: (data: { name: string; icon: string }) => Promise<string | null>;
+  updateCategory: (
+    id: string,
+    data: { name: string; icon: string }
+  ) => Promise<void>;
+  deleteCategory: (id: string) => Promise<void>;
+
   getAccountById: (id: string) => Account | undefined;
 
   loadingFinanceData: boolean;
@@ -123,6 +133,7 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({
 }) => {
   const { user, loading: authLoading, projectId } = useAuth();
   const [accounts, setAccounts] = useState<Account[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [debts, setDebts] = useState<Debt[]>([]);
   const [debtInstallments, setDebtInstallments] = useState<DebtInstallment[]>(
@@ -150,6 +161,7 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({
     user,
     projectId,
     setAccounts,
+    setCategories,
     setTransactions,
     setDebts,
     setDebtInstallments,
@@ -193,12 +205,23 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({
     }
   };
 
+  // Account
   const { addAccount, updateAccount, deleteAccount } = useAccountsCrud({
     db: dbRef.current,
     user,
     projectId,
     setErrorFinanceData,
   });
+
+  // Category
+  const { addCategory, updateCategory, deleteCategory } = useCategoriesCrud({
+    db: dbRef.current,
+    user,
+    projectId,
+    setErrorFinanceData,
+  });
+
+  // DebtInstallment (Parcela)
   const { addDebtInstallment, updateDebtInstallment, deleteDebtInstallment } =
     useDebtInstallmentsCrud({
       db: dbRef.current,
@@ -206,12 +229,16 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({
       projectId,
       setErrorFinanceData,
     });
+
+  // Debt (Dividas)
   const { addDebt, updateDebt, deleteDebt } = useDebtsCrud({
     db: dbRef.current,
     user,
     projectId,
     setErrorFinanceData,
   });
+
+  // PaymentMethod (Forma de Pagamento)
   const { addPaymentMethod, updatePaymentMethod, deletePaymentMethod } =
     usePaymentMethodsCrud({
       db: dbRef.current,
@@ -219,6 +246,7 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({
       projectId,
       setErrorFinanceData,
     });
+  // DebtType (Tipo de Dívida)
   const { addDebtType, updateDebtType, deleteDebtType } = useDebtTypesCrud({
     db: dbRef.current,
     user,
@@ -244,6 +272,7 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({
     <FinanceContext.Provider
       value={{
         accounts,
+        categories,
         transactions,
         debts,
         debtInstallments,
@@ -254,6 +283,9 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({
         addAccount,
         updateAccount,
         deleteAccount,
+        addCategory,
+        updateCategory,
+        deleteCategory,
         deleteTransaction,
         addDebt,
         updateDebt,

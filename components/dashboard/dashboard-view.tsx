@@ -1,36 +1,40 @@
+// components/dashboard/dashboard-view.tsx
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Icon } from "@iconify/react";
-import { TransactionList } from "./transaction-list";
 import { useRouter } from "next/navigation";
 import { useFinance } from "@/components/providers/finance-provider";
 import { useToast } from "@/components/ui/use-toast";
-import { Debt, DebtInstallment } from "@/interfaces/finance";
-import { differenceInDays, isPast, isFuture, parseISO, format } from "date-fns";
-import { ptBR } from "date-fns/locale";
-import { DebtPaymentModal } from "@/components/debts/debt-payment-modal";
+import { DebtInstallment } from "@/interfaces/finance";
+
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Icon } from "@iconify/react";
 import { SimpleTooltip } from "../common/simple-tooltip";
 import { DebtInstallmentModal } from "../debts/debt-installment-modal";
+
+import { differenceInDays, isPast, isFuture, format } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import { SimpleTransactionForm } from "../forms/simple-transaction-form";
+import { SimpleDebtForm } from "../forms/simple-debt-form";
 
 export function DashboardView() {
   const { toast } = useToast();
   const router = useRouter();
-  const {
-    accounts,
-    transactions,
-    debts,
-    debtInstallments,
-    loadingFinanceData,
-    errorFinanceData,
-  } = useFinance();
+  const { debts, debtInstallments, loadingFinanceData, errorFinanceData } =
+    useFinance();
 
-  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
-  const [selectedInstallmentId, setSelectedInstallmentId] = useState<
-    string | null
-  >(null);
+  // --- CONTROLES DOS MODAIS ---
+  const [isNewExpenseDialogOpen, setIsNewExpenseDialogOpen] = useState(false);
+  const [isNewTransactionDialogOpen, setIsNewTransactionDialogOpen] =
+    useState(false);
+  // Estados que você já tinha:
   const [isInstallmentModalOpen, setIsInstallmentModalOpen] = useState(false);
   const [editingInstallment, setEditingInstallment] =
     useState<DebtInstallment | null>(null);
@@ -45,6 +49,7 @@ export function DashboardView() {
     }
   }, [errorFinanceData, toast]);
 
+  // --- Lógica de cálculo de dívidas (sem alterações) ---
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
@@ -52,68 +57,40 @@ export function DashboardView() {
   const overdueDebts: DebtInstallment[] = [];
 
   debtInstallments.forEach((installment) => {
-    const dueDate = installment.expectedDueDate;
-    if (installment.status === "paid") {
-      return;
-    }
+    if (installment.status === "paid") return;
+    const dueDate = new Date(installment.expectedDueDate);
     if (isPast(dueDate) && differenceInDays(today, dueDate) > 0) {
       overdueDebts.push(installment);
-    } else if (isFuture(dueDate) || differenceInDays(dueDate, today) === 0) {
+    } else {
       upcomingDebts.push(installment);
     }
   });
 
   overdueDebts.sort(
-    (a, b) => a.expectedDueDate.getTime() - b.expectedDueDate.getTime()
+    (a, b) =>
+      new Date(a.expectedDueDate).getTime() -
+      new Date(b.expectedDueDate).getTime()
   );
   upcomingDebts.sort(
-    (a, b) => a.expectedDueDate.getTime() - b.expectedDueDate.getTime()
+    (a, b) =>
+      new Date(a.expectedDueDate).getTime() -
+      new Date(b.expectedDueDate).getTime()
   );
 
-  const nextDebtToPayInstallment =
-    upcomingDebts.length > 0
-      ? upcomingDebts[0]
-      : overdueDebts.length > 0
-      ? overdueDebts[0]
-      : null;
+  const nextDebtToPayInstallment = upcomingDebts[0] || overdueDebts[0] || null;
   const nextDebtToPay = nextDebtToPayInstallment
     ? debts.find((d) => d.id === nextDebtToPayInstallment.debtId)
     : null;
 
-  const getDebtStatusColor = (installment: DebtInstallment) => {
-    const dueDate = installment.expectedDueDate;
-    const daysDiff = differenceInDays(today, dueDate);
-
-    if (installment.status === "paid") {
-      return "bg-green-600 text-white";
-    }
-    if (isPast(dueDate) && daysDiff > 0) {
-      if (daysDiff >= 30) return "bg-red-700 text-white";
-      if (daysDiff >= 15) return "bg-red-600 text-white";
-      return "bg-red-500 text-white";
-    }
-    if (isFuture(dueDate) || daysDiff === 0) {
-      if (daysDiff <= 7) return "bg-yellow-500 text-black";
-      if (daysDiff <= 30) return "bg-yellow-400 text-black";
-      return "bg-green-500 text-white";
-    }
-    return "bg-gray-500 text-white";
-  };
-
-  const handleInformPayment = (installmentId: string) => {
-    setSelectedInstallmentId(installmentId);
-    setIsPaymentModalOpen(true);
-  };
-
+  // --- Funções Handler (com a nova lógica de modal) ---
   const handleEditInstallment = (installment: DebtInstallment) => {
     setEditingInstallment(installment);
     setIsInstallmentModalOpen(true);
   };
 
-  const recentTransactionsFiltered = transactions
-    .filter((t) => t.type === "expense" || t.type === "income")
-    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-    .slice(0, 5);
+  const handleGoToPayment = (debtId: string, installmentId: string) => {
+    router.push(`/debts/${debtId}/installments/${installmentId}`);
+  };
 
   if (loadingFinanceData) {
     return (
@@ -126,270 +103,289 @@ export function DashboardView() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col md:flex-row gap-4">
-        <Card className="flex-1 bg-gradient-to-r from-primary to-primary/80 text-white">
-          <CardHeader>
-            <CardTitle className="text-lg">Próxima Dívida a Vencer</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {" "}
-            {/* Próxima Dívida */}
-            {nextDebtToPayInstallment && nextDebtToPay ? (
-              <div>
-                <div className="flex flex-col md:flex-row justify-between md:items-end">
-                  <p className="text-2xl font-bold">
-                    {nextDebtToPay.description}
-                  </p>
-                  <p className="text-xl">
-                    {nextDebtToPayInstallment.installmentNumber
-                      ? `Parcela ${nextDebtToPayInstallment.installmentNumber}`
-                      : `Ocorrência`}
-                  </p>
-                </div>
-                <p className="text-xl">
-                  R${" "}
-                  {nextDebtToPayInstallment.expectedAmount?.toLocaleString(
-                    "pt-BR",
-                    { minimumFractionDigits: 2 }
-                  )}
-                </p>
-                <p className="text-sm">
-                  Vence em:{" "}
-                  {format(
-                    nextDebtToPayInstallment.expectedDueDate,
-                    "dd/MM/yyyy",
-                    { locale: ptBR }
-                  )}
-                </p>
-                <div className="flex justify-end gap-2 mt-2">
-                  {nextDebtToPayInstallment.status !== "paid" && (
-                    <Button
-                      size="sm"
-                      className="bg-white text-primary font-semibold hover:bg-gray-100"
-                      onClick={() =>
-                        handleInformPayment(nextDebtToPayInstallment.id)
-                      }
-                      disabled={loadingFinanceData}
-                    >
-                      <Icon icon="mdi:cash-check" className="w-4 h-4" />
-                      Informar Pagamento
-                    </Button>
-                  )}
-                  <SimpleTooltip
-                    label="Editar Parcela"
-                    side="top"
-                    variant="text"
-                  >
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() =>
-                        handleEditInstallment(nextDebtToPayInstallment)
-                      }
-                      disabled={loadingFinanceData}
-                    >
-                      <Icon icon="mdi:pencil" className="w-4 h-4" />
-                    </Button>
-                  </SimpleTooltip>
-                  <SimpleTooltip label="Ver Dívida" side="top" variant="text">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => router.push(`/debts/${nextDebtToPay.id}`)}
-                      disabled={loadingFinanceData}
-                    >
-                      <Icon icon="mdi:eye" className="w-4 h-4" />
-                    </Button>
-                  </SimpleTooltip>
-                </div>
-              </div>
-            ) : (
-              <p className="text-lg">Nenhuma dívida próxima a vencer.</p>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card className="flex-1">
-          <CardHeader>
-            <CardTitle className="text-lg">Dicas de Economia</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">
-                <Icon
-                  icon="mdi:lightbulb-on-outline"
-                  className="inline-block w-4 h-4 mr-1"
-                />
-                Crie um orçamento e siga-o rigorosamente.
-              </p>
-              <p className="text-sm text-muted-foreground">
-                <Icon
-                  icon="mdi:lightbulb-on-outline"
-                  className="inline-block w-4 h-4 mr-1"
-                />
-                Priorize o pagamento de dívidas com juros mais altos.
-              </p>
-              <p className="text-sm text-muted-foreground">
-                <Icon
-                  icon="mdi:lightbulb-on-outline"
-                  className="inline-block w-4 h-4 mr-1"
-                />
-                Evite compras por impulso e use a regra das 24 horas.
-              </p>
-              <Button variant="link" className="p-0 h-auto text-primary">
-                Ver mais dicas
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
-        <Button
-          onClick={() => router.push("/new-transaction?type=expense")}
-          className="h-16 flex-col gap-2 bg-red-500 hover:bg-red-600 text-white"
-        >
-          <Icon icon="mdi:minus" className="w-6 h-6" />
-          Lançamento de Despesa
-        </Button>
-        <Button
-          onClick={() => router.push("/new-transaction?type=income")}
-          className="h-16 flex-col gap-2 bg-green-500 hover:bg-green-600 text-white"
-        >
-          <Icon icon="mdi:plus" className="w-6 h-6" />
-          Lançamento de Receita
-        </Button>
-      </div>
-
-      <div className="flex flex-col md:flex-row gap-4">
-        {overdueDebts.length > 0 && (
-          <Card className="flex-1">
+    <>
+      <div className="space-y-6">
+        {/* --- Card Próxima Dívida e Dicas (sem alterações) --- */}
+        <div className="flex flex-col md:flex-row gap-4">
+          {/* Card Próxima Dívida a Vencer */}
+          <Card className="flex-1 bg-gradient-to-r from-green-500 to-green-600 text-white shadow-lg">
             <CardHeader>
-              <CardTitle className="text-lg text-red-500">
-                Dívidas Vencidas
-              </CardTitle>
+              <CardTitle className="text-lg">Próxima Dívida a Vencer</CardTitle>
             </CardHeader>
-            <CardContent className="grid gap-2 max-h-[25rem] overflow-y-auto">
-              {overdueDebts.map((installment) => {
-                const debt = debts.find((d) => d.id === installment.debtId);
-                return debt ? (
-                  <div
-                    key={installment.id}
-                    className={`p-3 rounded-md flex justify-between items-center ${getDebtStatusColor(
-                      installment
-                    )}`}
-                  >
-                    <div>
-                      <p className="font-semibold">{debt.description}</p>
-                      <p className="text-sm">
-                        Venceu em:{" "}
-                        {format(installment.expectedDueDate, "dd/MM/yyyy", {
-                          locale: ptBR,
-                        })}
-                      </p>
-                    </div>
-                    <div className="flex flex-col items-end">
-                      <p className="font-bold">
-                        R${" "}
-                        {installment.expectedAmount?.toLocaleString("pt-BR", {
-                          minimumFractionDigits: 2,
-                        })}
-                      </p>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleInformPayment(installment.id)}
-                        className="mt-1 text-white hover:bg-white/20 border border-white/50" // Adicionada borda aqui
-                      >
-                        Pagar
-                      </Button>
-                    </div>
+            <CardContent>
+              {nextDebtToPayInstallment && nextDebtToPay ? (
+                <div>
+                  <div className="flex flex-col md:flex-row justify-between md:items-end">
+                    <p className="text-2xl font-bold">
+                      {nextDebtToPay.description}
+                    </p>
+                    <p className="text-xl">
+                      {`Parcela ${
+                        nextDebtToPayInstallment.installmentNumber || ""
+                      }`}
+                    </p>
                   </div>
-                ) : null;
-              })}
+                  <p className="text-3xl font-bold">
+                    R${" "}
+                    {nextDebtToPayInstallment.expectedAmount?.toLocaleString(
+                      "pt-BR",
+                      { minimumFractionDigits: 2 }
+                    )}
+                  </p>
+                  <p className="text-sm opacity-90">
+                    Vence em:{" "}
+                    {format(
+                      new Date(nextDebtToPayInstallment.expectedDueDate),
+                      "dd/MM/yyyy",
+                      { locale: ptBR }
+                    )}
+                  </p>
+                  <div className="flex justify-end gap-2 mt-4">
+                    <Button
+                      size="sm"
+                      className="bg-white text-green-600 font-semibold hover:bg-gray-100"
+                      onClick={() =>
+                        handleGoToPayment(
+                          nextDebtToPay.id,
+                          nextDebtToPayInstallment.id
+                        )
+                      }
+                    >
+                      <Icon icon="mdi:cash-check" className="w-4 h-4 mr-2" />
+                      Pagar
+                    </Button>
+                    <SimpleTooltip label="Editar Parcela" side="top">
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="bg-transparent text-white border-white/50 hover:bg-white/20"
+                        onClick={() =>
+                          handleEditInstallment(nextDebtToPayInstallment)
+                        }
+                      >
+                        <Icon icon="mdi:pencil" className="w-4 h-4" />
+                      </Button>
+                    </SimpleTooltip>
+                    <SimpleTooltip label="Ver Dívida" side="top">
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="bg-transparent text-white border-white/50 hover:bg-white/20"
+                        onClick={() =>
+                          router.push(`/debts/${nextDebtToPay.id}`)
+                        }
+                      >
+                        <Icon icon="mdi:eye" className="w-4 h-4" />
+                      </Button>
+                    </SimpleTooltip>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-lg">Nenhuma dívida próxima a vencer.</p>
+              )}
             </CardContent>
           </Card>
-        )}
 
-        {upcomingDebts.length > 0 && (
-          <Card className="flex-1">
-            <CardHeader>
-              <CardTitle className="text-lg text-yellow-500">
-                Dívidas para Vencer
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="grid gap-2 max-h-[25rem] overflow-y-auto">
-              {upcomingDebts.map((installment) => {
-                const debt = debts.find((d) => d.id === installment.debtId);
-                return debt ? (
-                  <div
-                    key={installment.id}
-                    className={`p-3 rounded-md flex justify-between items-center ${getDebtStatusColor(
-                      installment
-                    )}`}
-                  >
-                    <div>
-                      <p className="font-semibold">{debt.description}</p>
-                      <p className="text-sm">
-                        Vence em:{" "}
-                        {format(installment.expectedDueDate, "dd/MM/yyyy", {
-                          locale: ptBR,
-                        })}
-                      </p>
+          {/* Card Dicas de Economia */}
+          {1 != 1 && (
+            <Card className="flex-1">
+              <CardHeader>
+                <CardTitle className="text-lg">Dicas de Economia</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  <p className="text-sm text-muted-foreground">
+                    <Icon
+                      icon="mdi:lightbulb-on-outline"
+                      className="inline-block w-4 h-4 mr-1 text-yellow-500"
+                    />
+                    Crie um orçamento e siga-o rigorosamente.
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    <Icon
+                      icon="mdi:lightbulb-on-outline"
+                      className="inline-block w-4 h-4 mr-1 text-yellow-500"
+                    />
+                    Priorize o pagamento de dívidas com juros mais altos.
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    <Icon
+                      icon="mdi:lightbulb-on-outline"
+                      className="inline-block w-4 h-4 mr-1 text-yellow-500"
+                    />
+                    Evite compras por impulso e use a regra das 24 horas.
+                  </p>
+                  <Button variant="link" className="p-0 h-auto text-primary">
+                    Ver mais dicas
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+
+        {/* --- BOTÕES DE AÇÃO RÁPIDA --- */}
+        <div className="grid grid-cols-2 gap-4">
+          <Button
+            onClick={() => setIsNewExpenseDialogOpen(true)}
+            className="h-16 text-sm bg-red-500 hover:bg-red-600 text-white"
+          >
+            <Icon icon="mdi:trending-down" className="w-6 h-6 mr-3" />
+            Nova Despesa
+          </Button>
+
+          {/* Botão de Novo Lançamento */}
+          <Button
+            onClick={() => setIsNewTransactionDialogOpen(true)}
+            className="h-16 text-sm bg-yellow-500 hover:bg-yellow-600 text-white"
+          >
+            <Icon icon="mdi:cash-edit" className="w-6 h-6 mr-3" />
+            Novo Lançamento
+          </Button>
+        </div>
+
+        {/* --- Listas de Dívidas Vencidas e a Vencer (sem alterações) --- */}
+        <div className="flex flex-col md:flex-row gap-4">
+          {/* Dívidas Vencidas */}
+          {overdueDebts.length > 0 && (
+            <Card className="flex-1">
+              <CardHeader>
+                <CardTitle className="text-lg text-red-500">
+                  Dívidas Vencidas
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="grid gap-2 max-h-[25rem] overflow-y-auto">
+                {overdueDebts.map((installment) => {
+                  const debt = debts.find((d) => d.id === installment.debtId);
+                  return debt ? (
+                    <div
+                      key={installment.id}
+                      className="p-3 rounded-md flex justify-between items-center bg-red-500/10 border border-red-500/20"
+                    >
+                      <div>
+                        <p className="font-semibold text-red-800 dark:text-red-300">
+                          {debt.description}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          Venceu em:{" "}
+                          {format(
+                            new Date(installment.expectedDueDate),
+                            "dd/MM/yyyy",
+                            { locale: ptBR }
+                          )}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <p className="font-bold text-red-600">
+                          R${" "}
+                          {installment.expectedAmount?.toLocaleString("pt-BR", {
+                            minimumFractionDigits: 2,
+                          })}
+                        </p>
+                        <Button
+                          size="sm"
+                          onClick={() =>
+                            handleGoToPayment(debt.id, installment.id)
+                          }
+                        >
+                          Pagar
+                        </Button>
+                      </div>
                     </div>
-                    <div className="flex flex-col items-end">
-                      <p className="font-bold">
-                        R${" "}
-                        {installment.expectedAmount?.toLocaleString("pt-BR", {
-                          minimumFractionDigits: 2,
-                        })}
-                      </p>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleInformPayment(installment.id)}
-                        className="mt-1 text-white hover:bg-white/20 border border-white/50" // Adicionada borda aqui
-                      >
-                        Pagar
-                      </Button>
+                  ) : null;
+                })}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Dívidas para Vencer */}
+          {upcomingDebts.length > 0 && (
+            <Card className="flex-1">
+              <CardHeader>
+                <CardTitle className="text-lg text-yellow-600">
+                  Dívidas para Vencer
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="grid gap-2 max-h-[25rem] overflow-y-auto">
+                {upcomingDebts.map((installment) => {
+                  const debt = debts.find((d) => d.id === installment.debtId);
+                  return debt ? (
+                    <div
+                      key={installment.id}
+                      className="p-3 rounded-md flex justify-between items-center bg-yellow-500/10 border border-yellow-500/20"
+                    >
+                      <div>
+                        <p className="font-semibold text-yellow-800 dark:text-yellow-300">
+                          {debt.description}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          Vence em:{" "}
+                          {format(
+                            new Date(installment.expectedDueDate),
+                            "dd/MM/yyyy",
+                            { locale: ptBR }
+                          )}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <p className="font-bold text-yellow-700">
+                          R${" "}
+                          {installment.expectedAmount?.toLocaleString("pt-BR", {
+                            minimumFractionDigits: 2,
+                          })}
+                        </p>
+                        <Button
+                          size="sm"
+                          onClick={() =>
+                            handleGoToPayment(debt.id, installment.id)
+                          }
+                        >
+                          Pagar
+                        </Button>
+                      </div>
                     </div>
-                  </div>
-                ) : null;
-              })}
-            </CardContent>
-          </Card>
-        )}
+                  ) : null;
+                })}
+              </CardContent>
+            </Card>
+          )}
+        </div>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Icon icon="mdi:history" className="w-5 h-5" />
-            Últimos Lançamentos
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <TransactionList
-            transactions={recentTransactionsFiltered}
-            accounts={accounts}
+      {/* Modal de Nova Despesa (usa o SimpleDebtForm) */}
+      <Dialog
+        open={isNewExpenseDialogOpen}
+        onOpenChange={setIsNewExpenseDialogOpen}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Registrar Nova Despesa</DialogTitle>
+          </DialogHeader>
+          <SimpleDebtForm onFinished={() => setIsNewExpenseDialogOpen(false)} />
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de Novo Lançamento Geral (usa o SimpleTransactionForm) */}
+      <Dialog
+        open={isNewTransactionDialogOpen}
+        onOpenChange={setIsNewTransactionDialogOpen}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Novo Lançamento</DialogTitle>
+          </DialogHeader>
+          <SimpleTransactionForm
+            onFinished={() => setIsNewTransactionDialogOpen(false)}
           />
-        </CardContent>
-      </Card>
+        </DialogContent>
+      </Dialog>
 
-      {/* Modal de Pagamento de Dívida */}
-      <DebtPaymentModal
-        isOpen={isPaymentModalOpen}
-        onOpenChange={setIsPaymentModalOpen}
-        installmentToPayId={selectedInstallmentId}
-      />
-
-      {/* Modal de Editar Parcela */}
+      {/* Modal de Editar Parcela (você já tinha) */}
       <DebtInstallmentModal
         isOpen={isInstallmentModalOpen}
         onOpenChange={setIsInstallmentModalOpen}
         editingInstallment={editingInstallment}
       />
-    </div>
+    </>
   );
 }

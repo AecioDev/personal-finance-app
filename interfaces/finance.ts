@@ -35,6 +35,13 @@ export interface PaymentMethod {
   defaultAccountId?: string;
 }
 
+export interface Category {
+  id: string;
+  uid: string;
+  name: string;
+  icon: string;
+}
+
 export interface DebtType {
   id: string;
   name: string;
@@ -51,6 +58,7 @@ export interface Debt {
   totalRepaymentAmount: number | null;
   isRecurring: boolean;
   type: string;
+  categoryId?: string;
   startDate: Date;
   endDate: Date | null;
   isActive: boolean;
