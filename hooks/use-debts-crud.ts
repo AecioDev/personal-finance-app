@@ -60,8 +60,6 @@ export const useDebtsCrud = ({
         totalRepaymentAmount,
         uid: user.uid,
         createdAt: serverTimestamp(),
-        // GÊ: AQUI ESTÁ A CORREÇÃO!
-        // O saldo devedor inicial é o valor total a pagar.
         currentOutstandingBalance: totalRepaymentAmount,
         totalPaidOnThisDebt: 0,
         totalInterestPaidOnThisDebt: 0,

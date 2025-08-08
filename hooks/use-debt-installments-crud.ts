@@ -7,8 +7,9 @@ import {
   deleteDoc,
   serverTimestamp,
   getDoc,
+  writeBatch,
 } from "firebase/firestore";
-import { DebtInstallment } from "@/interfaces/finance";
+import { Debt, DebtInstallment } from "@/interfaces/finance";
 import { User as FirebaseUser } from "firebase/auth";
 
 interface UseDebtInstallmentsCrudProps {
@@ -24,11 +25,6 @@ export const useDebtInstallmentsCrud = ({
   projectId,
   setErrorFinanceData,
 }: UseDebtInstallmentsCrudProps) => {
-  /**
-   * GÊ: AQUI ESTÁ A CORREÇÃO!
-   * Esta função agora cria uma nova parcela já com os campos necessários
-   * para o sistema de pagamento parcial.
-   */
   const addDebtInstallment = async (
     installment: Omit<
       DebtInstallment,
@@ -57,13 +53,12 @@ export const useDebtInstallmentsCrud = ({
           ...installment,
           uid: user.uid,
           createdAt: serverTimestamp(),
-          // Inicializando os novos campos com valores padrão
           paidAmount: 0,
           discountAmount: 0,
-          remainingAmount: installment.expectedAmount, // O valor restante inicial é o valor total esperado
+          remainingAmount: installment.expectedAmount,
           status: "pending",
           paymentDate: null,
-          transactionIds: [], // Começa com um array vazio de transações
+          transactionIds: [],
         }
       );
     } catch (error: any) {
@@ -97,6 +92,62 @@ export const useDebtInstallmentsCrud = ({
     }
   };
 
+  const updateInstallmentValue = async (
+    debtId: string,
+    installmentId: string,
+    newAmount: number
+  ) => {
+    if (!db || !user || !projectId) {
+      setErrorFinanceData("Firestore não inicializado ou usuário não logado.");
+      return;
+    }
+
+    const debtDocRef = doc(
+      db,
+      `artifacts/${projectId}/users/${user.uid}/debts`,
+      debtId
+    );
+    const installmentDocRef = doc(
+      db,
+      `artifacts/${projectId}/users/${user.uid}/debtInstallments`,
+      installmentId
+    );
+
+    try {
+      const batch = writeBatch(db);
+
+      const debtSnap = await getDoc(debtDocRef);
+      const installmentSnap = await getDoc(installmentDocRef);
+
+      if (!debtSnap.exists() || !installmentSnap.exists()) {
+        setErrorFinanceData("Dívida ou parcela não encontrada.");
+      }
+
+      const currentDebt = debtSnap.data() as Debt;
+      const currentInstallment = installmentSnap.data() as DebtInstallment;
+
+      const oldAmount = currentInstallment.expectedAmount;
+      const difference = newAmount - oldAmount;
+
+      batch.update(installmentDocRef, {
+        expectedAmount: newAmount,
+      });
+
+      batch.update(debtDocRef, {
+        currentOutstandingBalance:
+          (currentDebt.currentOutstandingBalance || 0) + difference,
+        lastBalanceUpdate: serverTimestamp(),
+      });
+
+      await batch.commit();
+    } catch (error: any) {
+      setErrorFinanceData(
+        `Erro ao atualizar valor da parcela: ${error.message}`
+      );
+      throw error;
+    }
+  };
+
   const deleteDebtInstallment = async (
     installmentId: string
   ): Promise<boolean> => {
@@ -113,7 +164,6 @@ export const useDebtInstallmentsCrud = ({
       const installmentSnap = await getDoc(installmentRef);
       const installmentData = installmentSnap.data() as DebtInstallment;
 
-      // GÊ: Lógica de deleção atualizada para o novo campo 'transactionIds'
       if (
         installmentData &&
         installmentData.transactionIds &&
@@ -135,5 +185,10 @@ export const useDebtInstallmentsCrud = ({
     }
   };
 
-  return { addDebtInstallment, updateDebtInstallment, deleteDebtInstallment };
+  return {
+    addDebtInstallment,
+    updateDebtInstallment,
+    updateInstallmentValue,
+    deleteDebtInstallment,
+  };
 };

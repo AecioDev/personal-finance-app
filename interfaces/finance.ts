@@ -72,6 +72,7 @@ export interface Debt {
   interestRate: number | null;
   fineRate: number | null;
   expectedInstallmentAmount: number | null;
+  lastBalanceUpdate?: Date;
 }
 
 export interface DebtInstallment {
