@@ -228,7 +228,6 @@ export function DebtDetailsView({ debtId }: DebtDetailsViewProps) {
                     })}
                   </p>
 
-                  {/* GÊ: AQUI ESTÁ O NOVO CAMPO! */}
                   {currentDebt.isActive && (
                     <p className="font-semibold text-base">
                       <strong>Saldo Devedor:</strong> R${" "}
@@ -357,11 +356,12 @@ export function DebtDetailsView({ debtId }: DebtDetailsViewProps) {
                               {getDDMMYYYY(installment.expectedDueDate)}
                             </p>
                             <p className="text-sm">
-                              Valor: R$ {installment.expectedAmount.toFixed(2)}
+                              Previsto: R${" "}
+                              {installment.expectedAmount.toFixed(2)}
                             </p>
                             {installment.status === "partial" && (
                               <p className="text-sm text-yellow-600 dark:text-yellow-400">
-                                Restante: R${" "}
+                                Falta: R${" "}
                                 {installment.remainingAmount.toFixed(2)}
                               </p>
                             )}
@@ -395,10 +395,12 @@ export function DebtDetailsView({ debtId }: DebtDetailsViewProps) {
                               >
                                 <Icon icon="mdi:pencil" className="w-4 h-4" />
                               </Button>
+
                               <Button
                                 variant="destructive"
                                 size="icon"
                                 onClick={() => openDeleteDialog(installment.id)}
+                                disabled={installment.status === "paid"}
                               >
                                 <Icon icon="mdi:delete" className="w-4 h-4" />
                               </Button>

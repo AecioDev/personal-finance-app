@@ -55,6 +55,8 @@ interface FinanceContextType {
     }
   ) => Promise<boolean>;
 
+  revertInstallmentPayment: (installmentId: string) => Promise<boolean>;
+
   addGenericTransaction: (
     transaction: Omit<Transaction, "id" | "uid" | "createdAt">
   ) => Promise<string | undefined>;
@@ -267,6 +269,7 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({
 
   const {
     processInstallmentPayment,
+    revertInstallmentPayment,
     addGenericTransaction,
     deleteTransaction,
   } = useTransactionsCrud({
@@ -313,6 +316,7 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({
         deleteDebtType,
         getAccountById,
         processInstallmentPayment,
+        revertInstallmentPayment,
         addGenericTransaction,
       }}
     >

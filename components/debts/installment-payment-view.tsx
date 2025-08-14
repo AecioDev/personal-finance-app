@@ -100,11 +100,12 @@ export function InstallmentPaymentView() {
 
   useEffect(() => {
     if (installment) {
-      const remaining =
-        installment.remainingAmount ?? installment.expectedAmount;
+      //const remaining = installment.remainingAmount ?? installment.expectedAmount;
+      const remaining = installment.expectedAmount;
+
       reset({
         paymentDate: toDateInputValue(new Date()),
-        amount: remaining > 0 ? remaining : 0,
+        amount: 0,
         paymentMethodId: "",
         accountId: accounts.length > 0 ? accounts[0].id : "",
         interestPaid: null,
@@ -113,11 +114,11 @@ export function InstallmentPaymentView() {
     }
   }, [installment, reset, accounts]);
 
-  // GÊ: AQUI ESTÁ A LÓGICA INTELIGENTE!
   useEffect(() => {
     if (!installment || amountPaid === null || isNaN(amountPaid)) return;
 
-    const remaining = installment.remainingAmount ?? installment.expectedAmount;
+    //const remaining = installment.remainingAmount ?? installment.expectedAmount;
+    const remaining = installment.expectedAmount;
 
     // Lógica de Juros (automática)
     if (amountPaid > remaining) {
@@ -141,7 +142,6 @@ export function InstallmentPaymentView() {
   const handleApplyDiscount = () => {
     if (discountSuggestion === null) return;
     setValue("discountReceived", discountSuggestion);
-    // Opcional: desabilitar o botão ou mudar o texto após aplicar
     setDiscountSuggestion(null);
     toast({
       title: "Desconto aplicado!",
@@ -192,19 +192,19 @@ export function InstallmentPaymentView() {
         </CardHeader>
         <CardContent className="grid grid-cols-3 gap-4 text-center">
           <div>
-            <p className="text-sm text-muted-foreground">Valor Total</p>
+            <p className="text-sm text-muted-foreground">Previsto</p>
             <p className="font-bold text-lg">
               R$ {(installment.expectedAmount || 0).toFixed(2)}
             </p>
           </div>
           <div>
-            <p className="text-sm text-muted-foreground">Total Pago</p>
+            <p className="text-sm text-muted-foreground">Realizado</p>
             <p className="font-bold text-lg text-green-500">
               R$ {(installment.paidAmount || 0).toFixed(2)}
             </p>
           </div>
           <div>
-            <p className="text-sm text-muted-foreground">Restante</p>
+            <p className="text-sm text-muted-foreground">Falta</p>
             <p className="font-bold text-lg text-red-500">
               R${" "}
               {(
@@ -222,7 +222,7 @@ export function InstallmentPaymentView() {
         <form onSubmit={handleSubmit(handlePaymentSubmit)}>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="amount">Valor Total Pago</Label>
+              <Label htmlFor="amount">Valor Pago</Label>
               <Input
                 id="amount"
                 type="number"

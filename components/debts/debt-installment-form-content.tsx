@@ -7,7 +7,6 @@ import { DebtInstallment } from "@/interfaces/finance";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/use-toast";
 import { z } from "zod";
 import { toDateInputValue, parseDateFromInputValue } from "@/lib/dates";
@@ -84,6 +83,10 @@ export function DebtInstallmentFormContent({
     }
   };
 
+  function handleClose(): void {
+    onClose();
+  }
+
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="grid gap-4 py-4">
       <div className="space-y-2">
@@ -117,11 +120,12 @@ export function DebtInstallmentFormContent({
         )}
       </div>
 
-      <DialogFooter>
-        <Button type="submit" disabled={isSubmitting || loading}>
-          {isSubmitting ? "Salvando..." : "Salvar Alterações"}
-        </Button>
-      </DialogFooter>
+      <Button type="submit" disabled={isSubmitting || loading}>
+        {isSubmitting ? "Salvando..." : "Salvar Alterações"}
+      </Button>
+      <Button type="button" variant="outline" onClick={() => handleClose()}>
+        Fechar
+      </Button>
     </form>
   );
 }

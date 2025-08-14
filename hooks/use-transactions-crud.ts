@@ -11,6 +11,7 @@ import {
   TransactionType,
   Debt,
   DebtInstallment,
+  Account,
 } from "@/interfaces/finance";
 import { User as FirebaseUser } from "firebase/auth";
 
@@ -131,6 +132,8 @@ export const useTransactionsCrud = ({
             ...(currentInstallment.transactionIds || []),
             newTransactionRef.id,
           ],
+          interestPaidAmount:
+            (currentInstallment.interestPaidAmount || 0) + interest,
         });
 
         // 4. Atualizar o saldo da conta de origem
@@ -154,6 +157,9 @@ export const useTransactionsCrud = ({
               newOutstandingBalance > 0 ? newOutstandingBalance : 0,
             totalPaidOnThisDebt:
               (currentDebt.totalPaidOnThisDebt || 0) + newPaidAmount,
+            // Poderíamos acumular os juros na dívida principal também, se quisermos
+            totalInterestPaidOnThisDebt:
+              (currentDebt.totalInterestPaidOnThisDebt || 0) + interest,
           });
         }
       });
@@ -162,6 +168,115 @@ export const useTransactionsCrud = ({
       console.error("Erro na transação de pagamento:", error);
       setErrorFinanceData(`Erro ao processar pagamento: ${error.message}`);
       return false;
+    }
+  };
+
+  /**
+   * Reverte todos os pagamentos de uma parcela.
+   * Exclui as transações, devolve o saldo para as contas e reseta a parcela.
+   */
+  const revertInstallmentPayment = async (installmentId: string) => {
+    if (!db || !user || !projectId) {
+      const errorMsg = "Firestore, usuário ou ID do projeto não inicializado.";
+      setErrorFinanceData(errorMsg);
+      throw new Error(errorMsg);
+    }
+
+    try {
+      await runTransaction(db, async (firestoreTransaction) => {
+        const basePath = `artifacts/${projectId}/users/${user.uid}`;
+        const installmentRef = doc(
+          db,
+          `${basePath}/debtInstallments`,
+          installmentId
+        );
+        const installmentSnap = await firestoreTransaction.get(installmentRef);
+
+        if (!installmentSnap.exists())
+          throw new Error("Parcela não encontrada.");
+        const installment = installmentSnap.data() as DebtInstallment;
+
+        // Se não há IDs de transação, não há o que reverter.
+        if (
+          !installment.transactionIds ||
+          installment.transactionIds.length === 0
+        ) {
+          // Apenas garantimos que o status da parcela esteja como pendente para edição.
+          firestoreTransaction.update(installmentRef, {
+            status: "pending",
+            currentDueAmount: installment.expectedAmount,
+          });
+          return;
+        }
+
+        const debtRef = doc(db, `${basePath}/debts`, installment.debtId);
+        const debtSnap = await firestoreTransaction.get(debtRef);
+        if (!debtSnap.exists())
+          throw new Error("Dívida principal não encontrada.");
+        const debt = debtSnap.data() as Debt;
+
+        let totalRevertedAmount = 0;
+        let totalInterestReverted = 0;
+
+        // 1. Iterar sobre os IDs de transação que já conhecemos
+        for (const transId of installment.transactionIds) {
+          const transactionRef = doc(db, `${basePath}/transactions`, transId);
+          const transactionSnap = await firestoreTransaction.get(
+            transactionRef
+          );
+
+          if (transactionSnap.exists()) {
+            const trans = transactionSnap.data() as Transaction;
+            totalRevertedAmount += trans.amount;
+            totalInterestReverted += trans.interestPaid || 0;
+
+            // 2. Reverter o saldo da conta
+            const accountRef = doc(db, `${basePath}/accounts`, trans.accountId);
+            const accountSnap = await firestoreTransaction.get(accountRef);
+            if (accountSnap.exists()) {
+              const account = accountSnap.data() as Account;
+              const newBalance = (account.balance || 0) + trans.amount; // Devolve o dinheiro
+              firestoreTransaction.update(accountRef, { balance: newBalance });
+            }
+            // 3. Deletar a transação
+            firestoreTransaction.delete(transactionRef);
+          }
+        }
+
+        // 4. Atualizar a DÍVIDA principal, revertendo os totais
+        const wasPaid = installment.status === "paid";
+        firestoreTransaction.update(debtRef, {
+          paidInstallments: wasPaid
+            ? (debt.paidInstallments || 1) - 1
+            : debt.paidInstallments || 0,
+          currentOutstandingBalance:
+            (debt.currentOutstandingBalance || 0) + installment.expectedAmount,
+          totalPaidOnThisDebt:
+            (debt.totalPaidOnThisDebt || 0) -
+            (totalRevertedAmount - totalInterestReverted),
+          totalInterestPaidOnThisDebt:
+            (debt.totalInterestPaidOnThisDebt || 0) - totalInterestReverted,
+          isActive: true,
+        });
+
+        // 5. Resetar a PARCELA para o estado inicial
+        firestoreTransaction.update(installmentRef, {
+          paidAmount: 0,
+          discountAmount: 0,
+          interestPaidAmount: 0,
+          remainingAmount: installment.expectedAmount,
+          currentDueAmount: installment.expectedAmount,
+          status: "pending",
+          paymentDate: null,
+          transactionIds: [],
+        });
+      });
+
+      return true;
+    } catch (error: any) {
+      console.error("Erro na transação de reversão de pagamento:", error);
+      setErrorFinanceData(`Erro ao reverter pagamento: ${error.message}`);
+      throw error;
     }
   };
 
@@ -187,6 +302,7 @@ export const useTransactionsCrud = ({
 
   return {
     processInstallmentPayment,
+    revertInstallmentPayment,
     addGenericTransaction,
     deleteTransaction,
   };

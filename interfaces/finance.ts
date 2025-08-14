@@ -139,6 +139,12 @@ export interface DebtInstallment {
   discountAmount: number; // Valor de Desconto
 
   /**
+   * Do valor total pago (`paidAmount`), esta é a parte
+   * que corresponde especificamente a juros, multas ou encargos.
+   */
+  interestPaidAmount: number;
+
+  /**
    * O status atual da parcela.
    * Pode ser: 'pending' (pendente), 'paid' (paga), 'overdue' (vencida), 'partial' (parcialmente paga).
    */
