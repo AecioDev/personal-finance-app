@@ -2,7 +2,7 @@
 "use client";
 
 import React from "react";
-import { useForm, Controller } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useFinance } from "@/components/providers/finance-provider";
@@ -26,9 +26,8 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { Label } from "../ui/label";
+import { Label } from "@radix-ui/react-label";
 
-// Schema de validação para o nosso novo formulário
 const UpdateValueSchema = z.object({
   newAmount: z.coerce
     .number({ invalid_type_error: "O valor deve ser um número" })
@@ -52,18 +51,21 @@ export function UpdateInstallmentValueModal({
   const { toast } = useToast();
   const { updateInstallmentValue } = useFinance();
 
+  // O valor inicial do form agora pega o `currentDueAmount` se existir,
+  // ou o `expectedAmount` como fallback.
+  const initialValue =
+    installment?.currentDueAmount || installment?.expectedAmount;
+
   const form = useForm<UpdateValueFormData>({
     resolver: zodResolver(UpdateValueSchema),
-    // O formulário já começa com o valor atual da parcela
     defaultValues: {
-      newAmount: installment?.expectedAmount,
+      newAmount: initialValue,
     },
   });
 
-  // Observa o valor do campo 'newAmount' em tempo real
   const watchedNewAmount = form.watch("newAmount");
+  // O valor original NUNCA MUDA. É a nossa base de cálculo.
   const originalAmount = installment?.expectedAmount || 0;
-  // Calcula os juros em tempo real
   const interest = watchedNewAmount ? watchedNewAmount - originalAmount : 0;
 
   const onSubmit = async (data: UpdateValueFormData) => {
@@ -77,9 +79,10 @@ export function UpdateInstallmentValueModal({
     }
 
     try {
+      // A função do CRUD já sabe o que fazer com este novo valor.
       await updateInstallmentValue(debt.id, installment.id, data.newAmount);
       toast({ title: "Sucesso!", description: "Valor da parcela atualizado." });
-      onOpenChange(false); // Fecha o modal
+      onOpenChange(false);
     } catch (error) {
       toast({
         title: "Erro!",
@@ -89,10 +92,10 @@ export function UpdateInstallmentValueModal({
     }
   };
 
-  // Reseta o formulário toda vez que o modal abre com uma nova parcela
   React.useEffect(() => {
     if (installment) {
-      form.reset({ newAmount: installment.expectedAmount });
+      const value = installment.currentDueAmount || installment.expectedAmount;
+      form.reset({ newAmount: value });
     }
   }, [installment, form]);
 
@@ -107,9 +110,8 @@ export function UpdateInstallmentValueModal({
             onSubmit={form.handleSubmit(onSubmit)}
             className="space-y-4 pt-4"
           >
-            {/* Campo Valor Original (Apenas leitura) */}
             <div>
-              <Label>Valor Original</Label>
+              <Label>Valor Original (Previsto)</Label>
               <Input
                 readOnly
                 disabled
@@ -120,7 +122,6 @@ export function UpdateInstallmentValueModal({
               />
             </div>
 
-            {/* Campo Valor Atual (Editável) */}
             <FormField
               control={form.control}
               name="newAmount"
@@ -135,7 +136,6 @@ export function UpdateInstallmentValueModal({
               )}
             />
 
-            {/* Campo Juros (Calculado automaticamente) */}
             <div>
               <Label>Juros/Encargos</Label>
               <Input

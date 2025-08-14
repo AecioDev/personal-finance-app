@@ -56,6 +56,7 @@ export const useDebtInstallmentsCrud = ({
           paidAmount: 0,
           discountAmount: 0,
           remainingAmount: installment.expectedAmount,
+          currentDueAmount: installment.expectedAmount,
           status: "pending",
           paymentDate: null,
           transactionIds: [],
@@ -114,28 +115,15 @@ export const useDebtInstallmentsCrud = ({
     );
 
     try {
-      const batch = writeBatch(db);
+      const batch = writeBatch(db!);
 
-      const debtSnap = await getDoc(debtDocRef);
-      const installmentSnap = await getDoc(installmentDocRef);
-
-      if (!debtSnap.exists() || !installmentSnap.exists()) {
-        setErrorFinanceData("Dívida ou parcela não encontrada.");
-      }
-
-      const currentDebt = debtSnap.data() as Debt;
-      const currentInstallment = installmentSnap.data() as DebtInstallment;
-
-      const oldAmount = currentInstallment.expectedAmount;
-      const difference = newAmount - oldAmount;
-
+      // 1. Atualiza o valor de cobrança da parcela
       batch.update(installmentDocRef, {
-        expectedAmount: newAmount,
+        currentDueAmount: newAmount,
       });
 
+      // 2. Carimba a data da atualização na dívida-mãe para o nosso alerta
       batch.update(debtDocRef, {
-        currentOutstandingBalance:
-          (currentDebt.currentOutstandingBalance || 0) + difference,
         lastBalanceUpdate: serverTimestamp(),
       });
 
