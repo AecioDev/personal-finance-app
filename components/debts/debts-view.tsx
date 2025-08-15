@@ -96,9 +96,14 @@ export function DebtsView() {
               <p className="text-muted-foreground mb-4">
                 Adicione suas dívidas para ter controle total.
               </p>
-              <ButtonNew onClick={() => router.push("/new-debt")}>
+              <Button
+                variant="default"
+                size="sm"
+                onClick={() => router.push("/new-debt")}
+              >
+                <Icon icon="mdi:plus" className="w-4 h-4 mr-2" />
                 Adicionar Primeira Dívida
-              </ButtonNew>
+              </Button>
             </CardContent>
           </Card>
         ) : (

@@ -14,9 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { useFinance } from "@/components/providers/finance-provider";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Icon } from "@iconify/react";
-import { DebtInstallmentFormContent } from "./debt-installment-form-content"; // Assumindo que este componente existe e é um formulário
+import { DebtInstallmentFormContent } from "./debt-installment-form-content";
 import { ConfirmationDialog } from "../common/confirmation-dialog";
 import { getDDMMYYYY } from "@/lib/dates";
 
@@ -24,12 +22,14 @@ interface DebtInstallmentModalProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   editingInstallment: DebtInstallment | null;
+  onDataChange?: () => void;
 }
 
 export function DebtInstallmentModal({
   isOpen,
   onOpenChange,
   editingInstallment,
+  onDataChange,
 }: DebtInstallmentModalProps) {
   const router = useRouter();
   const {
@@ -42,12 +42,10 @@ export function DebtInstallmentModal({
   const [isConfirmingRevert, setIsConfirmingRevert] = useState(false);
   const [isReverting, setIsReverting] = useState(false);
 
-  // Determina o modo do modal baseado no status da parcela
   const isPaidOrPartial =
     editingInstallment?.status === "paid" ||
     editingInstallment?.status === "partial";
 
-  // Função para estornar e redirecionar (para parcelas pagas/parciais)
   const handleRevertAndRedirect = async () => {
     if (!editingInstallment) return;
 
@@ -56,12 +54,13 @@ export function DebtInstallmentModal({
       await revertInstallmentPayment(editingInstallment.id);
       toast({
         title: "Pronto para Edição!",
-        description: "Pagamentos estornados. Redirecionando...",
+        description: "Os pagamentos foram estornados com sucesso.",
         variant: "success",
       });
-      // router.push(
-      //   `/debts/${editingInstallment.debtId}/installments/${editingInstallment.id}`
-      // );
+
+      onDataChange?.(); // <-- AVISANDO O PAI QUE OS DADOS MUDARAM
+
+      // router.push(...); // Corretamente comentado por você
       setIsConfirmingRevert(false);
       onOpenChange(false);
     } catch (error: any) {
@@ -76,7 +75,6 @@ export function DebtInstallmentModal({
     }
   };
 
-  // Função para salvar alterações da parcela (para parcelas pendentes)
   const handleSaveInstallment = async (
     installmentData: Partial<Omit<DebtInstallment, "id" | "uid" | "createdAt">>
   ) => {
@@ -90,10 +88,12 @@ export function DebtInstallmentModal({
         description: "Os dados da parcela foram salvos com sucesso.",
         variant: "success",
       });
+
+      onDataChange?.(); // <-- AVISANDO O PAI QUE OS DADOS MUDARAM
+
       onOpenChange(false);
     } catch (error: any) {
       console.error("Erro ao salvar parcela:", error);
-      // O form-content deve exibir o toast de erro
       throw error;
     }
   };
@@ -120,12 +120,10 @@ export function DebtInstallmentModal({
             </DialogDescription>
           </DialogHeader>
 
-          {/* Renderização Condicional do Conteúdo */}
           {isPaidOrPartial ? (
-            // MODO 1: Visualização e Estorno
-            /* Corpo com os detalhes da parcela (somente visualização) */
             editingInstallment && (
               <div className="space-y-4 py-4 text-sm">
+                {/* ... seu código de visualização ... */}
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Status</span>
                   <span className="font-medium capitalize">
@@ -184,7 +182,6 @@ export function DebtInstallmentModal({
               </div>
             )
           ) : (
-            // MODO 2: Edição Direta no Formulário
             <DebtInstallmentFormContent
               editingInstallment={editingInstallment}
               onSave={handleSaveInstallment}
@@ -195,7 +192,6 @@ export function DebtInstallmentModal({
 
           <DialogFooter>
             {isPaidOrPartial ? (
-              // Botões para o MODO 1
               <>
                 <Button
                   className="my-2"
@@ -212,14 +208,11 @@ export function DebtInstallmentModal({
                   Habilitar Edição
                 </Button>
               </>
-            ) : // Botões para o MODO 2 (são controlados pelo form-content)
-            // O botão de salvar e cancelar já devem estar dentro do DebtInstallmentFormContent
-            null}
+            ) : null}
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* O modal de confirmação só é relevante para o fluxo de estorno */}
       {isPaidOrPartial && (
         <ConfirmationDialog
           isOpen={isConfirmingRevert}

@@ -157,6 +157,12 @@ export function DebtDetailsView({ debtId }: DebtDetailsViewProps) {
     router.push(`/debts/${debtId}/installments/${installmentId}`);
   };
 
+  const handleDataChange = () => {
+    console.log(
+      "Callback recebido! O modal terminou uma operação. A UI deve atualizar em breve."
+    );
+  };
+
   if (loadingFinanceData && !currentDebt) {
     return (
       <div className="p-4 text-center">Carregando detalhes da dívida...</div>
@@ -461,6 +467,7 @@ export function DebtDetailsView({ debtId }: DebtDetailsViewProps) {
         isOpen={isInstallmentModalOpen}
         onOpenChange={setIsInstallmentModalOpen}
         editingInstallment={editingInstallment}
+        onDataChange={handleDataChange}
       />
 
       <ConfirmationDialog
