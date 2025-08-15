@@ -1,10 +1,10 @@
 export const suggestedIcons = [
   // Casa e Contas
   { name: "Moradia", icon: "mdi:home-outline" },
-  { name: "Aluguel", icon: "mdi:real-estate" },
+  { name: "Aluguel", icon: "mdi:house-edit" },
   { name: "Contas de Casa", icon: "mdi:receipt-text-outline" },
   { name: "Internet", icon: "mdi:wifi" },
-  { name: "Celular", icon: "mdi:cellphone" },
+  { name: "Celular", icon: "mdi:phone" },
   // Financeiro
   { name: "Empréstimo", icon: "mdi:cash-multiple" },
   { name: "Cartão de Crédito", icon: "mdi:credit-card-outline" },

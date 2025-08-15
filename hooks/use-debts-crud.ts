@@ -88,12 +88,17 @@ export const useDebtsCrud = ({
       const startDate = debtData.startDate;
 
       if (debtData.isRecurring) {
-        for (let i = 0; i < 12; i++) {
+        const startMonth = startDate.getMonth();
+        const installmentsToCreate = 12 - startMonth;
+
+        for (let i = 0; i < installmentsToCreate; i++) {
           generatedInstallments.push({
             debtId: debtRef.id,
             installmentNumber: i + 1,
             expectedDueDate: addMonths(startDate, i),
             expectedAmount: debtData.originalAmount,
+            currentDueAmount: debtData.originalAmount, // Valor inicial devido é o valor esperado
+            interestPaidAmount: 0, // Juros pagos começam como zero
           });
         }
       } else if (
@@ -107,6 +112,8 @@ export const useDebtsCrud = ({
             installmentNumber: i + 1,
             expectedDueDate: addMonths(startDate, i),
             expectedAmount: debtData.expectedInstallmentAmount,
+            currentDueAmount: debtData.expectedInstallmentAmount,
+            interestPaidAmount: 0,
           });
         }
       } else {
@@ -115,6 +122,8 @@ export const useDebtsCrud = ({
           installmentNumber: 1,
           expectedDueDate: startDate,
           expectedAmount: debtData.originalAmount,
+          currentDueAmount: debtData.originalAmount,
+          interestPaidAmount: 0,
         });
       }
 
@@ -123,6 +132,7 @@ export const useDebtsCrud = ({
       }
     } catch (error: any) {
       setErrorFinanceData(`Erro ao adicionar dívida: ${error.message}`);
+      throw error; // Lança o erro para a UI poder tratar
     }
   };
 

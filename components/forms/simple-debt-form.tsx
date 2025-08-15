@@ -1,4 +1,3 @@
-// src/components/finances/simple-debt-form.tsx
 "use client";
 
 import React, { useState } from "react";
@@ -16,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -28,15 +28,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
 import { CategoryManagerDialog } from "@/components/categories/category-manager-dialog";
-import { cn } from "@/lib/utils";
-import { format } from "date-fns";
+import { Checkbox } from "../ui/checkbox";
+import { DatePicker } from "../ui/date-picker";
 
 interface SimpleDebtFormProps {
   onFinished?: () => void;
@@ -47,6 +41,7 @@ const defaultFormValues: Partial<SimpleDebtFormData> = {
   amount: undefined,
   categoryId: undefined,
   dueDate: undefined,
+  isRecurring: false,
 };
 
 export function SimpleDebtForm({ onFinished }: SimpleDebtFormProps) {
@@ -75,7 +70,7 @@ export function SimpleDebtForm({ onFinished }: SimpleDebtFormProps) {
       description: data.name,
       type: "simple",
       originalAmount: data.amount,
-      isRecurring: false,
+      isRecurring: data.isRecurring || false,
       totalInstallments: 1,
       expectedInstallmentAmount: data.amount,
       interestRate: 0,
@@ -198,42 +193,35 @@ export function SimpleDebtForm({ onFinished }: SimpleDebtFormProps) {
               render={({ field }) => (
                 <FormItem className="flex flex-col pt-2">
                   <FormLabel>Vencimento</FormLabel>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <FormControl>
-                        <Button
-                          variant={"outline"}
-                          className={cn(
-                            "pl-3 text-left font-normal",
-                            !field.value && "text-muted-foreground"
-                          )}
-                        >
-                          {field.value ? (
-                            format(field.value, "dd/MM/yyyy")
-                          ) : (
-                            <span>Escolha uma data</span>
-                          )}
-                          <Icon
-                            icon="mdi:calendar"
-                            className="ml-auto h-4 w-4 opacity-50"
-                          />
-                        </Button>
-                      </FormControl>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={field.value}
-                        onSelect={field.onChange}
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
+                  <FormControl>
+                    <DatePicker value={field.value} onChange={field.onChange} />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
           </div>
+
+          <FormField
+            control={form.control}
+            name="isRecurring"
+            render={({ field }) => (
+              <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4 shadow-sm">
+                <FormControl>
+                  <Checkbox
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                  />
+                </FormControl>
+                <div className="space-y-1 leading-none">
+                  <FormLabel>Despesa Recorrente?</FormLabel>
+                  <FormDescription>
+                    Marque para criar parcelas mensais até o final do ano.
+                  </FormDescription>
+                </div>
+              </FormItem>
+            )}
+          />
         </form>
       </Form>
 

@@ -32,6 +32,7 @@ import {
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { Debt } from "@/interfaces/finance";
+import { DatePicker } from "../ui/date-picker";
 
 interface DebtFormProps {
   debtId?: string;
@@ -69,8 +70,6 @@ export function DebtForm({ debtId }: DebtFormProps) {
     },
   });
 
-  // GÊ: AQUI ESTÁ O NOSSO ESPIÃO!
-  // Este useEffect vai mostrar no console o objeto de erros sempre que ele mudar.
   useEffect(() => {
     if (Object.keys(errors).length > 0) {
       console.log("Erros de Validação do Zod:", errors);
@@ -260,32 +259,10 @@ export function DebtForm({ debtId }: DebtFormProps) {
                 control={control}
                 name="startDate"
                 render={({ field }) => (
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className={cn(
-                          "w-full justify-start text-left font-normal",
-                          !field.value && "text-muted-foreground"
-                        )}
-                      >
-                        <Icon icon="mdi:calendar" className="mr-2 h-4 w-4" />
-                        {field.value ? (
-                          format(new Date(field.value), "PPP", { locale: ptBR })
-                        ) : (
-                          <span>Escolha uma data</span>
-                        )}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0">
-                      <Calendar
-                        mode="single"
-                        selected={field.value ?? undefined}
-                        onSelect={field.onChange}
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
+                  <DatePicker
+                    value={field.value || undefined}
+                    onChange={field.onChange}
+                  />
                 )}
               />
               {errors.startDate && (
@@ -300,31 +277,10 @@ export function DebtForm({ debtId }: DebtFormProps) {
                 control={control}
                 name="endDate"
                 render={({ field }) => (
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className={cn(
-                          "w-full justify-start text-left font-normal",
-                          !field.value && "text-muted-foreground"
-                        )}
-                      >
-                        <Icon icon="mdi:calendar" className="mr-2 h-4 w-4" />
-                        {field.value ? (
-                          format(new Date(field.value), "PPP", { locale: ptBR })
-                        ) : (
-                          <span>Escolha uma data</span>
-                        )}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0">
-                      <Calendar
-                        mode="single"
-                        selected={field.value ?? undefined}
-                        onSelect={field.onChange}
-                      />
-                    </PopoverContent>
-                  </Popover>
+                  <DatePicker
+                    value={field.value || undefined}
+                    onChange={field.onChange}
+                  />
                 )}
               />
               {errors.endDate && (

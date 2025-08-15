@@ -1,4 +1,3 @@
-// src/schemas/simple-debt-schema.ts
 import { z } from "zod";
 
 export const SimpleDebtFormSchema = z.object({
@@ -8,6 +7,7 @@ export const SimpleDebtFormSchema = z.object({
   amount: z.coerce
     .number({ invalid_type_error: "O valor deve ser um número" })
     .positive("O valor deve ser maior que zero."),
+  isRecurring: z.boolean().default(false).optional(),
 });
 
 export type SimpleDebtFormData = z.infer<typeof SimpleDebtFormSchema>;
