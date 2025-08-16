@@ -26,6 +26,7 @@
     --radius: 0.5rem;
 
     --header-footer-background: 210 40% 94%;
+    --modal-background: 0 0% 100%;
   }
 
   .dark {
@@ -50,6 +51,7 @@
     --ring: 142.4 71.8% 29.2%;
 
     --header-footer-background: 222.2 84% 12%;
+    --modal-background: 222.2 47.4% 18.2%; /* Um tom de cinza mais claro */
   }
 }
 

@@ -14,6 +14,8 @@ import {
   Account,
 } from "@/interfaces/finance";
 import { User as FirebaseUser } from "firebase/auth";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 interface UseTransactionsCrudProps {
   db: Firestore | null;
@@ -80,6 +82,21 @@ export const useTransactionsCrud = ({
         if (!accountSnap.exists())
           throw new Error("Conta de origem não encontrada.");
 
+        let description = currentDebt.description;
+
+        if (currentDebt.isRecurring) {
+          const date = new Date(currentInstallment.expectedDueDate);
+          const formattedDate = format(date, "MMM/yy", { locale: ptBR });
+          description += ` - ${
+            formattedDate.charAt(0).toUpperCase() + formattedDate.slice(1)
+          }`;
+        } else if (
+          currentDebt.totalInstallments &&
+          currentDebt.totalInstallments > 1
+        ) {
+          description += ` - ${currentInstallment.installmentNumber} / ${currentDebt.totalInstallments}`;
+        }
+
         // 1. Criar a nova transação de despesa
         const newTransactionRef = doc(
           collection(db, `${basePath}/transactions`)
@@ -88,9 +105,7 @@ export const useTransactionsCrud = ({
           Transaction,
           "id" | "uid" | "createdAt"
         > = {
-          description: `Pagamento: ${currentDebt.description} #${
-            currentInstallment.installmentNumber || ""
-          }`,
+          description: description,
           amount: paymentData.amount,
           date: paymentData.date,
           type: "expense",

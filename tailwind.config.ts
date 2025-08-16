@@ -55,6 +55,7 @@ const config = {
         },
         // Adicionado a nova cor para o tema do Tailwind
         "header-footer-background": "hsl(var(--header-footer-background))",
+        "modal-background": "hsl(var(--modal-background))",
       },
       keyframes: {
         "accordion-down": {

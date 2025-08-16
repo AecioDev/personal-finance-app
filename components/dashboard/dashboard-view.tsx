@@ -4,7 +4,7 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { useFinance } from "@/components/providers/finance-provider";
 import { useToast } from "@/components/ui/use-toast";
-import { DebtInstallment } from "@/interfaces/finance";
+import { DebtInstallment, Transaction } from "@/interfaces/finance"; // Importando Transaction
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -12,37 +12,56 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Icon } from "@iconify/react";
 import { DebtInstallmentModal } from "../debts/debt-installment-modal";
 import { SimpleDebtForm } from "../forms/simple-debt-form";
 import { SimpleTransactionForm } from "../forms/simple-transaction-form";
 import {
-  differenceInDays,
-  isPast,
   getMonth,
   getYear,
   addMonths,
   subMonths,
   subDays,
+  isPast,
 } from "date-fns";
 
-// Importando os novos componentes
+// Importando os componentes do dashboard
 import { NextDueDebtCard } from "./next-due-debt-card";
 import { MonthlySummaryCard } from "./monthly-summary-card";
 import { UpcomingDebtsList } from "./upcoming-debts-list";
+import { TransactionList } from "./transaction-list";
+import { TransactionDetailsModal } from "./transaction-details-modal"; // Importando o novo modal
+import { SimpleTooltip } from "../common/simple-tooltip";
 
 export function DashboardView() {
   const { toast } = useToast();
-  const { debts, debtInstallments, loadingFinanceData, errorFinanceData } =
-    useFinance();
+  const {
+    debts,
+    debtInstallments,
+    transactions,
+    accounts,
+    loadingFinanceData,
+    errorFinanceData,
+  } = useFinance();
 
+  const [listView, setListView] = useState<"debts" | "transactions">("debts");
   const [displayDate, setDisplayDate] = useState(new Date());
+
+  // Modais de Ação
   const [isNewExpenseDialogOpen, setIsNewExpenseDialogOpen] = useState(false);
   const [isNewTransactionDialogOpen, setIsNewTransactionDialogOpen] =
     useState(false);
+
+  // Modais de Detalhes/Edição
   const [isInstallmentModalOpen, setIsInstallmentModalOpen] = useState(false);
   const [editingInstallment, setEditingInstallment] =
     useState<DebtInstallment | null>(null);
+
+  // *** NOVOS ESTADOS PARA O MODAL DE TRANSAÇÃO ***
+  const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
+  const [selectedTransaction, setSelectedTransaction] =
+    useState<Transaction | null>(null);
 
   useEffect(() => {
     if (errorFinanceData) {
@@ -54,30 +73,39 @@ export function DashboardView() {
     }
   }, [errorFinanceData, toast]);
 
-  const { debtsForMonth, monthlySummary, topOverdueDebts } = useMemo(() => {
+  // Lógica de dados para o dashboard (useMemo)
+  const {
+    debtsForMonth,
+    monthlySummary,
+    topOverdueDebts,
+    transactionsForMonth,
+  } = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const sevenDaysAgo = subDays(today, 7);
     const selectedMonth = getMonth(displayDate);
     const selectedYear = getYear(displayDate);
 
-    // Lógica para o Resumo e a Lista do Mês
-    const installmentsForMonth = debtInstallments.filter((inst) => {
+    const allInstallmentsForMonth = debtInstallments.filter((inst) => {
       const dueDate = new Date(inst.expectedDueDate);
       return (
         getMonth(dueDate) === selectedMonth && getYear(dueDate) === selectedYear
       );
     });
-    installmentsForMonth.sort(
-      (a, b) =>
-        new Date(a.expectedDueDate).getTime() -
-        new Date(b.expectedDueDate).getTime()
-    );
-    const totalPrevisto = installmentsForMonth.reduce(
+
+    const unpaidInstallmentsForMonth = allInstallmentsForMonth
+      .filter((inst) => inst.status !== "paid")
+      .sort(
+        (a, b) =>
+          new Date(a.expectedDueDate).getTime() -
+          new Date(b.expectedDueDate).getTime()
+      );
+
+    const totalPrevisto = allInstallmentsForMonth.reduce(
       (acc, inst) => acc + inst.expectedAmount,
       0
     );
-    const totalPago = installmentsForMonth.reduce(
+    const totalPago = allInstallmentsForMonth.reduce(
       (acc, inst) => acc + (inst.paidAmount || 0),
       0
     );
@@ -88,17 +116,15 @@ export function DashboardView() {
       faltaPagar: faltaPagar > 0 ? faltaPagar : 0,
     };
 
-    // Lógica para as Dívidas Críticas (para o card interativo)
     const unpaid = debtInstallments.filter((inst) => inst.status !== "paid");
-    const overdue = unpaid.filter((inst) =>
-      isPast(new Date(inst.expectedDueDate))
-    );
-    overdue.sort(
-      (a, b) =>
-        new Date(a.expectedDueDate).getTime() -
-        new Date(b.expectedDueDate).getTime()
-    );
-    const topOverdueInstallments = overdue.slice(0, 5);
+    const topOverdueInstallments = unpaid
+      .filter((inst) => isPast(new Date(inst.expectedDueDate)))
+      .sort(
+        (a, b) =>
+          new Date(a.expectedDueDate).getTime() -
+          new Date(b.expectedDueDate).getTime()
+      )
+      .slice(0, 5);
 
     const topOverdueDebtsData = topOverdueInstallments.map((installment) => {
       const debt = debts.find((d) => d.id === installment.debtId);
@@ -109,12 +135,23 @@ export function DashboardView() {
       return { debt, installment, needsUpdate };
     });
 
+    const filteredTransactions = transactions
+      .filter((transaction) => {
+        const transactionDate = new Date(transaction.date);
+        return (
+          getMonth(transactionDate) === selectedMonth &&
+          getYear(transactionDate) === selectedYear
+        );
+      })
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
     return {
-      debtsForMonth: installmentsForMonth,
+      debtsForMonth: unpaidInstallmentsForMonth,
       monthlySummary: summary,
       topOverdueDebts: topOverdueDebtsData,
+      transactionsForMonth: filteredTransactions,
     };
-  }, [debtInstallments, debts, displayDate]);
+  }, [debtInstallments, debts, transactions, displayDate]);
 
   const allUnpaidInstallments = useMemo(() => {
     const unpaid = debtInstallments.filter((inst) => inst.status !== "paid");
@@ -133,26 +170,6 @@ export function DashboardView() {
       ? debts.find((d) => d.id === nextDebtToPayInstallment.debtId)
       : null) ?? null;
 
-  const nextDebtNeedsUpdate = useMemo(() => {
-    if (!nextDebtToPay) return false;
-    const sevenDaysAgo = subDays(new Date(), 7);
-    return (
-      !nextDebtToPay.lastBalanceUpdate ||
-      new Date(nextDebtToPay.lastBalanceUpdate) < sevenDaysAgo
-    );
-  }, [nextDebtToPay]);
-
-  const isNextDebtOverdue = useMemo(() => {
-    if (!nextDebtToPayInstallment) return false;
-    return (
-      isPast(new Date(nextDebtToPayInstallment.expectedDueDate)) &&
-      differenceInDays(
-        new Date(),
-        new Date(nextDebtToPayInstallment.expectedDueDate)
-      ) > 0
-    );
-  }, [nextDebtToPayInstallment]);
-
   const handlePreviousMonth = () =>
     setDisplayDate((current) => subMonths(current, 1));
   const handleNextMonth = () =>
@@ -160,6 +177,12 @@ export function DashboardView() {
   const handleEditInstallment = (installment: DebtInstallment) => {
     setEditingInstallment(installment);
     setIsInstallmentModalOpen(true);
+  };
+
+  // *** NOVA FUNÇÃO PARA ABRIR O MODAL DE TRANSAÇÃO ***
+  const handleViewTransaction = (transaction: Transaction) => {
+    setSelectedTransaction(transaction);
+    setIsTransactionModalOpen(true);
   };
 
   if (loadingFinanceData) {
@@ -176,7 +199,10 @@ export function DashboardView() {
         <NextDueDebtCard
           nextDebt={nextDebtToPay}
           nextInstallment={nextDebtToPayInstallment}
-          isOverdue={isNextDebtOverdue}
+          isOverdue={
+            !!nextDebtToPayInstallment &&
+            isPast(new Date(nextDebtToPayInstallment.expectedDueDate))
+          }
           onEditInstallment={handleEditInstallment}
           topOverdueDebts={topOverdueDebts}
         />
@@ -205,10 +231,44 @@ export function DashboardView() {
             onPreviousMonth={handlePreviousMonth}
             onNextMonth={handleNextMonth}
           />
-          <UpcomingDebtsList installments={debtsForMonth} debts={debts} />
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="text-lg">
+                {listView === "debts"
+                  ? "Próximas Contas"
+                  : "Últimos Lançamentos"}
+              </CardTitle>
+              <SimpleTooltip
+                label={listView === "debts" ? "Ver Lançamentos" : "Ver Contas"}
+              >
+                <Icon
+                  icon="mdi:swap-horizontal"
+                  className="h-8 w-8 text-yellow-300 cursor-pointer"
+                  onClick={() =>
+                    setListView((prev) =>
+                      prev === "debts" ? "transactions" : "debts"
+                    )
+                  }
+                />
+              </SimpleTooltip>
+            </CardHeader>
+            <CardContent>
+              {listView === "debts" ? (
+                <UpcomingDebtsList installments={debtsForMonth} debts={debts} />
+              ) : (
+                <TransactionList
+                  transactions={transactionsForMonth}
+                  accounts={accounts}
+                  onViewTransaction={handleViewTransaction}
+                />
+              )}
+            </CardContent>
+          </Card>
         </div>
       </div>
 
+      {/* Modais de Ação */}
       <Dialog
         open={isNewExpenseDialogOpen}
         onOpenChange={setIsNewExpenseDialogOpen}
@@ -220,7 +280,6 @@ export function DashboardView() {
           <SimpleDebtForm onFinished={() => setIsNewExpenseDialogOpen(false)} />
         </DialogContent>
       </Dialog>
-
       <Dialog
         open={isNewTransactionDialogOpen}
         onOpenChange={setIsNewTransactionDialogOpen}
@@ -235,10 +294,16 @@ export function DashboardView() {
         </DialogContent>
       </Dialog>
 
+      {/* Modais de Detalhes */}
       <DebtInstallmentModal
         isOpen={isInstallmentModalOpen}
         onOpenChange={setIsInstallmentModalOpen}
         editingInstallment={editingInstallment}
+      />
+      <TransactionDetailsModal
+        isOpen={isTransactionModalOpen}
+        onOpenChange={setIsTransactionModalOpen}
+        transaction={selectedTransaction}
       />
     </>
   );

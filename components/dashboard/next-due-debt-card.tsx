@@ -8,7 +8,7 @@ import { Icon } from "@iconify/react";
 import { SimpleTooltip } from "../common/simple-tooltip";
 import { Debt, DebtInstallment } from "@/interfaces/finance";
 import { cn } from "@/lib/utils";
-import { format } from "date-fns";
+import { differenceInDays, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useRouter } from "next/navigation";
 import { UpdateInstallmentValueModal } from "../debts/update-installment-value-modal";
@@ -61,6 +61,39 @@ export function NextDueDebtCard({
 
   const needsAttention = topOverdueDebts.some((item) => item.needsUpdate);
 
+  // Variáveis auxiliares para a lógica da view 'single'
+  const hasUpdatedAmount =
+    nextInstallment &&
+    nextInstallment.currentDueAmount &&
+    nextInstallment.currentDueAmount > 0 &&
+    nextInstallment.currentDueAmount !== nextInstallment.expectedAmount;
+
+  const displayAmount = hasUpdatedAmount
+    ? nextInstallment.currentDueAmount
+    : nextInstallment?.expectedAmount;
+
+  const showInstallmentInfo =
+    nextDebt?.totalInstallments && nextDebt.totalInstallments > 1;
+
+  const daysOverdue = nextInstallment
+    ? differenceInDays(new Date(), new Date(nextInstallment.expectedDueDate))
+    : 0;
+
+  const dueDateText = () => {
+    if (!nextInstallment) return "";
+    const formattedDate = format(
+      new Date(nextInstallment.expectedDueDate),
+      "dd/MM/yyyy",
+      { locale: ptBR }
+    );
+    if (isOverdue && daysOverdue > 0) {
+      return `Venceu há ${daysOverdue} ${
+        daysOverdue > 1 ? "dias" : "dia"
+      } em: ${formattedDate}`;
+    }
+    return `${isOverdue ? "Venceu em" : "Vence em"}: ${formattedDate}`;
+  };
+
   return (
     <>
       <Card
@@ -78,7 +111,6 @@ export function NextDueDebtCard({
                 ? "Parcela vencida mais antiga"
                 : "Top 5 Vencidas a mais tempo"}
             </CardTitle>
-            {/* O ícone de transição agora só aparece se houverem dívidas na lista */}
             {topOverdueDebts.length > 0 && (
               <SimpleTooltip
                 label={
@@ -100,31 +132,40 @@ export function NextDueDebtCard({
         </CardHeader>
         <CardContent>
           {view === "single" ? (
-            // VIEW DE ALERTA ÚNICO
+            // VIEW DE ALERTA ÚNICO - AJUSTES APLICADOS AQUI
             nextInstallment && nextDebt ? (
               <div>
-                <div className="flex flex-col md:flex-row justify-between md:items-end">
+                <div className="flex items-baseline">
                   <p className="text-2xl font-bold">{nextDebt.description}</p>
-                  {nextDebt.type !== "simple" && (
-                    <p className="text-xl">
-                      {`Parcela ${nextInstallment.installmentNumber || ""}`}
-                    </p>
+                  {showInstallmentInfo && (
+                    <span className="text-xl font-medium opacity-90 ml-2">
+                      - {nextInstallment.installmentNumber} /{" "}
+                      {nextDebt.totalInstallments}
+                    </span>
                   )}
                 </div>
-                <p className="text-3xl font-bold">
-                  R${" "}
-                  {nextInstallment.expectedAmount?.toLocaleString("pt-BR", {
-                    minimumFractionDigits: 2,
+
+                {hasUpdatedAmount && (
+                  <p className="text-sm opacity-80 mt-2">
+                    Valor Original:{" "}
+                    <span className="line-through">
+                      {nextInstallment.expectedAmount?.toLocaleString("pt-BR", {
+                        style: "currency",
+                        currency: "BRL",
+                      })}
+                    </span>
+                  </p>
+                )}
+
+                <p className="text-3xl font-bold mt-1">
+                  {displayAmount?.toLocaleString("pt-BR", {
+                    style: "currency",
+                    currency: "BRL",
                   })}
                 </p>
-                <p className="text-sm opacity-90">
-                  Vence em:{" "}
-                  {format(
-                    new Date(nextInstallment.expectedDueDate),
-                    "dd/MM/yyyy",
-                    { locale: ptBR }
-                  )}
-                </p>
+
+                <p className="text-sm opacity-90">{dueDateText()}</p>
+
                 <div className="flex justify-end gap-2 mt-4">
                   <Button
                     size="sm"
@@ -164,8 +205,8 @@ export function NextDueDebtCard({
                       className="h-10 w-10 text-yellow-300 mr-2"
                     />
                     <p className="text-center">
-                      O valor atual desta parcela não é atualizado há mais de 7
-                      dias. Considere atualizar o valor.
+                      O valor atual de uma ou mais parcelas não é atualizado há
+                      mais de 7 dias.
                     </p>
                   </span>
                 )}
@@ -181,6 +222,9 @@ export function NextDueDebtCard({
                   <TableRow className="border-b-white/20 hover:bg-white/10">
                     <TableHead className="text-white">Vencimento</TableHead>
                     <TableHead className="text-white">Descrição</TableHead>
+                    <TableHead className="text-white text-center">
+                      Parcela
+                    </TableHead>
                     <TableHead className="text-white text-right">
                       Previsto
                     </TableHead>
@@ -190,7 +234,8 @@ export function NextDueDebtCard({
                     <TableHead className="text-white text-right">
                       Juros
                     </TableHead>
-                    <TableHead className="text-white text-right">
+                    {/* *** AJUSTE 1: Alinhamento do Header *** */}
+                    <TableHead className="text-white text-center">
                       Ação
                     </TableHead>
                   </TableRow>
@@ -203,7 +248,6 @@ export function NextDueDebtCard({
                           key={item.installment.id}
                           className="border-b-white/20 hover:bg-white/10"
                         >
-                          {/* Vencimento */}
                           <TableCell className="font-mono text-sm">
                             {format(
                               new Date(item.installment.expectedDueDate),
@@ -211,7 +255,6 @@ export function NextDueDebtCard({
                             )}
                           </TableCell>
 
-                          {/* Descrição */}
                           <TableCell>
                             <div className="flex items-center gap-2">
                               {item.needsUpdate && (
@@ -226,7 +269,10 @@ export function NextDueDebtCard({
                             </div>
                           </TableCell>
 
-                          {/* Previsto (Valor Original) */}
+                          <TableCell className="text-center font-mono text-sm">
+                            {item.installment.installmentNumber}
+                          </TableCell>
+
                           <TableCell className="text-right font-mono text-sm opacity-80">
                             {item.installment.expectedAmount.toLocaleString(
                               "pt-BR",
@@ -234,7 +280,6 @@ export function NextDueDebtCard({
                             )}
                           </TableCell>
 
-                          {/* Atual (Valor com Juros) */}
                           <TableCell className="text-right font-mono font-semibold">
                             {(
                               item.installment.currentDueAmount ||
@@ -244,7 +289,6 @@ export function NextDueDebtCard({
                             })}
                           </TableCell>
 
-                          {/* Juros */}
                           <TableCell className="text-right font-mono text-red-400">
                             {(
                               (item.installment.currentDueAmount ||
@@ -255,13 +299,23 @@ export function NextDueDebtCard({
                             })}
                           </TableCell>
 
-                          {/* Ação */}
-                          <TableCell className="text-right">
-                            <Icon
-                              icon="mdi:cash-check"
-                              className="w-6 h-6"
-                              onClick={() => openUpdateModal(item)}
-                            />
+                          <TableCell className="text-center">
+                            <SimpleTooltip label="Atualizar valor da parcela">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="p-2 h-auto text-white hover:bg-white/20 hover:text-white"
+                                onClick={() => openUpdateModal(item)}
+                              >
+                                <Icon
+                                  icon="mdi:cash-check"
+                                  className="w-6 h-6"
+                                />
+                                <span className="hidden md:inline ml-2">
+                                  Atualizar
+                                </span>
+                              </Button>
+                            </SimpleTooltip>
                           </TableCell>
                         </TableRow>
                       )
