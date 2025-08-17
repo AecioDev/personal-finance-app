@@ -1,10 +1,9 @@
 // src/components/finances/simple-transaction-form.tsx
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
 import { useFinance } from "@/components/providers/finance-provider";
 import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
@@ -25,47 +24,48 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { format } from "date-fns";
-
-// Schema de validação para o formulário
-const SimpleTransactionSchema = z.object({
-  description: z.string().min(3, "A descrição é obrigatória."),
-  amount: z.coerce.number().positive("O valor deve ser maior que zero."),
-  date: z.string().min(1, "A data é obrigatória."),
-  type: z.enum(["income", "expense"]),
-  accountId: z.string().min(1, "Selecione uma conta."),
-});
-
-type SimpleTransactionFormData = z.infer<typeof SimpleTransactionSchema>;
+import { CurrencyInput } from "../ui/currency-input";
+import { DatePicker } from "../ui/date-picker";
+import {
+  SimpleTransactionFormData,
+  SimpleTransactionSchema,
+} from "@/schemas/simple-transaction-schema";
+import { Icon } from "@iconify/react";
 
 interface SimpleTransactionFormProps {
   onFinished?: () => void;
 }
 
+const defaultFormValues: Partial<SimpleTransactionFormData> = {
+  description: "",
+  amount: undefined,
+  type: undefined,
+  categoryId: undefined,
+  date: undefined,
+  accountId: "",
+};
+
 export function SimpleTransactionForm({
   onFinished,
 }: SimpleTransactionFormProps) {
   const { toast } = useToast();
-  const { accounts, addGenericTransaction, loadingFinanceData } = useFinance();
+  const { accounts, categories, addGenericTransaction, loadingFinanceData } =
+    useFinance();
+  const [isCategoryManagerOpen, setIsCategoryManagerOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSubmittingAndNew, setIsSubmittingAndNew] = useState(false);
 
   const form = useForm<SimpleTransactionFormData>({
     resolver: zodResolver(SimpleTransactionSchema),
-    defaultValues: {
-      description: "",
-      amount: 0,
-      date: format(new Date(), "yyyy-MM-dd"),
-      type: "expense",
-      accountId: accounts.length > 0 ? accounts[0].id : "",
-    },
+    defaultValues: defaultFormValues,
   });
 
   const onSubmit = async (data: SimpleTransactionFormData) => {
     try {
       await addGenericTransaction({
         ...data,
-        date: new Date(data.date + "T00:00:00"), // Corrige o fuso horário
-        // Campos não utilizados neste form simplificado
-        category: "Geral",
+        date: data.date,
+        categoryId: data.categoryId,
         paymentMethodId: null,
         debtInstallmentId: null,
         isLoanIncome: false,
@@ -141,6 +141,47 @@ export function SimpleTransactionForm({
           )}
         />
 
+        <FormField
+          control={form.control}
+          name="categoryId"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Categoria</FormLabel>
+              <div className="flex items-center gap-2">
+                <Select
+                  onValueChange={field.onChange}
+                  value={field.value || ""}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione a categoria" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {categories.map((cat) => (
+                      <SelectItem key={cat.id} value={cat.id}>
+                        <div className="flex items-center gap-2">
+                          <Icon icon={cat.icon} />
+                          <span>{cat.name}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setIsCategoryManagerOpen(true)}
+                >
+                  <Icon icon="mdi:plus" />
+                </Button>
+              </div>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
         <div className="grid grid-cols-2 gap-4">
           <FormField
             control={form.control}
@@ -149,7 +190,7 @@ export function SimpleTransactionForm({
               <FormItem>
                 <FormLabel>Valor</FormLabel>
                 <FormControl>
-                  <Input type="number" step="0.01" {...field} />
+                  <CurrencyInput {...field} value={field.value || 0} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -162,7 +203,7 @@ export function SimpleTransactionForm({
               <FormItem>
                 <FormLabel>Data</FormLabel>
                 <FormControl>
-                  <Input type="date" {...field} />
+                  <DatePicker value={field.value} onChange={field.onChange} />
                 </FormControl>
                 <FormMessage />
               </FormItem>

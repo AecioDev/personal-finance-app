@@ -41,6 +41,7 @@ export function DashboardView() {
     debtInstallments,
     transactions,
     accounts,
+    categories,
     loadingFinanceData,
     errorFinanceData,
   } = useFinance();
@@ -260,6 +261,7 @@ export function DashboardView() {
                 <TransactionList
                   transactions={transactionsForMonth}
                   accounts={accounts}
+                  categories={categories}
                   onViewTransaction={handleViewTransaction}
                 />
               )}

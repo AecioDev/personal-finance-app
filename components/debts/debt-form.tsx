@@ -2,37 +2,28 @@
 
 import React, { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Controller, useForm } from "react-hook-form";
+import { useForm, FormProvider } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ButtonBack } from "@/components/ui/button-back";
 import { useToast } from "@/components/ui/use-toast";
 import { useFinance } from "@/components/providers/finance-provider";
-import { Icon } from "@iconify/react";
-import { DebtTypeModal } from "@/components/debt-types/debt-type-modal";
 import { DebtFormData, debtSchema } from "@/schemas/debt-schema";
-import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
-import { cn } from "@/lib/utils";
 import { Debt } from "@/interfaces/finance";
 import { DatePicker } from "../ui/date-picker";
+import { CurrencyInput } from "../ui/currency-input"; // Importando nosso novo componente
 
 interface DebtFormProps {
   debtId?: string;
@@ -40,41 +31,29 @@ interface DebtFormProps {
 
 export function DebtForm({ debtId }: DebtFormProps) {
   const router = useRouter();
-  const { debts, debtTypes, addDebt, updateDebt, loadingFinanceData } =
-    useFinance();
+  const { debts, addDebt, updateDebt, loadingFinanceData } = useFinance();
   const { toast } = useToast();
-  const [isDebtTypeModalOpen, setIsDebtTypeModalOpen] = React.useState(false);
 
-  const {
-    register,
-    handleSubmit,
-    reset,
-    watch,
-    setValue,
-    control,
-    formState: { errors, isSubmitting },
-  } = useForm<DebtFormData>({
+  const formMethods = useForm<DebtFormData>({
     resolver: zodResolver(debtSchema),
     defaultValues: {
       description: "",
       originalAmount: 0,
-      totalRepaymentAmount: null,
-      type: "credit_card_bill",
+      totalRepaymentAmount: 0,
       isRecurring: false,
-      totalInstallments: null,
-      expectedInstallmentAmount: null,
-      interestRate: null,
-      fineRate: null,
+      totalInstallments: 1,
+      expectedInstallmentAmount: 0,
       startDate: new Date(),
       endDate: null,
     },
   });
 
-  useEffect(() => {
-    if (Object.keys(errors).length > 0) {
-      console.log("Erros de Validação do Zod:", errors);
-    }
-  }, [errors]);
+  const {
+    watch,
+    setValue,
+    reset,
+    formState: { isSubmitting },
+  } = formMethods;
 
   const isRecurring = watch("isRecurring");
   const totalInstallments = watch("totalInstallments");
@@ -82,10 +61,12 @@ export function DebtForm({ debtId }: DebtFormProps) {
 
   useEffect(() => {
     if (!isRecurring && totalInstallments && expectedInstallmentAmount) {
-      const total = totalInstallments * expectedInstallmentAmount;
-      setValue("totalRepaymentAmount", total);
+      setValue(
+        "totalRepaymentAmount",
+        totalInstallments * expectedInstallmentAmount
+      );
     } else {
-      setValue("totalRepaymentAmount", null);
+      setValue("totalRepaymentAmount", 0);
     }
   }, [totalInstallments, expectedInstallmentAmount, isRecurring, setValue]);
 
@@ -93,12 +74,11 @@ export function DebtForm({ debtId }: DebtFormProps) {
     if (debtId) {
       const existingDebt = debts.find((d) => d.id === debtId);
       if (existingDebt) {
-        const debtWithDateObjects = {
+        reset({
           ...existingDebt,
           startDate: new Date(existingDebt.startDate),
           endDate: existingDebt.endDate ? new Date(existingDebt.endDate) : null,
-        };
-        reset(debtWithDateObjects as DebtFormData);
+        } as DebtFormData);
       }
     }
   }, [debtId, debts, reset]);
@@ -107,22 +87,16 @@ export function DebtForm({ debtId }: DebtFormProps) {
     try {
       if (debtId) {
         const existingDebt = debts.find((d) => d.id === debtId);
-        if (!existingDebt) {
-          toast({
-            title: "Erro",
-            description: "Dívida original não encontrada.",
-            variant: "destructive",
-          });
-          return;
-        }
+        if (!existingDebt) throw new Error("Dívida não encontrada.");
+
         const totalPaid = existingDebt.totalPaidOnThisDebt || 0;
         const newOutstandingBalance =
           (data.totalRepaymentAmount || data.originalAmount) - totalPaid;
-        const dataToUpdate = {
+
+        await updateDebt(debtId, {
           ...data,
           currentOutstandingBalance: newOutstandingBalance,
-        };
-        await updateDebt(debtId, dataToUpdate as Partial<Debt>);
+        } as Partial<Debt>);
         toast({
           title: "Sucesso",
           description: "Dívida atualizada!",
@@ -147,152 +121,188 @@ export function DebtForm({ debtId }: DebtFormProps) {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between mb-6">
-        <ButtonBack onClick={() => router.back()} />
-        <h1 className="text-2xl font-bold text-center mx-4">
-          {debtId ? "Editar Dívida" : "Nova Dívida"}
-        </h1>
-        <div className="w-10 h-10"></div>
-      </div>
+    <FormProvider {...formMethods}>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between mb-6">
+          <ButtonBack onClick={() => router.back()} />
+          <h1 className="text-2xl font-bold text-center mx-4">
+            {debtId ? "Editar Dívida" : "Nova Dívida"}
+          </h1>
+          <div className="w-10 h-10"></div>
+        </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Detalhes da Dívida</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit(onSubmit)} className="grid gap-6">
-            <div className="space-y-2">
-              <Label htmlFor="description">Descrição</Label>
-              <Input id="description" {...register("description")} />
-              {errors.description && (
-                <p className="text-red-500 text-sm">
-                  {errors.description.message}
-                </p>
-              )}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="originalAmount">
-                Valor Original (o que entrou na conta)
-              </Label>
-              <Input
-                id="originalAmount"
-                type="number"
-                step="0.01"
-                {...register("originalAmount", { valueAsNumber: true })}
-              />
-              {errors.originalAmount && (
-                <p className="text-red-500 text-sm">
-                  {errors.originalAmount.message}
-                </p>
-              )}
-            </div>
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="isRecurring"
-                checked={isRecurring}
-                onCheckedChange={(checked) =>
-                  setValue("isRecurring", checked as boolean)
-                }
-              />
-              <Label htmlFor="isRecurring">Dívida Recorrente</Label>
-            </div>
-            {!isRecurring && (
-              <>
-                <div className="space-y-2">
-                  <Label htmlFor="totalInstallments">Total de Parcelas</Label>
-                  <Input
-                    id="totalInstallments"
-                    type="number"
-                    {...register("totalInstallments", { valueAsNumber: true })}
-                  />
-                  {errors.totalInstallments && (
-                    <p className="text-red-500 text-sm">
-                      {errors.totalInstallments.message}
-                    </p>
+        <Card>
+          <CardHeader>
+            <CardTitle>Detalhes da Dívida</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Form {...formMethods}>
+              <form
+                onSubmit={formMethods.handleSubmit(onSubmit)}
+                className="space-y-6"
+              >
+                <FormField
+                  control={formMethods.control}
+                  name="description"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Descrição</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="Ex: Financiamento do Carro"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
                   )}
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="expectedInstallmentAmount">
-                    Valor da Parcela
-                  </Label>
-                  <Input
-                    id="expectedInstallmentAmount"
-                    type="number"
-                    step="0.01"
-                    {...register("expectedInstallmentAmount", {
-                      valueAsNumber: true,
-                    })}
-                  />
-                  {errors.expectedInstallmentAmount && (
-                    <p className="text-red-500 text-sm">
-                      {errors.expectedInstallmentAmount.message}
-                    </p>
+                />
+
+                <FormField
+                  control={formMethods.control}
+                  name="originalAmount"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Valor Original</FormLabel>
+                      <FormControl>
+                        <CurrencyInput {...field} value={field.value || 0} />
+                      </FormControl>
+                      <FormDescription>
+                        O valor que entrou na sua conta ou o valor total do bem.
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
                   )}
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="totalRepaymentAmount">
-                    Valor Total a Pagar (calculado)
-                  </Label>
-                  <Input
-                    id="totalRepaymentAmount"
-                    type="number"
-                    step="0.01"
-                    {...register("totalRepaymentAmount", {
-                      valueAsNumber: true,
-                    })}
-                    readOnly
-                    className="bg-muted/50"
-                  />
-                  {errors.totalRepaymentAmount && (
-                    <p className="text-red-500 text-sm">
-                      {errors.totalRepaymentAmount.message}
-                    </p>
+                />
+
+                <FormField
+                  control={formMethods.control}
+                  name="isRecurring"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center space-x-3 space-y-0">
+                      <FormControl>
+                        <Checkbox
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                        />
+                      </FormControl>
+                      <FormLabel>Dívida Recorrente</FormLabel>
+                    </FormItem>
                   )}
-                </div>
-              </>
-            )}
-            {/* GÊ: CAMPOS DE DATA RESTAURADOS */}
-            <div className="space-y-2">
-              <Label htmlFor="startDate">Data de Início</Label>
-              <Controller
-                control={control}
-                name="startDate"
-                render={({ field }) => (
-                  <DatePicker
-                    value={field.value || undefined}
-                    onChange={field.onChange}
-                  />
+                />
+
+                {!isRecurring && (
+                  <div className="space-y-6 p-4 border rounded-md">
+                    <div className="grid md:grid-cols-2 gap-6">
+                      <FormField
+                        control={formMethods.control}
+                        name="totalInstallments"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Total de Parcelas</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="number"
+                                {...field}
+                                value={field.value || ""}
+                                onChange={(e) =>
+                                  field.onChange(
+                                    parseInt(e.target.value, 10) || 0
+                                  )
+                                }
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={formMethods.control}
+                        name="expectedInstallmentAmount"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Valor da Parcela</FormLabel>
+                            {/* CORREÇÃO APLICADA AQUI: Adicionado `|| 0` */}
+                            <FormControl>
+                              <CurrencyInput
+                                {...field}
+                                value={field.value || 0}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                    <FormField
+                      control={formMethods.control}
+                      name="totalRepaymentAmount"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Valor Total a Pagar (calculado)</FormLabel>
+                          {/* CORREÇÃO APLICADA AQUI: Adicionado `|| 0` */}
+                          <FormControl>
+                            <CurrencyInput
+                              {...field}
+                              value={field.value || 0}
+                              readOnly
+                              className="bg-muted/50"
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
                 )}
-              />
-              {errors.startDate && (
-                <p className="text-red-500 text-sm">
-                  {errors.startDate.message}
-                </p>
-              )}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="endDate">Data de Término (Opcional)</Label>
-              <Controller
-                control={control}
-                name="endDate"
-                render={({ field }) => (
-                  <DatePicker
-                    value={field.value || undefined}
-                    onChange={field.onChange}
+
+                <div className="grid md:grid-cols-2 gap-6">
+                  <FormField
+                    control={formMethods.control}
+                    name="startDate"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Data de Início / 1º Vencimento</FormLabel>
+                        <FormControl>
+                          <DatePicker
+                            value={field.value || undefined}
+                            onChange={field.onChange}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
-                )}
-              />
-              {errors.endDate && (
-                <p className="text-red-500 text-sm">{errors.endDate.message}</p>
-              )}
-            </div>
-            <Button type="submit" disabled={isSubmitting || loadingFinanceData}>
-              {isSubmitting ? "Salvando..." : "Salvar Dívida"}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
-    </div>
+                  <FormField
+                    control={formMethods.control}
+                    name="endDate"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Data de Término (Opcional)</FormLabel>
+                        <FormControl>
+                          <DatePicker
+                            value={field.value || undefined}
+                            onChange={field.onChange}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <Button
+                  type="submit"
+                  className="w-full"
+                  disabled={isSubmitting || loadingFinanceData}
+                >
+                  {isSubmitting ? "Salvando..." : "Salvar Dívida"}
+                </Button>
+              </form>
+            </Form>
+          </CardContent>
+        </Card>
+      </div>
+    </FormProvider>
   );
 }

@@ -110,7 +110,7 @@ export const useTransactionsCrud = ({
           date: paymentData.date,
           type: "expense",
           accountId: paymentData.accountId,
-          category: "Pagamento de Dívida",
+          categoryId: currentDebt.categoryId,
           paymentMethodId: paymentData.paymentMethodId,
           debtInstallmentId: installmentId,
           interestPaid: paymentData.interestPaid || null,

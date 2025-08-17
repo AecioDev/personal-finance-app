@@ -10,7 +10,6 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -22,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Icon } from "@iconify/react";
 import { DatePicker } from "@/components/ui/date-picker";
+import { CurrencyInput } from "@/components/ui/currency-input"; // <-- Importando nosso novo componente
 import { Account, DebtInstallment, PaymentMethod } from "@/interfaces/finance";
 import { PartialPaymentFormData } from "@/schemas/partial-payment-schema";
 
@@ -57,11 +57,10 @@ export function InstallmentPaymentForm({
             <FormItem>
               <FormLabel>Valor Pago</FormLabel>
               <FormControl>
-                <Input
-                  type="number"
-                  step="0.01"
+                <CurrencyInput
+                  value={field.value}
+                  onChange={field.onChange}
                   placeholder="R$ 0,00"
-                  {...field}
                 />
               </FormControl>
               <FormMessage />
@@ -93,12 +92,10 @@ export function InstallmentPaymentForm({
               <FormItem>
                 <FormLabel>Juros / Multa</FormLabel>
                 <FormControl>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    placeholder="0,00"
-                    {...field}
-                    value={field.value ?? ""}
+                  <CurrencyInput
+                    value={field.value || 0}
+                    onChange={field.onChange}
+                    placeholder="R$ 0,00"
                     readOnly={amountPaid > (installment.expectedAmount ?? 0)}
                   />
                 </FormControl>
@@ -113,12 +110,10 @@ export function InstallmentPaymentForm({
               <FormItem>
                 <FormLabel>Desconto</FormLabel>
                 <FormControl>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    placeholder="0,00"
-                    {...field}
-                    value={field.value ?? ""}
+                  <CurrencyInput
+                    value={field.value || 0}
+                    onChange={field.onChange}
+                    placeholder="R$ 0,00"
                   />
                 </FormControl>
                 <FormMessage />

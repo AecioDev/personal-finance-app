@@ -31,6 +31,7 @@ import {
 import { CategoryManagerDialog } from "@/components/categories/category-manager-dialog";
 import { Checkbox } from "../ui/checkbox";
 import { DatePicker } from "../ui/date-picker";
+import { CurrencyInput } from "../ui/currency-input";
 
 interface SimpleDebtFormProps {
   onFinished?: () => void;
@@ -174,13 +175,7 @@ export function SimpleDebtForm({ onFinished }: SimpleDebtFormProps) {
                 <FormItem>
                   <FormLabel>Valor</FormLabel>
                   <FormControl>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      placeholder="R$ 150,00"
-                      {...field}
-                      value={field.value ?? ""}
-                    />
+                    <CurrencyInput {...field} value={field.value || 0} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

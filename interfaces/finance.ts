@@ -175,7 +175,7 @@ export interface Transaction {
   description: string;
   amount: number; // Valor total que saiu da conta
   date: Date;
-  category: string;
+  categoryId?: string;
   uid: string;
   createdAt?: Date;
   debtInstallmentId: string | null;

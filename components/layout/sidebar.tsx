@@ -25,16 +25,16 @@ export function Sidebar({ onLinkClick }: SidebarProps) {
 
   const navItems = [
     { name: "Início", href: "/", icon: "mdi:home" },
-    { name: "Lançar", href: "/new-transaction", icon: "mdi:plus-circle" },
-    { name: "Contas", href: "/accounts", icon: "mdi:bank" },
     { name: "Dívidas", href: "/debts", icon: "mdi:credit-card-off" },
-    { name: "Relatórios", href: "/reports", icon: "mdi:chart-bar" },
+    { name: "Contas Bancárias", href: "/accounts", icon: "mdi:bank" },
     {
       name: "Formas de Pagamento",
       href: "/payment-methods",
       icon: "mdi:credit-card-multiple",
     },
+    { name: "Relatórios", href: "/reports", icon: "mdi:chart-bar" },
     { name: "Perfil", href: "/profile", icon: "mdi:account-circle" },
+    //{ name: "Lançar", href: "/new-transaction", icon: "mdi:plus-circle" },
   ];
 
   return (

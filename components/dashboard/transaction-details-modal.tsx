@@ -58,7 +58,7 @@ export function TransactionDetailsModal({
   const paymentMethod = paymentMethods.find(
     (pm) => pm.id === transaction.paymentMethodId
   );
-  const category = categories.find((c) => c.id === transaction.category); // Supondo que o categoryId está no campo 'category'
+  const category = categories.find((c) => c.id === transaction.categoryId); // Supondo que o categoryId está no campo 'category'
   const installment = debtInstallments.find(
     (i) => i.id === transaction.debtInstallmentId
   );
