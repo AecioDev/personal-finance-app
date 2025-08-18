@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useFinance } from "@/components/providers/finance-provider";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -9,15 +10,20 @@ import { Icon } from "@iconify/react";
 import { ButtonNew } from "@/components/ui/button-new";
 import { ButtonBack } from "@/components/ui/button-back";
 import { useToast } from "@/components/ui/use-toast";
-import Link from "next/link";
 import { getDDMMYYYY } from "@/lib/dates";
 import { ConfirmationDialog } from "@/components/common/confirmation-dialog";
-import { Debt } from "@/interfaces/finance";
+import { Debt, Category } from "@/interfaces/finance";
+import { Badge } from "@/components/ui/badge";
 
 export function DebtsView() {
   const router = useRouter();
-  const { debts, deleteDebt, loadingFinanceData, errorFinanceData } =
-    useFinance();
+  const {
+    debts,
+    categories,
+    deleteDebt,
+    loadingFinanceData,
+    errorFinanceData,
+  } = useFinance();
   const { toast } = useToast();
 
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -44,28 +50,36 @@ export function DebtsView() {
 
   const handleDeleteConfirm = async () => {
     if (!debtToDelete) return;
-
     const success = await deleteDebt(debtToDelete.id);
     if (success) {
       toast({
         title: "Sucesso",
         description: "Dívida e suas parcelas foram excluídas.",
-        variant: "success",
       });
     }
     setIsDeleteDialogOpen(false);
     setDebtToDelete(null);
   };
 
-  const getDebtIcon = (type: string) => {
-    switch (type) {
-      case "credit_card_bill":
-        return "mdi:credit-card";
-      case "loan":
-        return "mdi:cash-multiple";
-      default:
-        return "mdi:tag-outline";
+  const getCategoryIcon = (categoryId?: string) => {
+    if (!categoryId) return "mdi:tag-outline";
+    const category = categories.find((cat) => cat.id === categoryId);
+    return category?.icon || "mdi:help-circle-outline";
+  };
+
+  const getDebtStatus = (
+    debt: Debt
+  ): {
+    text: string;
+    variant: "default" | "secondary" | "destructive" | "warning";
+  } => {
+    if (!debt.isActive) {
+      return { text: "Finalizada", variant: "secondary" };
     }
+    if ((debt.totalPaidOnThisDebt || 0) > 0) {
+      return { text: "Em Andamento", variant: "default" };
+    }
+    return { text: "Em Aberto", variant: "warning" };
   };
 
   if (loadingFinanceData) {
@@ -108,92 +122,107 @@ export function DebtsView() {
           </Card>
         ) : (
           <div className="grid gap-4">
-            {debts.map((debt) => (
-              <Link key={debt.id} href={`/debts/${debt.id}`} className="block">
-                <Card
-                  className={
-                    debt.isActive
-                      ? "hover:bg-muted/50 transition-colors cursor-pointer"
-                      : "opacity-70"
-                  }
+            {debts.map((debt) => {
+              const isSimpleOrRecurring =
+                debt.type === "simple" || debt.isRecurring;
+              const canEditOrDelete = (debt.totalPaidOnThisDebt || 0) === 0;
+              const status = getDebtStatus(debt);
+
+              return (
+                <Link
+                  key={debt.id}
+                  href={`/debts/${debt.id}`}
+                  className="block"
                 >
-                  <CardContent className="flex items-center justify-between p-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
+                  <Card
+                    className={
+                      debt.isActive
+                        ? "hover:bg-muted/50 transition-colors cursor-pointer"
+                        : "opacity-70"
+                    }
+                  >
+                    {/* AJUSTE: Layout de 3 colunas com Flexbox */}
+                    <CardContent className="flex items-center gap-3 p-4">
+                      {/* Coluna 1: Ícone (largura fixa) */}
+                      <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center flex-shrink-0">
                         <Icon
-                          icon={getDebtIcon(debt.type)}
+                          icon={getCategoryIcon(debt.categoryId)}
                           className="w-5 h-5 text-primary"
                         />
                       </div>
-                      <div>
-                        <h3 className="text-lg font-semibold">
+
+                      {/* Coluna 2: Informações (flexível) */}
+                      <div className="min-w-0 flex-grow">
+                        <h3 className="text-lg font-semibold truncate">
                           {debt.description}
                         </h3>
-                        {debt.isRecurring ? (
-                          <p className="text-sm text-muted-foreground">
-                            Recorrente: R${" "}
-                            {debt.originalAmount?.toLocaleString("pt-BR", {
-                              minimumFractionDigits: 2,
-                            })}
-                            /mês
-                          </p>
+
+                        {isSimpleOrRecurring ? (
+                          <div className="text-sm text-muted-foreground leading-tight">
+                            <p>
+                              {(
+                                debt.expectedInstallmentAmount ||
+                                debt.originalAmount
+                              )?.toLocaleString("pt-BR", {
+                                style: "currency",
+                                currency: "BRL",
+                              })}
+                            </p>
+                            <p>Vencimento: {getDDMMYYYY(debt.startDate)}</p>
+                          </div>
                         ) : (
                           <>
                             <p className="text-sm text-muted-foreground">
-                              Saldo: R${" "}
+                              Saldo:{" "}
                               {debt.currentOutstandingBalance?.toLocaleString(
                                 "pt-BR",
-                                { minimumFractionDigits: 2 }
+                                { style: "currency", currency: "BRL" }
                               )}
                             </p>
-                            {debt.totalInstallments && (
-                              <p className="text-sm text-muted-foreground">
-                                Parcelas: {debt.paidInstallments ?? 0}/
-                                {debt.totalInstallments}
-                              </p>
-                            )}
-                            {debt.expectedInstallmentAmount && (
-                              <p className="text-sm text-muted-foreground">
-                                Valor Parcela: R${" "}
-                                {debt.expectedInstallmentAmount.toLocaleString(
-                                  "pt-BR",
-                                  { minimumFractionDigits: 2 }
-                                )}
-                              </p>
-                            )}
+                            <p className="text-sm text-muted-foreground">
+                              Parcelas: {debt.paidInstallments ?? 0}/
+                              {debt.totalInstallments}
+                            </p>
                           </>
                         )}
-                        <p className="text-xs text-muted-foreground">
-                          Início: {getDDMMYYYY(debt.startDate)}
-                        </p>
+
+                        <div className="mt-2">
+                          <Badge variant={status.variant}>{status.text}</Badge>
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          handleEditDebt(debt.id);
-                        }}
-                      >
-                        <Icon icon="mdi:pencil" className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        variant="destructive"
-                        size="icon"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          openDeleteDialog(debt);
-                        }}
-                      >
-                        <Icon icon="mdi:delete" className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              </Link>
-            ))}
+
+                      {/* Coluna 3: Botões (largura fixa para alinhamento) */}
+                      <div className="flex flex-shrink-0 gap-2 w-[88px] justify-end">
+                        {canEditOrDelete && (
+                          <>
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                handleEditDebt(debt.id);
+                              }}
+                            >
+                              <Icon icon="mdi:pencil" className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="destructive"
+                              size="icon"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                openDeleteDialog(debt);
+                              }}
+                            >
+                              <Icon icon="mdi:delete" className="w-4 h-4" />
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </Link>
+              );
+            })}
           </div>
         )}
       </div>

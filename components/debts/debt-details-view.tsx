@@ -19,10 +19,31 @@ import { DebtInstallmentModal } from "./debt-installment-modal";
 import { ConfirmationDialog } from "@/components/common/confirmation-dialog";
 import { getDDMMYYYY } from "@/lib/dates";
 import { cn } from "@/lib/utils";
+import { Progress } from "@/components/ui/progress";
 
 interface DebtDetailsViewProps {
   debtId: string;
 }
+
+const StatCard = ({
+  icon,
+  label,
+  value,
+  valueClassName,
+}: {
+  icon: string;
+  label: string;
+  value: string;
+  valueClassName?: string;
+}) => (
+  <div className="flex items-center gap-3 rounded-lg p-3 bg-muted/50">
+    <Icon icon={icon} className="w-6 h-6 text-muted-foreground flex-shrink-0" />
+    <div>
+      <p className="text-sm text-muted-foreground">{label}</p>
+      <p className={cn("font-bold text-lg", valueClassName)}>{value}</p>
+    </div>
+  </div>
+);
 
 export function DebtDetailsView({ debtId }: DebtDetailsViewProps) {
   const router = useRouter();
@@ -30,8 +51,6 @@ export function DebtDetailsView({ debtId }: DebtDetailsViewProps) {
     debts,
     debtInstallments,
     transactions,
-    accounts,
-    paymentMethods,
     deleteDebtInstallment,
     loadingFinanceData,
     errorFinanceData,
@@ -72,32 +91,21 @@ export function DebtDetailsView({ debtId }: DebtDetailsViewProps) {
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [transactions, filteredInstallments, currentDebt]);
 
-  const debtTotals = useMemo(() => {
-    if (!currentDebt)
-      return { totalPaid: 0, totalInterest: 0, totalDiscount: 0 };
+  const debtProgress = useMemo(() => {
+    if (!currentDebt || !currentDebt.totalRepaymentAmount) return 0;
+    const totalPaid = currentDebt.totalPaidOnThisDebt || 0;
+    return (totalPaid / currentDebt.totalRepaymentAmount) * 100;
+  }, [currentDebt]);
 
-    const totalPaid = relatedTransactions.reduce(
-      (acc, trans) => acc + (trans.amount || 0),
-      0
+  // CORREÇÃO APLICADA AQUI
+  const nextDueDate = useMemo(() => {
+    const nextInstallment = filteredInstallments.find(
+      (i) => i.status === "pending"
     );
-    const totalInterest = relatedTransactions.reduce(
-      (acc, trans) => acc + (trans.interestPaid || 0),
-      0
-    );
-    const totalDiscount = relatedTransactions.reduce(
-      (acc, trans) => acc + (trans.discountReceived || 0),
-      0
-    );
-
-    return { totalPaid, totalInterest, totalDiscount };
-  }, [currentDebt, relatedTransactions]);
-
-  const summaryCardVariant = useMemo(() => {
-    if (debtTotals.totalInterest > debtTotals.totalDiscount)
-      return "destructive";
-    if (debtTotals.totalDiscount > debtTotals.totalInterest) return "success";
-    return "default";
-  }, [debtTotals]);
+    return nextInstallment
+      ? getDDMMYYYY(nextInstallment.expectedDueDate)
+      : "N/A";
+  }, [filteredInstallments]);
 
   useEffect(() => {
     if (errorFinanceData) {
@@ -119,11 +127,14 @@ export function DebtDetailsView({ debtId }: DebtDetailsViewProps) {
   const getInstallmentBadgeInfo = (status: DebtInstallmentStatus) => {
     switch (status) {
       case "paid":
-        return { variant: "success", text: "Paga" } as const;
+        return { className: "bg-green-600 text-white", text: "Paga" } as const;
       case "overdue":
         return { variant: "destructive", text: "Atrasada" } as const;
       case "partial":
-        return { variant: "warning", text: "Parcial" } as const;
+        return {
+          className: "bg-yellow-500 text-white",
+          text: "Parcial",
+        } as const;
       default:
         return { variant: "secondary", text: "Pendente" } as const;
     }
@@ -146,7 +157,6 @@ export function DebtDetailsView({ debtId }: DebtDetailsViewProps) {
       toast({
         title: "Sucesso",
         description: "Parcela excluída.",
-        variant: "success",
       });
     }
     setInstallmentToDelete(null);
@@ -155,12 +165,6 @@ export function DebtDetailsView({ debtId }: DebtDetailsViewProps) {
 
   const handleGoToPayment = (installmentId: string) => {
     router.push(`/debts/${debtId}/installments/${installmentId}`);
-  };
-
-  const handleDataChange = () => {
-    console.log(
-      "Callback recebido! O modal terminou uma operação. A UI deve atualizar em breve."
-    );
   };
 
   if (loadingFinanceData && !currentDebt) {
@@ -188,127 +192,47 @@ export function DebtDetailsView({ debtId }: DebtDetailsViewProps) {
           <CardHeader>
             <CardTitle>Resumo da Dívida</CardTitle>
           </CardHeader>
-          <CardContent>
-            <Card
-              className={cn(
-                "bg-background border border-border shadow-sm p-4 transition-colors",
-                summaryCardVariant === "destructive" &&
-                  "bg-red-500/10 border-red-500/30",
-                summaryCardVariant === "success" &&
-                  "bg-green-500/10 border-green-500/30"
-              )}
-            >
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
-                {/* Coluna da Esquerda: Dados Detalhados */}
-                <div className="space-y-2 text-sm">
-                  <p>
-                    <strong>Tipo:</strong> {currentDebt.type}
-                  </p>
-                  <p>
-                    <strong>Status:</strong>{" "}
-                    <Badge
-                      variant={currentDebt.isActive ? "secondary" : "success"}
-                    >
-                      {currentDebt.isActive ? "Ativa" : "Quitada"}
-                    </Badge>
-                  </p>
-                  <p>
-                    <strong>Valor Original:</strong> R${" "}
-                    {currentDebt.originalAmount?.toLocaleString("pt-BR", {
-                      minimumFractionDigits: 2,
-                    })}
-                  </p>
-                  {currentDebt.totalRepaymentAmount && (
-                    <p>
-                      <strong>Valor a Pagar:</strong> R${" "}
-                      {currentDebt.totalRepaymentAmount.toLocaleString(
-                        "pt-BR",
-                        { minimumFractionDigits: 2 }
-                      )}
-                    </p>
-                  )}
-                  <p>
-                    <strong>Total Pago:</strong> R${" "}
-                    {debtTotals.totalPaid.toLocaleString("pt-BR", {
-                      minimumFractionDigits: 2,
-                    })}
-                  </p>
-
-                  {currentDebt.isActive && (
-                    <p className="font-semibold text-base">
-                      <strong>Saldo Devedor:</strong> R${" "}
-                      {currentDebt.currentOutstandingBalance?.toLocaleString(
-                        "pt-BR",
-                        { minimumFractionDigits: 2 }
-                      )}
-                    </p>
-                  )}
-
-                  {debtTotals.totalInterest > 0 && (
-                    <p className="text-red-600 dark:text-red-400">
-                      <strong>Juros Pagos:</strong> R${" "}
-                      {debtTotals.totalInterest.toFixed(2)}
-                    </p>
-                  )}
-                  {debtTotals.totalDiscount > 0 && (
-                    <p className="text-green-600 dark:text-green-400">
-                      <strong>Descontos Recebidos:</strong> R${" "}
-                      {debtTotals.totalDiscount.toFixed(2)}
-                    </p>
-                  )}
-                </div>
-
-                {/* Coluna da Direita: Robozinho Amigo */}
-                <div className="text-center">
-                  {summaryCardVariant === "destructive" && (
-                    <div className="flex flex-col items-center gap-2">
-                      <Icon
-                        icon="mdi:robot-dead-outline"
-                        className="w-10 h-10 text-red-500"
-                      />
-                      <p className="text-sm text-red-700 dark:text-red-300 font-medium">
-                        Parece q vc está enfrentando problemas pra pagar essa
-                        dívida e os juros estão te deixando mais pobre!
-                      </p>
-                      <div className="mt-2">
-                        <p className="text-sm font-bold uppercase tracking-widest text-red-800 dark:text-red-300">
-                          Infelizmente vc já pagou:
-                        </p>
-                        <p className="text-4xl font-black text-red-600 dark:text-red-500">
-                          R$ {debtTotals.totalInterest.toFixed(2)}
-                        </p>
-                        <p className="text-sm font-bold uppercase tracking-widest text-red-800 dark:text-red-300">
-                          DE JUROS!!!
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                  {summaryCardVariant === "success" && (
-                    <div className="flex flex-col items-center gap-2">
-                      <Icon
-                        icon="mdi:robot-happy-outline"
-                        className="w-10 h-10 text-green-500"
-                      />
-                      <p className="text-sm text-green-700 dark:text-green-300 font-medium">
-                        Muito bom! Você está de parabéns. Cada desconto que você
-                        consegue é um passo a mais na construção da sua riqueza!
-                      </p>
-                      <div className="mt-2">
-                        <p className="text-sm font-bold uppercase tracking-widest text-green-800 dark:text-green-300">
-                          ÓTIMO CONTINUE ASSIM!
-                        </p>
-                        <p className="text-4xl font-black text-green-600 dark:text-green-500">
-                          R$ {debtTotals.totalDiscount.toFixed(2)}
-                        </p>
-                        <p className="text-sm font-bold uppercase tracking-widest text-green-800 dark:text-green-300">
-                          DE DESCONTO!!!
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                </div>
+          <CardContent className="space-y-4">
+            <div>
+              <div className="flex justify-between items-center mb-1 text-sm text-muted-foreground">
+                <span>Progresso</span>
+                <span>{debtProgress.toFixed(0)}%</span>
               </div>
-            </Card>
+              <Progress value={debtProgress} />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <StatCard
+                icon="mdi:cash-minus"
+                label="Saldo Devedor"
+                value={
+                  currentDebt.currentOutstandingBalance?.toLocaleString(
+                    "pt-BR",
+                    {
+                      style: "currency",
+                      currency: "BRL",
+                    }
+                  ) ?? "R$ 0,00"
+                }
+                valueClassName="text-red-600 dark:text-red-400"
+              />
+              <StatCard
+                icon="mdi:cash-check"
+                label="Total Pago"
+                value={
+                  currentDebt.totalPaidOnThisDebt?.toLocaleString("pt-BR", {
+                    style: "currency",
+                    currency: "BRL",
+                  }) ?? "R$ 0,00"
+                }
+                valueClassName="text-green-600 dark:text-green-400"
+              />
+              <StatCard
+                icon="mdi:calendar-arrow-right"
+                label="Próximo Vencimento"
+                value={nextDueDate}
+              />
+            </div>
           </CardContent>
         </Card>
 
@@ -332,132 +256,74 @@ export function DebtDetailsView({ debtId }: DebtDetailsViewProps) {
           </CardHeader>
           <CardContent>
             {viewMode === "installments" ? (
-              <>
-                {filteredInstallments.length === 0 ? (
-                  <p className="text-center text-muted-foreground">
-                    Nenhuma parcela encontrada.
-                  </p>
-                ) : (
-                  <div className="grid gap-4">
-                    {filteredInstallments.map((installment) => {
-                      const badgeInfo = getInstallmentBadgeInfo(
-                        installment.status
-                      );
-                      return (
-                        <Card
-                          key={installment.id}
-                          className="bg-background border border-border shadow-sm"
+              <div className="space-y-2">
+                {filteredInstallments.map((installment) => {
+                  const badgeInfo = getInstallmentBadgeInfo(installment.status);
+                  return (
+                    <div
+                      key={installment.id}
+                      className="flex items-center justify-between p-3 rounded-lg border bg-muted/20"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="font-semibold truncate">
+                            Parcela {installment.installmentNumber}
+                          </p>
+                          <Badge {...badgeInfo}>{badgeInfo.text}</Badge>
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          Venc: {getDDMMYYYY(installment.expectedDueDate)}
+                        </p>
+                        <p className="text-sm font-medium">
+                          {installment.expectedAmount.toLocaleString("pt-BR", {
+                            style: "currency",
+                            currency: "BRL",
+                          })}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+                        {installment.status !== "paid" && (
+                          <Button
+                            size="sm"
+                            onClick={() => handleGoToPayment(installment.id)}
+                          >
+                            Pagar
+                          </Button>
+                        )}
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          onClick={() => handleEditInstallment(installment)}
                         >
-                          <CardContent className="p-4">
-                            <div className="flex justify-between items-center mb-2">
-                              <p className="font-semibold">
-                                Parcela {installment.installmentNumber || ""}
-                              </p>
-                              <Badge variant={badgeInfo.variant}>
-                                {badgeInfo.text}
-                              </Badge>
-                            </div>
-                            <p className="text-sm text-muted-foreground">
-                              Vencimento:{" "}
-                              {getDDMMYYYY(installment.expectedDueDate)}
-                            </p>
-                            <p className="text-sm">
-                              Previsto: R${" "}
-                              {installment.expectedAmount.toFixed(2)}
-                            </p>
-                            {installment.status === "partial" && (
-                              <p className="text-sm text-yellow-600 dark:text-yellow-400">
-                                Falta: R${" "}
-                                {installment.remainingAmount.toFixed(2)}
-                              </p>
-                            )}
-                            {installment.paidAmount > 0 && (
-                              <p className="text-sm text-green-600 dark:text-green-400">
-                                Pago: R$ {installment.paidAmount.toFixed(2)}
-                              </p>
-                            )}
-                            <div className="flex justify-end gap-2 mt-4">
-                              {installment.status !== "paid" && (
-                                <Button
-                                  variant="default"
-                                  size="sm"
-                                  onClick={() =>
-                                    handleGoToPayment(installment.id)
-                                  }
-                                >
-                                  <Icon
-                                    icon="mdi:cash-check"
-                                    className="w-4 h-4 mr-2"
-                                  />
-                                  Pagar
-                                </Button>
-                              )}
-                              <Button
-                                variant="outline"
-                                size="icon"
-                                onClick={() =>
-                                  handleEditInstallment(installment)
-                                }
-                              >
-                                <Icon icon="mdi:pencil" className="w-4 h-4" />
-                              </Button>
-
-                              <Button
-                                variant="destructive"
-                                size="icon"
-                                onClick={() => openDeleteDialog(installment.id)}
-                                disabled={installment.status === "paid"}
-                              >
-                                <Icon icon="mdi:delete" className="w-4 h-4" />
-                              </Button>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      );
-                    })}
-                  </div>
-                )}
-              </>
+                          <Icon icon="mdi:pencil" className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             ) : (
-              <>
-                {relatedTransactions.length === 0 ? (
-                  <p className="text-center text-muted-foreground">
-                    Nenhuma transação encontrada para esta dívida.
-                  </p>
-                ) : (
-                  <div className="space-y-2">
-                    {relatedTransactions.map((transaction) => {
-                      const account = accounts.find(
-                        (a) => a.id === transaction.accountId
-                      );
-                      const paymentMethod = paymentMethods.find(
-                        (pm) => pm.id === transaction.paymentMethodId
-                      );
-                      return (
-                        <Card
-                          key={transaction.id}
-                          className="bg-background border border-border shadow-sm"
-                        >
-                          <CardContent className="p-3 flex justify-between items-center">
-                            <div>
-                              <p className="font-semibold">
-                                {transaction.description}
-                              </p>
-                              <p className="text-sm text-muted-foreground">
-                                {getDDMMYYYY(transaction.date)} via{" "}
-                                {paymentMethod?.name} ({account?.name})
-                              </p>
-                            </div>
-                            <p className="font-bold text-base text-red-500">
-                              - R$ {transaction.amount.toFixed(2)}
-                            </p>
-                          </CardContent>
-                        </Card>
-                      );
-                    })}
+              <div className="space-y-2">
+                {relatedTransactions.map((transaction) => (
+                  <div
+                    key={transaction.id}
+                    className="flex justify-between items-center p-3 border rounded-lg"
+                  >
+                    <div>
+                      <p className="font-semibold">{transaction.description}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {getDDMMYYYY(transaction.date)}
+                      </p>
+                    </div>
+                    <p className="font-bold text-red-500">
+                      {transaction.amount.toLocaleString("pt-BR", {
+                        style: "currency",
+                        currency: "BRL",
+                      })}
+                    </p>
                   </div>
-                )}
-              </>
+                ))}
+              </div>
             )}
           </CardContent>
         </Card>
@@ -467,7 +333,7 @@ export function DebtDetailsView({ debtId }: DebtDetailsViewProps) {
         isOpen={isInstallmentModalOpen}
         onOpenChange={setIsInstallmentModalOpen}
         editingInstallment={editingInstallment}
-        onDataChange={handleDataChange}
+        onDataChange={() => {}}
       />
 
       <ConfirmationDialog
@@ -477,8 +343,6 @@ export function DebtDetailsView({ debtId }: DebtDetailsViewProps) {
         description="Tem certeza que deseja excluir esta parcela? Esta ação não pode ser desfeita."
         onConfirm={handleDeleteConfirm}
         variant="destructive"
-        confirmText="Excluir"
-        cancelText="Cancelar"
       />
     </>
   );

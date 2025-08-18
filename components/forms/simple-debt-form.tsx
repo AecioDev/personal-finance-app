@@ -32,6 +32,8 @@ import { CategoryManagerDialog } from "@/components/categories/category-manager-
 import { Checkbox } from "../ui/checkbox";
 import { DatePicker } from "../ui/date-picker";
 import { CurrencyInput } from "../ui/currency-input";
+import { AnimatePresence, motion } from "framer-motion";
+import { DebtFormData } from "@/schemas/debt-schema";
 
 interface SimpleDebtFormProps {
   onFinished?: () => void;
@@ -41,77 +43,86 @@ const defaultFormValues: Partial<SimpleDebtFormData> = {
   name: "",
   amount: undefined,
   categoryId: undefined,
-  dueDate: undefined,
+  dueDate: new Date(),
   isRecurring: false,
+  payNow: false,
+  accountId: undefined,
+  paymentMethodId: undefined,
 };
 
 export function SimpleDebtForm({ onFinished }: SimpleDebtFormProps) {
   const { toast } = useToast();
-  const { categories, addDebt, loadingFinanceData } = useFinance();
+  const { categories, accounts, paymentMethods, addDebtAndPay, addDebt } =
+    useFinance();
   const [isCategoryManagerOpen, setIsCategoryManagerOpen] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isSubmittingAndNew, setIsSubmittingAndNew] = useState(false);
+  const [submittingAction, setSubmittingAction] = useState<
+    "save" | "saveAndNew" | null
+  >(null);
 
   const form = useForm<SimpleDebtFormData>({
     resolver: zodResolver(SimpleDebtFormSchema),
     defaultValues: defaultFormValues,
   });
 
-  const handleSave = async (
+  const isRecurring = form.watch("isRecurring");
+  const payNow = form.watch("payNow");
+
+  const processSubmit = async (
     data: SimpleDebtFormData,
-    closeOnFinish: boolean
+    andNew: boolean = false
   ) => {
-    if (closeOnFinish) {
-      setIsSubmitting(true);
-    } else {
-      setIsSubmittingAndNew(true);
-    }
-
-    const debtDataForApi = {
-      description: data.name,
-      type: "simple",
-      originalAmount: data.amount,
-      isRecurring: data.isRecurring || false,
-      totalInstallments: 1,
-      expectedInstallmentAmount: data.amount,
-      interestRate: 0,
-      fineRate: 0,
-      startDate: data.dueDate,
-      endDate: data.dueDate,
-      totalRepaymentAmount: data.amount,
-      paymentDay: null,
-      paidAmount: 0,
-      categoryId: data.categoryId,
-    };
-
+    setSubmittingAction(andNew ? "saveAndNew" : "save");
     try {
-      await addDebt(debtDataForApi);
-      toast({
-        title: "Sucesso!",
-        description: "Sua despesa foi registrada.",
-      });
-
-      if (closeOnFinish && onFinished) {
-        onFinished();
+      if (data.payNow) {
+        await addDebtAndPay(data);
+        toast({
+          title: "Show!",
+          description: "Despesa registrada e paga com sucesso!",
+        });
       } else {
+        const debtDataForApi = {
+          description: data.name,
+          type: "simple",
+          originalAmount: data.amount,
+          isRecurring: data.isRecurring || false,
+          totalInstallments: 1,
+          expectedInstallmentAmount: data.amount,
+          startDate: data.dueDate,
+          totalRepaymentAmount: data.amount,
+          categoryId: data.categoryId,
+          interestRate: null,
+          fineRate: null,
+          endDate: null,
+        };
+        await addDebt(debtDataForApi);
+        toast({
+          title: "Sucesso!",
+          description: "Sua despesa foi registrada.",
+        });
+      }
+
+      if (andNew) {
         form.reset(defaultFormValues);
+      } else {
+        onFinished?.();
       }
     } catch (error) {
+      console.log("Erro: Não foi possível completar a operação." + error);
       toast({
         title: "Erro!",
-        description: "Não foi possível registrar a despesa.",
+        description: "Não foi possível completar a operação.",
         variant: "destructive",
       });
     } finally {
-      setIsSubmitting(false);
-      setIsSubmittingAndNew(false);
+      setSubmittingAction(null);
     }
   };
 
   return (
     <>
       <Form {...form}>
-        <form id="simple-debt-form" className="space-y-6 pt-4">
+        <form id="simple-debt-form" className="space-y-4 pt-4">
+          {/* Campos principais */}
           <FormField
             control={form.control}
             name="name"
@@ -125,7 +136,34 @@ export function SimpleDebtForm({ onFinished }: SimpleDebtFormProps) {
               </FormItem>
             )}
           />
-
+          <div className="grid grid-cols-2 gap-4">
+            <FormField
+              control={form.control}
+              name="amount"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Valor</FormLabel>
+                  <FormControl>
+                    <CurrencyInput {...field} value={field.value || 0} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="dueDate"
+              render={({ field }) => (
+                <FormItem className="flex flex-col pt-2">
+                  <FormLabel>Vencimento</FormLabel>
+                  <FormControl>
+                    <DatePicker value={field.value} onChange={field.onChange} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
           <FormField
             control={form.control}
             name="categoryId"
@@ -167,72 +205,151 @@ export function SimpleDebtForm({ onFinished }: SimpleDebtFormProps) {
             )}
           />
 
+          {/* CHECKBOXES LADO A LADO COM LÓGICA DE EXCLUSÃO */}
           <div className="grid grid-cols-2 gap-4">
             <FormField
               control={form.control}
-              name="amount"
+              name="isRecurring"
               render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Valor</FormLabel>
-                  <FormControl>
-                    <CurrencyInput {...field} value={field.value || 0} />
-                  </FormControl>
-                  <FormMessage />
+                <FormItem className="rounded-md border p-4 shadow-sm">
+                  <div className="flex flex-row items-center space-x-3">
+                    <FormControl>
+                      <Checkbox
+                        checked={field.value}
+                        onCheckedChange={(checked) => {
+                          field.onChange(checked);
+                          if (checked) form.setValue("payNow", false);
+                        }}
+                      />
+                    </FormControl>
+                    <FormLabel>Recorrente?</FormLabel>
+                  </div>
                 </FormItem>
               )}
             />
-
             <FormField
               control={form.control}
-              name="dueDate"
+              name="payNow"
               render={({ field }) => (
-                <FormItem className="flex flex-col pt-2">
-                  <FormLabel>Vencimento</FormLabel>
-                  <FormControl>
-                    <DatePicker value={field.value} onChange={field.onChange} />
-                  </FormControl>
-                  <FormMessage />
+                <FormItem className="rounded-md border p-4 shadow-sm">
+                  <div className="flex flex-row items-center space-x-3">
+                    <FormControl>
+                      <Checkbox
+                        checked={field.value}
+                        onCheckedChange={(checked) => {
+                          field.onChange(checked);
+                          if (checked) form.setValue("isRecurring", false);
+                        }}
+                      />
+                    </FormControl>
+                    <FormLabel>Foi Pago?</FormLabel>
+                  </div>
                 </FormItem>
               )}
             />
           </div>
 
-          <FormField
-            control={form.control}
-            name="isRecurring"
-            render={({ field }) => (
-              <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4 shadow-sm">
-                <FormControl>
-                  <Checkbox
-                    checked={field.value}
-                    onCheckedChange={field.onChange}
-                  />
-                </FormControl>
-                <div className="space-y-1 leading-none">
-                  <FormLabel>Despesa Recorrente?</FormLabel>
-                  <FormDescription>
-                    Marque para criar parcelas mensais até o final do ano.
-                  </FormDescription>
-                </div>
-              </FormItem>
+          {/* DESCRIÇÕES CONDICIONAIS */}
+          <div className="text-xs text-muted-foreground space-y-1 pl-1 min-h-[32px]">
+            {isRecurring && (
+              <p>
+                <strong>Recorrente:</strong> Gera parcelas mensais a partir do
+                mês atual até Dezembro.
+              </p>
             )}
-          />
+            {payNow && (
+              <p>
+                <strong>Foi Pago:</strong> Marca a despesa como Paga e realiza a
+                baixa no saldo da conta.
+              </p>
+            )}
+          </div>
+
+          {/* CAMPOS DE PAGAMENTO CONDICIONAIS */}
+          <AnimatePresence>
+            {payNow && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                className="overflow-hidden"
+              >
+                <div className="grid grid-cols-2 gap-4 pt-2">
+                  <FormField
+                    control={form.control}
+                    name="accountId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Conta Bancária</FormLabel>
+                        <Select
+                          onValueChange={field.onChange}
+                          value={field.value || ""}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecione" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {accounts.map((acc) => (
+                              <SelectItem key={acc.id} value={acc.id}>
+                                {acc.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="paymentMethodId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Forma de Pagamento</FormLabel>
+                        <Select
+                          onValueChange={field.onChange}
+                          value={field.value || ""}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecione" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {paymentMethods.map((pm) => (
+                              <SelectItem key={pm.id} value={pm.id}>
+                                {pm.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </form>
       </Form>
 
-      <div className="flex justify-end gap-4 pt-6">
+      {/* BOTÕES COM NOMES ORIGINAIS */}
+      <div className="flex justify-end gap-2 pt-6">
         <Button
           variant="outline"
-          onClick={form.handleSubmit((data) => handleSave(data, false))}
-          disabled={isSubmitting || isSubmittingAndNew}
+          onClick={form.handleSubmit((data) => processSubmit(data, true))}
+          disabled={!!submittingAction}
         >
-          {isSubmittingAndNew ? "Salvando..." : "Cadastrar +"}
+          {submittingAction === "saveAndNew" ? "Salvando..." : "Cadastrar +"}
         </Button>
         <Button
-          onClick={form.handleSubmit((data) => handleSave(data, true))}
-          disabled={isSubmitting || isSubmittingAndNew}
+          onClick={form.handleSubmit((data) => processSubmit(data, false))}
+          disabled={!!submittingAction}
         >
-          {isSubmitting ? "Salvando..." : "Cadastrar"}
+          {submittingAction === "save" ? "Salvando..." : "Cadastrar"}
         </Button>
       </div>
 

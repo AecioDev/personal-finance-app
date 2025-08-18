@@ -106,18 +106,18 @@ export function SimpleTransactionForm({
                 >
                   <FormItem className="flex items-center space-x-3 space-y-0">
                     <FormControl>
-                      <RadioGroupItem value="expense" />
-                    </FormControl>
-                    <FormLabel className="font-normal text-red-500">
-                      Despesa
-                    </FormLabel>
-                  </FormItem>
-                  <FormItem className="flex items-center space-x-3 space-y-0">
-                    <FormControl>
                       <RadioGroupItem value="income" />
                     </FormControl>
                     <FormLabel className="font-normal text-green-500">
                       Receita
+                    </FormLabel>
+                  </FormItem>
+                  <FormItem className="flex items-center space-x-3 space-y-0">
+                    <FormControl>
+                      <RadioGroupItem value="expense" />
+                    </FormControl>
+                    <FormLabel className="font-normal text-red-500">
+                      Despesa
                     </FormLabel>
                   </FormItem>
                 </RadioGroup>

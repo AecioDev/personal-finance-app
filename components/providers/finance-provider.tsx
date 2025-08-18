@@ -30,9 +30,8 @@ import { useDebtInstallmentsCrud } from "@/hooks/use-debt-installments-crud";
 import { usePaymentMethodsCrud } from "@/hooks/use-payment-methods-crud";
 import { useDebtTypesCrud } from "@/hooks/use-debt-types-crud";
 import { useCategoriesCrud } from "@/hooks/use-categories-crud";
-
-// schemas
 import { DebtFormData } from "@/schemas/debt-schema";
+import { SimpleDebtFormData } from "@/schemas/simple-debt-schema";
 
 interface FinanceContextType {
   accounts: Account[];
@@ -71,6 +70,7 @@ interface FinanceContextType {
   addDebt: (debtData: DebtFormData) => Promise<void>;
   updateDebt: (debtId: string, data: Partial<Debt>) => Promise<void>;
   deleteDebt: (debtId: string) => Promise<boolean>;
+  addDebtAndPay: (data: SimpleDebtFormData) => Promise<void>;
 
   addDebtInstallment: (
     installment: Omit<
@@ -214,7 +214,6 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({
     }
   };
 
-  // Account
   const { addAccount, updateAccount, deleteAccount } = useAccountsCrud({
     db: dbRef.current,
     user,
@@ -222,7 +221,6 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({
     setErrorFinanceData,
   });
 
-  // Category
   const { addCategory, updateCategory, deleteCategory } = useCategoriesCrud({
     db: dbRef.current,
     user,
@@ -230,15 +228,13 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({
     setErrorFinanceData,
   });
 
-  // Debt (Dividas)
-  const { addDebt, updateDebt, deleteDebt } = useDebtsCrud({
+  const { addDebt, updateDebt, deleteDebt, addDebtAndPay } = useDebtsCrud({
     db: dbRef.current,
     user,
     projectId,
     setErrorFinanceData,
   });
 
-  // DebtInstallment (Parcela)
   const {
     addDebtInstallment,
     updateDebtInstallment,
@@ -251,7 +247,6 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({
     setErrorFinanceData,
   });
 
-  // PaymentMethod (Forma de Pagamento)
   const { addPaymentMethod, updatePaymentMethod, deletePaymentMethod } =
     usePaymentMethodsCrud({
       db: dbRef.current,
@@ -259,7 +254,7 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({
       projectId,
       setErrorFinanceData,
     });
-  // DebtType (Tipo de Dívida)
+
   const { addDebtType, updateDebtType, deleteDebtType } = useDebtTypesCrud({
     db: dbRef.current,
     user,
@@ -304,6 +299,7 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({
         addDebt,
         updateDebt,
         deleteDebt,
+        addDebtAndPay,
         addDebtInstallment,
         updateDebtInstallment,
         updateInstallmentValue,

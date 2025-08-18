@@ -23,7 +23,7 @@ import { useFinance } from "@/components/providers/finance-provider";
 import { DebtFormData, debtSchema } from "@/schemas/debt-schema";
 import { Debt } from "@/interfaces/finance";
 import { DatePicker } from "../ui/date-picker";
-import { CurrencyInput } from "../ui/currency-input"; // Importando nosso novo componente
+import { CurrencyInput } from "../ui/currency-input";
 
 interface DebtFormProps {
   debtId?: string;
@@ -100,14 +100,16 @@ export function DebtForm({ debtId }: DebtFormProps) {
         toast({
           title: "Sucesso",
           description: "Dívida atualizada!",
-          variant: "success",
         });
       } else {
-        await addDebt(data);
+        const debtDataForApi = {
+          ...data,
+          type: "complete",
+        };
+        await addDebt(debtDataForApi);
         toast({
           title: "Sucesso",
           description: "Dívida cadastrada!",
-          variant: "success",
         });
       }
       router.push("/debts");
@@ -222,7 +224,6 @@ export function DebtForm({ debtId }: DebtFormProps) {
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel>Valor da Parcela</FormLabel>
-                            {/* CORREÇÃO APLICADA AQUI: Adicionado `|| 0` */}
                             <FormControl>
                               <CurrencyInput
                                 {...field}
@@ -240,7 +241,6 @@ export function DebtForm({ debtId }: DebtFormProps) {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Valor Total a Pagar (calculado)</FormLabel>
-                          {/* CORREÇÃO APLICADA AQUI: Adicionado `|| 0` */}
                           <FormControl>
                             <CurrencyInput
                               {...field}
