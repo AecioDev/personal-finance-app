@@ -24,7 +24,6 @@ export function UpcomingDebtsList({
     router.push(`/debts/${debtId}/installments/${installmentId}`);
   };
 
-  // Mensagem para quando não há contas a pagar no mês
   if (installments.length === 0) {
     return (
       <div className="text-center py-8 text-muted-foreground">
@@ -32,38 +31,42 @@ export function UpcomingDebtsList({
           icon="mdi:check-circle-outline"
           className="w-12 h-12 mx-auto mb-2 text-green-500"
         />
-        <p>Nenhuma conta pendente para este mês!</p>
+        <p>Nenhuma conta encontrada para este filtro!</p>
       </div>
     );
   }
 
-  // O Card e o Header foram movidos para o dashboard-view
   return (
     <div className="grid gap-2 max-h-[25rem] overflow-y-auto">
       {installments.map((installment) => {
         const debt = debts.find((d) => d.id === installment.debtId);
-
-        const today = new Date();
         const dueDate = new Date(installment.expectedDueDate);
-        today.setHours(0, 0, 0, 0);
-        dueDate.setHours(0, 0, 0, 0);
 
-        const daysDiff = differenceInDays(today, dueDate);
-        const isOverdue = isPast(dueDate) && daysDiff > 0;
+        const isPaid = installment.status === "paid";
+        let statusClass = "";
+        let textClass = "";
 
-        let statusClass = "bg-green-500/10 border-green-500/20";
-        let textClass = "text-green-800 dark:text-green-300";
-        let amountClass = "text-green-700";
+        if (isPaid) {
+          statusClass = "bg-green-500/10 border-green-500/20 opacity-80";
+          textClass = "text-green-800 dark:text-green-300";
+        } else {
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          dueDate.setHours(0, 0, 0, 0);
+          const daysDiff = differenceInDays(today, dueDate);
+          const isOverdue = isPast(dueDate) && daysDiff > 0;
 
-        if (isOverdue) {
-          if (daysDiff > 15) {
-            statusClass = "bg-red-500/10 border-red-500/20";
-            textClass = "text-red-800 dark:text-red-300";
-            amountClass = "text-red-600";
+          if (isOverdue) {
+            if (daysDiff > 15) {
+              statusClass = "bg-red-500/10 border-red-500/20";
+              textClass = "text-red-800 dark:text-red-300";
+            } else {
+              statusClass = "bg-amber-500/10 border-amber-500/20";
+              textClass = "text-amber-800 dark:text-amber-300";
+            }
           } else {
-            statusClass = "bg-amber-500/10 border-amber-500/20";
-            textClass = "text-amber-800 dark:text-amber-300";
-            amountClass = "text-amber-700";
+            statusClass = "bg-sky-500/10 border-sky-500/20";
+            textClass = "text-sky-800 dark:text-sky-300";
           }
         }
 
@@ -84,18 +87,28 @@ export function UpcomingDebtsList({
               </p>
             </div>
             <div className="flex items-center gap-2">
-              <p className={cn("font-bold", amountClass)}>
-                R${" "}
+              {/* CORREÇÃO: Cor do valor agora usa a mesma classe da descrição */}
+              <p className={cn("font-bold", textClass)}>
                 {installment.expectedAmount?.toLocaleString("pt-BR", {
-                  minimumFractionDigits: 2,
+                  style: "currency",
+                  currency: "BRL",
                 })}
               </p>
-              <Button
-                size="sm"
-                onClick={() => handleGoToPayment(debt.id, installment.id)}
-              >
-                Pagar
-              </Button>
+              {isPaid ? (
+                <div className="flex items-center justify-center w-[76px]">
+                  <Icon
+                    icon="mdi:check-circle"
+                    className="w-6 h-6 text-green-500"
+                  />
+                </div>
+              ) : (
+                <Button
+                  size="sm"
+                  onClick={() => handleGoToPayment(debt.id, installment.id)}
+                >
+                  Pagar
+                </Button>
+              )}
             </div>
           </div>
         ) : null;

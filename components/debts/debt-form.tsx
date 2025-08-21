@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, FormProvider } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -24,6 +24,15 @@ import { DebtFormData, debtSchema } from "@/schemas/debt-schema";
 import { Debt } from "@/interfaces/finance";
 import { DatePicker } from "../ui/date-picker";
 import { CurrencyInput } from "../ui/currency-input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../ui/select";
+import { Icon } from "@iconify/react";
+import { CategoryManagerDialog } from "../categories/category-manager-dialog";
 
 interface DebtFormProps {
   debtId?: string;
@@ -31,8 +40,10 @@ interface DebtFormProps {
 
 export function DebtForm({ debtId }: DebtFormProps) {
   const router = useRouter();
-  const { debts, addDebt, updateDebt, loadingFinanceData } = useFinance();
+  const { debts, categories, addDebt, updateDebt, loadingFinanceData } =
+    useFinance();
   const { toast } = useToast();
+  const [isCategoryManagerOpen, setIsCategoryManagerOpen] = useState(false);
 
   const formMethods = useForm<DebtFormData>({
     resolver: zodResolver(debtSchema),
@@ -45,6 +56,7 @@ export function DebtForm({ debtId }: DebtFormProps) {
       expectedInstallmentAmount: 0,
       startDate: new Date(),
       endDate: null,
+      categoryId: "",
     },
   });
 
@@ -123,111 +135,176 @@ export function DebtForm({ debtId }: DebtFormProps) {
   };
 
   return (
-    <FormProvider {...formMethods}>
-      <div className="space-y-6">
-        <div className="flex items-center justify-between mb-6">
-          <ButtonBack onClick={() => router.back()} />
-          <h1 className="text-2xl font-bold text-center mx-4">
-            {debtId ? "Editar Dívida" : "Nova Dívida"}
-          </h1>
-          <div className="w-10 h-10"></div>
-        </div>
+    <>
+      <FormProvider {...formMethods}>
+        <div className="space-y-6">
+          <div className="flex items-center justify-between mb-6">
+            <ButtonBack onClick={() => router.back()} />
+            <h1 className="text-2xl font-bold text-center mx-4">
+              {debtId ? "Editar Dívida" : "Nova Dívida"}
+            </h1>
+            <div className="w-10 h-10"></div>
+          </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Detalhes da Dívida</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Form {...formMethods}>
-              <form
-                onSubmit={formMethods.handleSubmit(onSubmit)}
-                className="space-y-6"
-              >
-                <FormField
-                  control={formMethods.control}
-                  name="description"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Descrição</FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder="Ex: Financiamento do Carro"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+          <Card>
+            <CardHeader>
+              <CardTitle>Detalhes da Dívida</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Form {...formMethods}>
+                <form
+                  onSubmit={formMethods.handleSubmit(onSubmit)}
+                  className="space-y-6"
+                >
+                  <FormField
+                    control={formMethods.control}
+                    name="description"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Descrição</FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="Ex: Financiamento do Carro"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-                <FormField
-                  control={formMethods.control}
-                  name="originalAmount"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Valor Original</FormLabel>
-                      <FormControl>
-                        <CurrencyInput {...field} value={field.value || 0} />
-                      </FormControl>
-                      <FormDescription>
-                        O valor que entrou na sua conta ou o valor total do bem.
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={formMethods.control}
-                  name="isRecurring"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-row items-center space-x-3 space-y-0">
-                      <FormControl>
-                        <Checkbox
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                        />
-                      </FormControl>
-                      <FormLabel>Dívida Recorrente</FormLabel>
-                    </FormItem>
-                  )}
-                />
-
-                {!isRecurring && (
-                  <div className="space-y-6 p-4 border rounded-md">
-                    <div className="grid md:grid-cols-2 gap-6">
-                      <FormField
-                        control={formMethods.control}
-                        name="totalInstallments"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Total de Parcelas</FormLabel>
+                  {/* CAMPO DE CATEGORIA ADICIONADO */}
+                  <FormField
+                    control={formMethods.control}
+                    name="categoryId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Categoria</FormLabel>
+                        <div className="flex items-center gap-2">
+                          <Select
+                            onValueChange={field.onChange}
+                            value={field.value || ""}
+                          >
                             <FormControl>
-                              <Input
-                                type="number"
-                                {...field}
-                                value={field.value || ""}
-                                onChange={(e) =>
-                                  field.onChange(
-                                    parseInt(e.target.value, 10) || 0
-                                  )
-                                }
-                              />
+                              <SelectTrigger>
+                                <SelectValue placeholder="Selecione a categoria" />
+                              </SelectTrigger>
                             </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+                            <SelectContent>
+                              {categories.map((cat) => (
+                                <SelectItem key={cat.id} value={cat.id}>
+                                  <div className="flex items-center gap-2">
+                                    <Icon icon={cat.icon} />
+                                    <span>{cat.name}</span>
+                                  </div>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            onClick={() => setIsCategoryManagerOpen(true)}
+                          >
+                            <Icon icon="mdi:plus" />
+                          </Button>
+                        </div>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={formMethods.control}
+                    name="originalAmount"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Valor Original</FormLabel>
+                        <FormControl>
+                          <CurrencyInput {...field} value={field.value || 0} />
+                        </FormControl>
+                        <FormDescription>
+                          O valor que entrou na sua conta ou o valor total do
+                          bem.
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={formMethods.control}
+                    name="isRecurring"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-center space-x-3 space-y-0">
+                        <FormControl>
+                          <Checkbox
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                        <FormLabel>Dívida Recorrente</FormLabel>
+                      </FormItem>
+                    )}
+                  />
+
+                  {!isRecurring && (
+                    <div className="space-y-6 p-4 border rounded-md">
+                      <div className="grid md:grid-cols-2 gap-6">
+                        <FormField
+                          control={formMethods.control}
+                          name="totalInstallments"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Total de Parcelas</FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  {...field}
+                                  value={field.value || ""}
+                                  onChange={(e) =>
+                                    field.onChange(
+                                      parseInt(e.target.value, 10) || 0
+                                    )
+                                  }
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={formMethods.control}
+                          name="expectedInstallmentAmount"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Valor da Parcela</FormLabel>
+                              <FormControl>
+                                <CurrencyInput
+                                  {...field}
+                                  value={field.value || 0}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
                       <FormField
                         control={formMethods.control}
-                        name="expectedInstallmentAmount"
+                        name="totalRepaymentAmount"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Valor da Parcela</FormLabel>
+                            <FormLabel>
+                              Valor Total a Pagar (calculado)
+                            </FormLabel>
                             <FormControl>
                               <CurrencyInput
                                 {...field}
                                 value={field.value || 0}
+                                readOnly
+                                className="bg-muted/50"
                               />
                             </FormControl>
                             <FormMessage />
@@ -235,18 +312,35 @@ export function DebtForm({ debtId }: DebtFormProps) {
                         )}
                       />
                     </div>
+                  )}
+
+                  <div className="grid md:grid-cols-2 gap-6">
                     <FormField
                       control={formMethods.control}
-                      name="totalRepaymentAmount"
+                      name="startDate"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Valor Total a Pagar (calculado)</FormLabel>
+                          <FormLabel>Data de Início / 1º Vencimento</FormLabel>
                           <FormControl>
-                            <CurrencyInput
-                              {...field}
-                              value={field.value || 0}
-                              readOnly
-                              className="bg-muted/50"
+                            <DatePicker
+                              value={field.value || undefined}
+                              onChange={field.onChange}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={formMethods.control}
+                      name="endDate"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Data de Término (Opcional)</FormLabel>
+                          <FormControl>
+                            <DatePicker
+                              value={field.value || undefined}
+                              onChange={field.onChange}
                             />
                           </FormControl>
                           <FormMessage />
@@ -254,55 +348,24 @@ export function DebtForm({ debtId }: DebtFormProps) {
                       )}
                     />
                   </div>
-                )}
 
-                <div className="grid md:grid-cols-2 gap-6">
-                  <FormField
-                    control={formMethods.control}
-                    name="startDate"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Data de Início / 1º Vencimento</FormLabel>
-                        <FormControl>
-                          <DatePicker
-                            value={field.value || undefined}
-                            onChange={field.onChange}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={formMethods.control}
-                    name="endDate"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Data de Término (Opcional)</FormLabel>
-                        <FormControl>
-                          <DatePicker
-                            value={field.value || undefined}
-                            onChange={field.onChange}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                <Button
-                  type="submit"
-                  className="w-full"
-                  disabled={isSubmitting || loadingFinanceData}
-                >
-                  {isSubmitting ? "Salvando..." : "Salvar Dívida"}
-                </Button>
-              </form>
-            </Form>
-          </CardContent>
-        </Card>
-      </div>
-    </FormProvider>
+                  <Button
+                    type="submit"
+                    className="w-full"
+                    disabled={isSubmitting || loadingFinanceData}
+                  >
+                    {isSubmitting ? "Salvando..." : "Salvar Dívida"}
+                  </Button>
+                </form>
+              </Form>
+            </CardContent>
+          </Card>
+        </div>
+      </FormProvider>
+      <CategoryManagerDialog
+        isOpen={isCategoryManagerOpen}
+        onOpenChange={setIsCategoryManagerOpen}
+      />
+    </>
   );
 }

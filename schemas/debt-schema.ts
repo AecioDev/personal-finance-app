@@ -7,8 +7,7 @@ export const debtSchema = z
       .min(3, "A descrição deve ter pelo menos 3 caracteres."),
     originalAmount: z.number().positive("O valor original deve ser positivo."),
     totalRepaymentAmount: z.number().nullable().optional(),
-
-    type: z.string().min(1, "O tipo de dívida é obrigatório."),
+    categoryId: z.string().min(1, "A categoria é obrigatória."),
     isRecurring: z.boolean(),
     totalInstallments: z.number().nullable(),
     expectedInstallmentAmount: z.number().nullable(),
@@ -19,6 +18,7 @@ export const debtSchema = z
       invalid_type_error: "Formato de data inválido.",
     }),
     endDate: z.date().nullable(),
+    type: z.string(),
   })
   .refine(
     (data) => {

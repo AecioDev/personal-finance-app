@@ -4,7 +4,7 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { useFinance } from "@/components/providers/finance-provider";
 import { useToast } from "@/components/ui/use-toast";
-import { DebtInstallment, Transaction } from "@/interfaces/finance"; // Importando Transaction
+import { DebtInstallment, Transaction } from "@/interfaces/finance";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -25,14 +25,13 @@ import {
   subDays,
   isPast,
 } from "date-fns";
-
-// Importando os componentes do dashboard
 import { NextDueDebtCard } from "./next-due-debt-card";
 import { MonthlySummaryCard } from "./monthly-summary-card";
 import { UpcomingDebtsList } from "./upcoming-debts-list";
 import { TransactionList } from "./transaction-list";
-import { TransactionDetailsModal } from "./transaction-details-modal"; // Importando o novo modal
+import { TransactionDetailsModal } from "./transaction-details-modal";
 import { SimpleTooltip } from "../common/simple-tooltip";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
 export function DashboardView() {
   const { toast } = useToast();
@@ -48,18 +47,14 @@ export function DashboardView() {
 
   const [listView, setListView] = useState<"debts" | "transactions">("debts");
   const [displayDate, setDisplayDate] = useState(new Date());
+  const [debtFilter, setDebtFilter] = useState<"open" | "paid" | "all">("open");
 
-  // Modais de Ação
   const [isNewExpenseDialogOpen, setIsNewExpenseDialogOpen] = useState(false);
   const [isNewTransactionDialogOpen, setIsNewTransactionDialogOpen] =
     useState(false);
-
-  // Modais de Detalhes/Edição
   const [isInstallmentModalOpen, setIsInstallmentModalOpen] = useState(false);
   const [editingInstallment, setEditingInstallment] =
     useState<DebtInstallment | null>(null);
-
-  // *** NOVOS ESTADOS PARA O MODAL DE TRANSAÇÃO ***
   const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
   const [selectedTransaction, setSelectedTransaction] =
     useState<Transaction | null>(null);
@@ -74,12 +69,11 @@ export function DashboardView() {
     }
   }, [errorFinanceData, toast]);
 
-  // Lógica de dados para o dashboard (useMemo)
   const {
-    debtsForMonth,
     monthlySummary,
     topOverdueDebts,
     transactionsForMonth,
+    filteredDebtsForMonth,
   } = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -94,13 +88,23 @@ export function DashboardView() {
       );
     });
 
-    const unpaidInstallmentsForMonth = allInstallmentsForMonth
-      .filter((inst) => inst.status !== "paid")
-      .sort(
-        (a, b) =>
-          new Date(a.expectedDueDate).getTime() -
-          new Date(b.expectedDueDate).getTime()
+    let filteredInstallments;
+    if (debtFilter === "paid") {
+      filteredInstallments = allInstallmentsForMonth.filter(
+        (inst) => inst.status === "paid"
       );
+    } else if (debtFilter === "open") {
+      filteredInstallments = allInstallmentsForMonth.filter(
+        (inst) => inst.status !== "paid"
+      );
+    } else {
+      filteredInstallments = allInstallmentsForMonth;
+    }
+    filteredInstallments.sort(
+      (a, b) =>
+        new Date(a.expectedDueDate).getTime() -
+        new Date(b.expectedDueDate).getTime()
+    );
 
     const totalPrevisto = allInstallmentsForMonth.reduce(
       (acc, inst) => acc + inst.expectedAmount,
@@ -147,21 +151,21 @@ export function DashboardView() {
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
     return {
-      debtsForMonth: unpaidInstallmentsForMonth,
       monthlySummary: summary,
       topOverdueDebts: topOverdueDebtsData,
       transactionsForMonth: filteredTransactions,
+      filteredDebtsForMonth: filteredInstallments,
     };
-  }, [debtInstallments, debts, transactions, displayDate]);
+  }, [debtInstallments, debts, transactions, displayDate, debtFilter]);
 
   const allUnpaidInstallments = useMemo(() => {
-    const unpaid = debtInstallments.filter((inst) => inst.status !== "paid");
-    unpaid.sort(
-      (a, b) =>
-        new Date(a.expectedDueDate).getTime() -
-        new Date(b.expectedDueDate).getTime()
-    );
-    return unpaid;
+    return debtInstallments
+      .filter((inst) => inst.status !== "paid")
+      .sort(
+        (a, b) =>
+          new Date(a.expectedDueDate).getTime() -
+          new Date(b.expectedDueDate).getTime()
+      );
   }, [debtInstallments]);
 
   const nextDebtToPayInstallment = allUnpaidInstallments[0] || null;
@@ -180,7 +184,6 @@ export function DashboardView() {
     setIsInstallmentModalOpen(true);
   };
 
-  // *** NOVA FUNÇÃO PARA ABRIR O MODAL DE TRANSAÇÃO ***
   const handleViewTransaction = (transaction: Transaction) => {
     setSelectedTransaction(transaction);
     setIsTransactionModalOpen(true);
@@ -234,29 +237,53 @@ export function DashboardView() {
           />
 
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="text-lg">
-                {listView === "debts"
-                  ? "Próximas Contas"
-                  : "Últimos Lançamentos"}
-              </CardTitle>
-              <SimpleTooltip
-                label={listView === "debts" ? "Ver Lançamentos" : "Ver Contas"}
-              >
-                <Icon
-                  icon="mdi:swap-horizontal"
-                  className="h-8 w-8 text-yellow-300 cursor-pointer"
-                  onClick={() =>
-                    setListView((prev) =>
-                      prev === "debts" ? "transactions" : "debts"
-                    )
+            {/* CABEÇALHO REESTRUTURADO */}
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg">
+                  {listView === "debts"
+                    ? "Contas do Mês"
+                    : "Lançamentos do Mês"}
+                </CardTitle>
+                <SimpleTooltip
+                  label={
+                    listView === "debts" ? "Ver Lançamentos" : "Ver Contas"
                   }
-                />
-              </SimpleTooltip>
+                >
+                  <Icon
+                    icon="mdi:swap-horizontal"
+                    className="h-8 w-8 text-primary cursor-pointer"
+                    onClick={() =>
+                      setListView((prev) =>
+                        prev === "debts" ? "transactions" : "debts"
+                      )
+                    }
+                  />
+                </SimpleTooltip>
+              </div>
+              {listView === "debts" && (
+                <div className="pt-4">
+                  <ToggleGroup
+                    type="single"
+                    size="sm"
+                    value={debtFilter}
+                    onValueChange={(value: "open" | "paid" | "all") => {
+                      if (value) setDebtFilter(value);
+                    }}
+                  >
+                    <ToggleGroupItem value="open">Abertas</ToggleGroupItem>
+                    <ToggleGroupItem value="paid">Pagas</ToggleGroupItem>
+                    <ToggleGroupItem value="all">Todas</ToggleGroupItem>
+                  </ToggleGroup>
+                </div>
+              )}
             </CardHeader>
             <CardContent>
               {listView === "debts" ? (
-                <UpcomingDebtsList installments={debtsForMonth} debts={debts} />
+                <UpcomingDebtsList
+                  installments={filteredDebtsForMonth}
+                  debts={debts}
+                />
               ) : (
                 <TransactionList
                   transactions={transactionsForMonth}
@@ -270,7 +297,7 @@ export function DashboardView() {
         </div>
       </div>
 
-      {/* Modais de Ação */}
+      {/* Modais */}
       <Dialog
         open={isNewExpenseDialogOpen}
         onOpenChange={setIsNewExpenseDialogOpen}
@@ -295,8 +322,6 @@ export function DashboardView() {
           />
         </DialogContent>
       </Dialog>
-
-      {/* Modais de Detalhes */}
       <DebtInstallmentModal
         isOpen={isInstallmentModalOpen}
         onOpenChange={setIsInstallmentModalOpen}

@@ -53,6 +53,7 @@ export const useTransactionsCrud = ({
       throw new Error(errorMsg);
     }
 
+    console.log("Hook - Payload: ", paymentData);
     try {
       await runTransaction(db, async (firestoreTransaction) => {
         const basePath = `artifacts/${projectId}/users/${user.uid}`;
@@ -101,6 +102,15 @@ export const useTransactionsCrud = ({
         const newTransactionRef = doc(
           collection(db, `${basePath}/transactions`)
         );
+
+        // CORREÇÃO FINAL APLICADA AQUI
+        const categoryIdForTransaction = currentDebt.categoryId;
+        if (!categoryIdForTransaction) {
+          throw new Error(
+            `A dívida '${currentDebt.description}' não possui uma categoria.`
+          );
+        }
+
         const newTransactionData: Omit<
           Transaction,
           "id" | "uid" | "createdAt"
@@ -110,7 +120,7 @@ export const useTransactionsCrud = ({
           date: paymentData.date,
           type: "expense",
           accountId: paymentData.accountId,
-          categoryId: currentDebt.categoryId,
+          categoryId: categoryIdForTransaction,
           paymentMethodId: paymentData.paymentMethodId,
           debtInstallmentId: installmentId,
           interestPaid: paymentData.interestPaid || null,
