@@ -21,9 +21,11 @@ import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Icon } from "@iconify/react";
 import { DatePicker } from "@/components/ui/date-picker";
-import { CurrencyInput } from "@/components/ui/currency-input"; // <-- Importando nosso novo componente
+import { CurrencyInput } from "@/components/ui/currency-input";
 import { Account, DebtInstallment, PaymentMethod } from "@/interfaces/finance";
 import { PartialPaymentFormData } from "@/schemas/partial-payment-schema";
+import { getDDMMYYYY } from "@/lib/dates"; // <-- Importa a função de formatação
+import { Input } from "@/components/ui/input";
 
 interface InstallmentPaymentFormProps {
   onSubmit: (data: PartialPaymentFormData) => void;
@@ -121,6 +123,17 @@ export function InstallmentPaymentForm({
             )}
           />
         </div>
+
+        <FormItem>
+          <FormLabel>Data de Vencimento</FormLabel>
+          <FormControl>
+            <Input
+              value={getDDMMYYYY(installment.expectedDueDate)}
+              readOnly
+              className="cursor-default focus-visible:ring-0 focus-visible:ring-offset-0"
+            />
+          </FormControl>
+        </FormItem>
 
         <FormField
           control={form.control}

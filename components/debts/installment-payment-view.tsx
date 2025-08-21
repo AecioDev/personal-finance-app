@@ -56,7 +56,7 @@ export function InstallmentPaymentView() {
     resolver: zodResolver(partialPaymentSchema),
     defaultValues: {
       amount: 0,
-      paymentDate: new Date(),
+      paymentDate: undefined, // <-- MUDANÇA AQUI: Inicia vazio
       paymentMethodId: "",
       accountId: "",
       interestPaid: 0,
@@ -77,12 +77,12 @@ export function InstallmentPaymentView() {
       const dueAmount =
         installment.currentDueAmount || installment.expectedAmount;
       reset({
-        paymentDate: new Date(),
         amount: dueAmount,
         paymentMethodId: paymentMethods[0]?.id || "",
         accountId: accounts[0]?.id || "",
         interestPaid: 0,
         discountReceived: 0,
+        paymentDate: undefined, // <-- MUDANÇA AQUI: Garante que o reset também limpe a data
       });
     }
   }, [installment, reset, accounts, paymentMethods]);

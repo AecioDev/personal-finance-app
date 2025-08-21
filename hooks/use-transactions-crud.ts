@@ -5,6 +5,7 @@ import {
   addDoc,
   serverTimestamp,
   runTransaction,
+  Timestamp, // Importar o tipo Timestamp
 } from "firebase/firestore";
 import {
   Transaction,
@@ -67,6 +68,7 @@ export const useTransactionsCrud = ({
         if (!installmentSnap.exists())
           throw new Error("Parcela não encontrada.");
 
+        // Os dados lidos aqui dentro da transação terão Timestamps do Firestore
         const currentInstallment = installmentSnap.data() as DebtInstallment;
         const debtRef = doc(db, `${basePath}/debts`, currentInstallment.debtId);
         const debtSnap = await firestoreTransaction.get(debtRef);
@@ -86,7 +88,17 @@ export const useTransactionsCrud = ({
         let description = currentDebt.description;
 
         if (currentDebt.isRecurring) {
-          const date = new Date(currentInstallment.expectedDueDate);
+          // --- CORREÇÃO APLICADA AQUI ---
+          // O valor de 'expectedDueDate' vindo do snapshot é um Timestamp do Firestore.
+          // Precisamos convertê-lo para um objeto Date do JS usando o método .toDate().
+          const dueDate =
+            currentInstallment.expectedDueDate as unknown as Timestamp;
+          const date = dueDate.toDate();
+
+          if (isNaN(date.getTime())) {
+            throw new Error("Data de vencimento (expectedDueDate) inválida.");
+          }
+
           const formattedDate = format(date, "MMM/yy", { locale: ptBR });
           description += ` - ${
             formattedDate.charAt(0).toUpperCase() + formattedDate.slice(1)
@@ -98,12 +110,10 @@ export const useTransactionsCrud = ({
           description += ` - ${currentInstallment.installmentNumber} / ${currentDebt.totalInstallments}`;
         }
 
-        // 1. Criar a nova transação de despesa
         const newTransactionRef = doc(
           collection(db, `${basePath}/transactions`)
         );
 
-        // CORREÇÃO FINAL APLICADA AQUI
         const categoryIdForTransaction = currentDebt.categoryId;
         if (!categoryIdForTransaction) {
           throw new Error(
@@ -117,7 +127,7 @@ export const useTransactionsCrud = ({
         > = {
           description: description,
           amount: paymentData.amount,
-          date: paymentData.date,
+          date: paymentData.date, // Este já é um objeto Date, vindo do formulário
           type: "expense",
           accountId: paymentData.accountId,
           categoryId: categoryIdForTransaction,
@@ -146,7 +156,6 @@ export const useTransactionsCrud = ({
         const newStatus: DebtInstallment["status"] =
           newRemainingAmount <= 0 ? "paid" : "partial";
 
-        // 3. Atualizar a PARCELA
         firestoreTransaction.update(installmentRef, {
           paidAmount: newPaidAmount,
           discountAmount: newDiscountAmount,
@@ -161,12 +170,10 @@ export const useTransactionsCrud = ({
             (currentInstallment.interestPaidAmount || 0) + interest,
         });
 
-        // 4. Atualizar o saldo da conta de origem
         const currentBalance = accountSnap.data().balance || 0;
         const newBalance = currentBalance - paymentData.amount;
         firestoreTransaction.update(accountRef, { balance: newBalance });
 
-        // 5. Se a parcela foi quitada, atualizar a DÍVIDA principal
         if (newStatus === "paid" && currentInstallment.status !== "paid") {
           const newPaidInstallments = (currentDebt.paidInstallments || 0) + 1;
           const newIsActive =
@@ -182,7 +189,6 @@ export const useTransactionsCrud = ({
               newOutstandingBalance > 0 ? newOutstandingBalance : 0,
             totalPaidOnThisDebt:
               (currentDebt.totalPaidOnThisDebt || 0) + newPaidAmount,
-            // Poderíamos acumular os juros na dívida principal também, se quisermos
             totalInterestPaidOnThisDebt:
               (currentDebt.totalInterestPaidOnThisDebt || 0) + interest,
           });
@@ -196,10 +202,6 @@ export const useTransactionsCrud = ({
     }
   };
 
-  /**
-   * Reverte todos os pagamentos de uma parcela.
-   * Exclui as transações, devolve o saldo para as contas e reseta a parcela.
-   */
   const revertInstallmentPayment = async (installmentId: string) => {
     if (!db || !user || !projectId) {
       const errorMsg = "Firestore, usuário ou ID do projeto não inicializado.";
@@ -221,12 +223,10 @@ export const useTransactionsCrud = ({
           throw new Error("Parcela não encontrada.");
         const installment = installmentSnap.data() as DebtInstallment;
 
-        // Se não há IDs de transação, não há o que reverter.
         if (
           !installment.transactionIds ||
           installment.transactionIds.length === 0
         ) {
-          // Apenas garantimos que o status da parcela esteja como pendente para edição.
           firestoreTransaction.update(installmentRef, {
             status: "pending",
             currentDueAmount: installment.expectedAmount,
@@ -243,7 +243,6 @@ export const useTransactionsCrud = ({
         let totalRevertedAmount = 0;
         let totalInterestReverted = 0;
 
-        // 1. Iterar sobre os IDs de transação que já conhecemos
         for (const transId of installment.transactionIds) {
           const transactionRef = doc(db, `${basePath}/transactions`, transId);
           const transactionSnap = await firestoreTransaction.get(
@@ -255,20 +254,17 @@ export const useTransactionsCrud = ({
             totalRevertedAmount += trans.amount;
             totalInterestReverted += trans.interestPaid || 0;
 
-            // 2. Reverter o saldo da conta
             const accountRef = doc(db, `${basePath}/accounts`, trans.accountId);
             const accountSnap = await firestoreTransaction.get(accountRef);
             if (accountSnap.exists()) {
               const account = accountSnap.data() as Account;
-              const newBalance = (account.balance || 0) + trans.amount; // Devolve o dinheiro
+              const newBalance = (account.balance || 0) + trans.amount;
               firestoreTransaction.update(accountRef, { balance: newBalance });
             }
-            // 3. Deletar a transação
             firestoreTransaction.delete(transactionRef);
           }
         }
 
-        // 4. Atualizar a DÍVIDA principal, revertendo os totais
         const wasPaid = installment.status === "paid";
         firestoreTransaction.update(debtRef, {
           paidInstallments: wasPaid
@@ -284,7 +280,6 @@ export const useTransactionsCrud = ({
           isActive: true,
         });
 
-        // 5. Resetar a PARCELA para o estado inicial
         firestoreTransaction.update(installmentRef, {
           paidAmount: 0,
           discountAmount: 0,
