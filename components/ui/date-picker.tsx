@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import { Icon } from "@iconify/react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -45,6 +46,7 @@ export function DatePicker({ value, onChange, disabled }: DatePickerProps) {
             onChange(date);
           }}
           initialFocus
+          locale={ptBR}
         />
       </PopoverContent>
     </Popover>

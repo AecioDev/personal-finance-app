@@ -71,6 +71,7 @@ interface FinanceContextType {
   updateDebt: (debtId: string, data: Partial<Debt>) => Promise<void>;
   deleteDebt: (debtId: string) => Promise<boolean>;
   addDebtAndPay: (data: SimpleDebtFormData) => Promise<void>;
+  updateSimpleDebt: (debtId: string, data: Partial<Debt>) => Promise<void>;
 
   addDebtInstallment: (
     installment: Omit<
@@ -228,12 +229,13 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({
     setErrorFinanceData,
   });
 
-  const { addDebt, updateDebt, deleteDebt, addDebtAndPay } = useDebtsCrud({
-    db: dbRef.current,
-    user,
-    projectId,
-    setErrorFinanceData,
-  });
+  const { addDebt, updateDebt, deleteDebt, addDebtAndPay, updateSimpleDebt } =
+    useDebtsCrud({
+      db: dbRef.current,
+      user,
+      projectId,
+      setErrorFinanceData,
+    });
 
   const {
     addDebtInstallment,
@@ -300,6 +302,7 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({
         updateDebt,
         deleteDebt,
         addDebtAndPay,
+        updateSimpleDebt,
         addDebtInstallment,
         updateDebtInstallment,
         updateInstallmentValue,

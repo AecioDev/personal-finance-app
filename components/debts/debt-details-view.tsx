@@ -20,6 +20,7 @@ import { ConfirmationDialog } from "@/components/common/confirmation-dialog";
 import { getDDMMYYYY } from "@/lib/dates";
 import { cn } from "@/lib/utils";
 import { Progress } from "@/components/ui/progress";
+import { SimpleDebtEditModal } from "./simple-debt-edit-modal";
 
 interface DebtDetailsViewProps {
   debtId: string;
@@ -51,7 +52,7 @@ export function DebtDetailsView({ debtId }: DebtDetailsViewProps) {
     debts,
     debtInstallments,
     transactions,
-    deleteDebtInstallment,
+    deleteDebt,
     loadingFinanceData,
     errorFinanceData,
   } = useFinance();
@@ -64,9 +65,11 @@ export function DebtDetailsView({ debtId }: DebtDetailsViewProps) {
   const [editingInstallment, setEditingInstallment] =
     useState<DebtInstallment | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [installmentToDelete, setInstallmentToDelete] = useState<string | null>(
-    null
-  );
+  const [isSimpleDebtModalOpen, setIsSimpleDebtModalOpen] = useState(false);
+
+  // --- NOVO ESTADO PARA CONTROLAR A EXCLUSÃO ---
+  const [isDeleting, setIsDeleting] = useState(false);
+  // ---------------------------------------------
 
   const currentDebt = useMemo(
     () => debts.find((d) => d.id === debtId),
@@ -97,7 +100,6 @@ export function DebtDetailsView({ debtId }: DebtDetailsViewProps) {
     return (totalPaid / currentDebt.totalRepaymentAmount) * 100;
   }, [currentDebt]);
 
-  // CORREÇÃO APLICADA AQUI
   const nextDueDate = useMemo(() => {
     const nextInstallment = filteredInstallments.find(
       (i) => i.status === "pending"
@@ -117,12 +119,15 @@ export function DebtDetailsView({ debtId }: DebtDetailsViewProps) {
     }
   }, [errorFinanceData, toast]);
 
+  // --- useEffect AJUSTADO ---
   useEffect(() => {
-    if (!loadingFinanceData && !currentDebt) {
+    // Só dispara o toast se a dívida não for encontrada E NÃO estivermos no meio de uma exclusão
+    if (!loadingFinanceData && !currentDebt && !isDeleting) {
       toast({ title: "Dívida não encontrada", variant: "destructive" });
       router.back();
     }
-  }, [loadingFinanceData, currentDebt, router, toast]);
+  }, [loadingFinanceData, currentDebt, router, toast, isDeleting]);
+  // --------------------------
 
   const getInstallmentBadgeInfo = (status: DebtInstallmentStatus) => {
     switch (status) {
@@ -145,26 +150,39 @@ export function DebtDetailsView({ debtId }: DebtDetailsViewProps) {
     setIsInstallmentModalOpen(true);
   };
 
-  const openDeleteDialog = (installmentId: string) => {
-    setInstallmentToDelete(installmentId);
-    setIsDeleteDialogOpen(true);
-  };
-
+  // --- handleDeleteConfirm AJUSTADO ---
   const handleDeleteConfirm = async () => {
-    if (!installmentToDelete) return;
-    const success = await deleteDebtInstallment(installmentToDelete);
+    if (!currentDebt) return;
+    setIsDeleting(true); // Ativa o estado de exclusão
+    const success = await deleteDebt(currentDebt.id);
     if (success) {
       toast({
         title: "Sucesso",
-        description: "Parcela excluída.",
+        description: "Dívida e suas parcelas foram excluídas.",
       });
+      router.push("/debts");
+    } else {
+      setIsDeleting(false); // Reseta o estado se a exclusão falhar
     }
-    setInstallmentToDelete(null);
     setIsDeleteDialogOpen(false);
   };
+  // ------------------------------------
 
   const handleGoToPayment = (installmentId: string) => {
     router.push(`/debts/${debtId}/installments/${installmentId}`);
+  };
+
+  const handleEditDebt = () => {
+    if (!currentDebt) return;
+    if (currentDebt.type === "simple") {
+      setIsSimpleDebtModalOpen(true);
+    } else {
+      router.push(`/debts/${currentDebt.id}/edit`);
+    }
+  };
+
+  const openDeleteDialog = () => {
+    setIsDeleteDialogOpen(true);
   };
 
   if (loadingFinanceData && !currentDebt) {
@@ -173,9 +191,12 @@ export function DebtDetailsView({ debtId }: DebtDetailsViewProps) {
     );
   }
 
-  if (!currentDebt) {
-    return null;
+  // Se a dívida sumiu porque está sendo deletada, mostramos um loading para uma transição suave
+  if (isDeleting || !currentDebt) {
+    return <div className="p-4 text-center">Excluindo dívida...</div>;
   }
+
+  const canEditOrDelete = (currentDebt.totalPaidOnThisDebt || 0) === 0;
 
   return (
     <>
@@ -183,14 +204,28 @@ export function DebtDetailsView({ debtId }: DebtDetailsViewProps) {
         <div className="flex items-center justify-between mb-6">
           <ButtonBack onClick={() => router.back()} />
           <h1 className="text-xl md:text-2xl font-bold text-center mx-4 truncate">
-            {currentDebt.description}
+            Resumo da Dívida
           </h1>
           <div className="w-10 h-10"></div>
         </div>
 
         <Card>
-          <CardHeader>
-            <CardTitle>Resumo da Dívida</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle>{currentDebt.description}</CardTitle>
+            {canEditOrDelete && (
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <Button variant="outline" size="icon" onClick={handleEditDebt}>
+                  <Icon icon="mdi:pencil" className="w-4 h-4" />
+                </Button>
+                <Button
+                  variant="destructive"
+                  size="icon"
+                  onClick={openDeleteDialog}
+                >
+                  <Icon icon="mdi:delete" className="w-4 h-4" />
+                </Button>
+              </div>
+            )}
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
@@ -336,11 +371,17 @@ export function DebtDetailsView({ debtId }: DebtDetailsViewProps) {
         onDataChange={() => {}}
       />
 
+      <SimpleDebtEditModal
+        isOpen={isSimpleDebtModalOpen}
+        onOpenChange={setIsSimpleDebtModalOpen}
+        debt={currentDebt}
+      />
+
       <ConfirmationDialog
         isOpen={isDeleteDialogOpen}
         onOpenChange={setIsDeleteDialogOpen}
-        title="Confirmar Exclusão"
-        description="Tem certeza que deseja excluir esta parcela? Esta ação não pode ser desfeita."
+        title={`Excluir Dívida: ${currentDebt?.description}?`}
+        description="Esta ação é permanente e excluirá todas as parcelas associadas. Deseja continuar?"
         onConfirm={handleDeleteConfirm}
         variant="destructive"
       />

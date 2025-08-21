@@ -10,6 +10,7 @@ import {
   writeBatch,
   where,
   runTransaction,
+  limit,
 } from "firebase/firestore";
 import { Debt, DebtInstallment } from "@/interfaces/finance";
 import { User as FirebaseUser } from "firebase/auth";
@@ -251,6 +252,54 @@ export const useDebtsCrud = ({
     await updateDoc(debtRef, data);
   };
 
+  // --- NOVA FUNÇÃO ATÔMICA PARA ATUALIZAR DÍVIDA SIMPLES ---
+  const updateSimpleDebt = async (debtId: string, data: Partial<Debt>) => {
+    if (!db || !user || !projectId) {
+      setErrorFinanceData("Firestore não inicializado.");
+      throw new Error("Firestore não inicializado.");
+    }
+
+    const basePath = `artifacts/${projectId}/users/${user.uid}`;
+    const debtRef = doc(db, `${basePath}/debts`, debtId);
+
+    // 1. Encontra a parcela única associada a esta dívida simples
+    const installmentsQuery = query(
+      collection(db, `${basePath}/debtInstallments`),
+      where("debtId", "==", debtId),
+      limit(1)
+    );
+
+    const installmentsSnap = await getDocs(installmentsQuery);
+    if (installmentsSnap.empty) {
+      throw new Error("Parcela associada à dívida simples não foi encontrada.");
+    }
+    const installmentRef = installmentsSnap.docs[0].ref;
+
+    // 2. Roda a transação para garantir que ambas as atualizações aconteçam
+    try {
+      await runTransaction(db, async (transaction) => {
+        // Atualiza o documento da dívida principal
+        transaction.update(debtRef, data);
+
+        // Prepara os dados para atualizar a parcela
+        const installmentUpdateData: Partial<DebtInstallment> = {};
+        if (data.startDate) {
+          installmentUpdateData.expectedDueDate = data.startDate;
+        }
+        if (data.originalAmount) {
+          installmentUpdateData.expectedAmount = data.originalAmount;
+          installmentUpdateData.currentDueAmount = data.originalAmount;
+        }
+
+        // Atualiza o documento da parcela
+        transaction.update(installmentRef, installmentUpdateData);
+      });
+    } catch (error: any) {
+      setErrorFinanceData(`Erro ao atualizar dívida: ${error.message}`);
+      throw error;
+    }
+  };
+
   const deleteDebt = async (debtId: string): Promise<boolean> => {
     // ... (função existente sem alterações)
     if (!db || !user || !projectId) {
@@ -303,5 +352,5 @@ export const useDebtsCrud = ({
     }
   };
 
-  return { addDebt, updateDebt, deleteDebt, addDebtAndPay }; // NOVO: Exportando a nova função
+  return { addDebt, updateDebt, deleteDebt, addDebtAndPay, updateSimpleDebt };
 };

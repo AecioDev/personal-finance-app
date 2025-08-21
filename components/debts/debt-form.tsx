@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, FormProvider } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -45,9 +45,26 @@ export function DebtForm({ debtId }: DebtFormProps) {
   const { toast } = useToast();
   const [isCategoryManagerOpen, setIsCategoryManagerOpen] = useState(false);
 
-  const formMethods = useForm<DebtFormData>({
-    resolver: zodResolver(debtSchema),
-    defaultValues: {
+  const formValues = useMemo(() => {
+    if (debtId) {
+      const existingDebt = debts.find((d) => d.id === debtId);
+      if (existingDebt && categories.length > 0) {
+        return {
+          ...existingDebt,
+          startDate: new Date(existingDebt.startDate),
+          endDate: existingDebt.endDate ? new Date(existingDebt.endDate) : null,
+          categoryId: existingDebt.categoryId || "",
+          type: existingDebt.type || "complete",
+          interestRate: existingDebt.interestRate || null,
+          fineRate: existingDebt.fineRate || null,
+        };
+      }
+      return undefined;
+    }
+
+    // --- CORREÇÃO APLICADA AQUI (Criação) ---
+    // Adicionados os campos que faltavam para bater com o DebtFormData
+    return {
       description: "",
       originalAmount: 0,
       totalRepaymentAmount: 0,
@@ -57,13 +74,20 @@ export function DebtForm({ debtId }: DebtFormProps) {
       startDate: new Date(),
       endDate: null,
       categoryId: "",
-    },
+      type: "complete", // Valor padrão para o tipo
+      interestRate: null, // Valor padrão
+      fineRate: null, // Valor padrão
+    };
+  }, [debtId, debts, categories]);
+
+  const formMethods = useForm<DebtFormData>({
+    resolver: zodResolver(debtSchema),
+    values: formValues,
   });
 
   const {
     watch,
     setValue,
-    reset,
     formState: { isSubmitting },
   } = formMethods;
 
@@ -77,23 +101,10 @@ export function DebtForm({ debtId }: DebtFormProps) {
         "totalRepaymentAmount",
         totalInstallments * expectedInstallmentAmount
       );
-    } else {
+    } else if (isRecurring) {
       setValue("totalRepaymentAmount", 0);
     }
   }, [totalInstallments, expectedInstallmentAmount, isRecurring, setValue]);
-
-  useEffect(() => {
-    if (debtId) {
-      const existingDebt = debts.find((d) => d.id === debtId);
-      if (existingDebt) {
-        reset({
-          ...existingDebt,
-          startDate: new Date(existingDebt.startDate),
-          endDate: existingDebt.endDate ? new Date(existingDebt.endDate) : null,
-        } as DebtFormData);
-      }
-    }
-  }, [debtId, debts, reset]);
 
   const onSubmit = async (data: DebtFormData) => {
     try {
@@ -113,6 +124,8 @@ export function DebtForm({ debtId }: DebtFormProps) {
           title: "Sucesso",
           description: "Dívida atualizada!",
         });
+        // Na edição, não queremos redirecionar, apenas mostrar o toast.
+        // O redirecionamento pode ser feito na página que chama o form, se necessário.
       } else {
         const debtDataForApi = {
           ...data,
@@ -123,8 +136,8 @@ export function DebtForm({ debtId }: DebtFormProps) {
           title: "Sucesso",
           description: "Dívida cadastrada!",
         });
+        router.push("/debts");
       }
-      router.push("/debts");
     } catch (error) {
       toast({
         title: "Erro",
@@ -133,6 +146,10 @@ export function DebtForm({ debtId }: DebtFormProps) {
       });
     }
   };
+
+  if (debtId && !formValues) {
+    return <div className="p-4 text-center">Carregando dados da dívida...</div>;
+  }
 
   return (
     <>
@@ -145,7 +162,6 @@ export function DebtForm({ debtId }: DebtFormProps) {
             </h1>
             <div className="w-10 h-10"></div>
           </div>
-
           <Card>
             <CardHeader>
               <CardTitle>Detalhes da Dívida</CardTitle>
@@ -173,7 +189,6 @@ export function DebtForm({ debtId }: DebtFormProps) {
                     )}
                   />
 
-                  {/* CAMPO DE CATEGORIA ADICIONADO */}
                   <FormField
                     control={formMethods.control}
                     name="categoryId"

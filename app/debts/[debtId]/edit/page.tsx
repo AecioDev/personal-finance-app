@@ -1,6 +1,6 @@
 // app/debts/[debtId]/edit/page.tsx
 import { AuthGuard } from "@/components/auth/auth-guard";
-import { DebtForm } from "@/components/debts/debt-form";
+import { DebtEditView } from "@/components/debts/debt-edit-view";
 import { MainLayout } from "@/components/layout/main-layout";
 
 interface DebtDetailsPageProps {
@@ -13,7 +13,7 @@ export default function DebtDetailsPage({ params }: DebtDetailsPageProps) {
   return (
     <AuthGuard>
       <MainLayout>
-        <DebtForm debtId={params.debtId} />
+        <DebtEditView debtId={params.debtId} />
       </MainLayout>
     </AuthGuard>
   );
