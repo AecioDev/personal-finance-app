@@ -37,7 +37,6 @@ export function MonthlySummaryCard({
         <Button variant="ghost" size="icon" onClick={onPreviousMonth}>
           <Icon icon="mdi:chevron-left" className="h-6 w-6" />
         </Button>
-        {/* Adicionadas as classes `uppercase` e `font-bold` e a variável formatada */}
         <CardTitle className="text-base text-center sm:text-lg font-bold">
           Resumo de {formattedMonth}
         </CardTitle>

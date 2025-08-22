@@ -119,15 +119,12 @@ export function DebtDetailsView({ debtId }: DebtDetailsViewProps) {
     }
   }, [errorFinanceData, toast]);
 
-  // --- useEffect AJUSTADO ---
   useEffect(() => {
-    // Só dispara o toast se a dívida não for encontrada E NÃO estivermos no meio de uma exclusão
     if (!loadingFinanceData && !currentDebt && !isDeleting) {
       toast({ title: "Dívida não encontrada", variant: "destructive" });
       router.back();
     }
   }, [loadingFinanceData, currentDebt, router, toast, isDeleting]);
-  // --------------------------
 
   const getInstallmentBadgeInfo = (status: DebtInstallmentStatus) => {
     switch (status) {
@@ -150,10 +147,9 @@ export function DebtDetailsView({ debtId }: DebtDetailsViewProps) {
     setIsInstallmentModalOpen(true);
   };
 
-  // --- handleDeleteConfirm AJUSTADO ---
   const handleDeleteConfirm = async () => {
     if (!currentDebt) return;
-    setIsDeleting(true); // Ativa o estado de exclusão
+    setIsDeleting(true);
     const success = await deleteDebt(currentDebt.id);
     if (success) {
       toast({
@@ -162,11 +158,10 @@ export function DebtDetailsView({ debtId }: DebtDetailsViewProps) {
       });
       router.push("/debts");
     } else {
-      setIsDeleting(false); // Reseta o estado se a exclusão falhar
+      setIsDeleting(false);
     }
     setIsDeleteDialogOpen(false);
   };
-  // ------------------------------------
 
   const handleGoToPayment = (installmentId: string) => {
     router.push(`/debts/${debtId}/installments/${installmentId}`);
@@ -191,7 +186,6 @@ export function DebtDetailsView({ debtId }: DebtDetailsViewProps) {
     );
   }
 
-  // Se a dívida sumiu porque está sendo deletada, mostramos um loading para uma transição suave
   if (isDeleting || !currentDebt) {
     return <div className="p-4 text-center">Excluindo dívida...</div>;
   }
@@ -212,11 +206,12 @@ export function DebtDetailsView({ debtId }: DebtDetailsViewProps) {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>{currentDebt.description}</CardTitle>
-            {canEditOrDelete && (
-              <div className="flex items-center gap-2 flex-shrink-0">
-                <Button variant="outline" size="icon" onClick={handleEditDebt}>
-                  <Icon icon="mdi:pencil" className="w-4 h-4" />
-                </Button>
+
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <Button variant="outline" size="icon" onClick={handleEditDebt}>
+                <Icon icon="mdi:pencil" className="w-4 h-4" />
+              </Button>
+              {canEditOrDelete && (
                 <Button
                   variant="destructive"
                   size="icon"
@@ -224,8 +219,8 @@ export function DebtDetailsView({ debtId }: DebtDetailsViewProps) {
                 >
                   <Icon icon="mdi:delete" className="w-4 h-4" />
                 </Button>
-              </div>
-            )}
+              )}
+            </div>
           </CardHeader>
           <CardContent className="space-y-4">
             <div>

@@ -114,7 +114,12 @@ export function DashboardView() {
       (acc, inst) => acc + (inst.paidAmount || 0),
       0
     );
-    const faltaPagar = totalPrevisto - totalPago;
+
+    const faltaPagar = allInstallmentsForMonth.reduce((acc, inst) => {
+      if (inst.status === "paid") return acc;
+      return acc + (inst.remainingAmount ?? inst.expectedAmount);
+    }, 0);
+
     const summary = {
       totalPrevisto,
       totalPago,
@@ -237,7 +242,6 @@ export function DashboardView() {
           />
 
           <Card>
-            {/* CABEÇALHO REESTRUTURADO */}
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle className="text-lg">
