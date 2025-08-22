@@ -306,7 +306,7 @@ export function DashboardView() {
         open={isNewExpenseDialogOpen}
         onOpenChange={setIsNewExpenseDialogOpen}
       >
-        <DialogContent>
+        <DialogContent onInteractOutside={(e) => e.preventDefault()}>
           <DialogHeader>
             <DialogTitle>Registrar Nova Despesa</DialogTitle>
           </DialogHeader>
@@ -317,7 +317,7 @@ export function DashboardView() {
         open={isNewTransactionDialogOpen}
         onOpenChange={setIsNewTransactionDialogOpen}
       >
-        <DialogContent>
+        <DialogContent onInteractOutside={(e) => e.preventDefault()}>
           <DialogHeader>
             <DialogTitle>Novo Lançamento</DialogTitle>
           </DialogHeader>

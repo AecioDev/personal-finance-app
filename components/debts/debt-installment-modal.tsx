@@ -58,9 +58,8 @@ export function DebtInstallmentModal({
         variant: "success",
       });
 
-      onDataChange?.(); // <-- AVISANDO O PAI QUE OS DADOS MUDARAM
+      onDataChange?.();
 
-      // router.push(...); // Corretamente comentado por você
       setIsConfirmingRevert(false);
       onOpenChange(false);
     } catch (error: any) {
@@ -89,7 +88,7 @@ export function DebtInstallmentModal({
         variant: "success",
       });
 
-      onDataChange?.(); // <-- AVISANDO O PAI QUE OS DADOS MUDARAM
+      onDataChange?.();
 
       onOpenChange(false);
     } catch (error: any) {
@@ -123,7 +122,6 @@ export function DebtInstallmentModal({
           {isPaidOrPartial ? (
             editingInstallment && (
               <div className="space-y-4 py-4 text-sm">
-                {/* ... seu código de visualização ... */}
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Status</span>
                   <span className="font-medium capitalize">
