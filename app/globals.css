@@ -3,55 +3,115 @@
 @tailwind utilities;
 
 @layer base {
+  /* Valores base que não mudam com o tema, como o radius */
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-    --card: 210 40% 98%; /* Cinza bem claro no tema claro */
-    --card-foreground: 222.2 84% 4.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 142.1 76.2% 36.3%;
-    --primary-foreground: 355.7 100% 97.3%;
-    --secondary: 210 40% 96%;
-    --secondary-foreground: 222.2 84% 4.9%;
-    --muted: 210 40% 96%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96%;
-    --accent-foreground: 222.2 84% 4.9%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 142.1 76.2% 36.3%;
-    --radius: 0.5rem;
-
-    --header-footer-background: 210 40% 94%;
-    --modal-background: 0 0% 100%;
+    --radius: 0.75rem;
   }
 
-  .dark {
-    --background: 222.2 84% 4.9%; /* Fundo bem escuro */
-    --foreground: 210 40% 98%;
-    --card: 217.2 32.6% 25%; /* ALTERADO: Card mais claro no tema escuro para se destacar */
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 142.1 70.6% 45.3%;
-    --primary-foreground: 144.9 80.4% 10%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 142.4 71.8% 29.2%;
+  /* ========================================================================== */
+  /* TEMA VERDE (PADRÃO)                            */
+  /* ========================================================================== */
+  [data-theme="green"] {
+    --background: 125 100% 97%; /* Honeydew #F1FFF3 */
+    --foreground: 184 65% 8%; /* Fence Green #052224 */
+    --card: 0 0% 100%;
+    --card-foreground: 184 65% 8%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 184 65% 8%;
+    --primary: 162 100% 41%; /* Caribbean Green #00D09E */
+    --primary-foreground: 184 65% 8%;
+    --secondary: 125 74% 92%; /* Light Green #DFF7E2 */
+    --secondary-foreground: 184 65% 8%;
+    --muted: 125 74% 92%;
+    --muted-foreground: 180 50% 25%; /* Cyprus #0E3E3E */
+    --accent: 217 100% 50%; /* Ocean Blue #0068FF */
+    --accent-foreground: 125 100% 97%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 125 74% 88%;
+    --input: 125 74% 88%;
+    --ring: 217 100% 50%;
+  }
 
-    --header-footer-background: 222.2 84% 12%;
-    --modal-background: 222.2 47.4% 18.2%; /* Um tom de cinza mais claro */
+  [data-theme="green"].dark {
+    /* Mapeado da Paleta de Cores do Figma */
+    --background: 183.53 73.91% 4.51%; /* Void #031314 - O fundo mais escuro hsl(183.53, 73.91%, 4.51%) */
+    --foreground: 125 74% 92%; /* Light Green #DFF7E2 - Cor do texto principal */
+
+    --card: 184 65% 8%; /* Fence Green #052224 - Fundo dos cards, um pouco mais claro */
+    --card-foreground: 125 74% 92%;
+
+    --popover: 184 65% 5%; /* Void */
+    --popover-foreground: 125 74% 92%;
+
+    --primary: 162 100% 41%; /* Caribbean Green #00D09E - Cor de destaque principal */
+    --primary-foreground: 184 65% 8%; /* Fence Green - Texto escuro para botões primários */
+
+    --secondary: 180 50% 15%; /* Cyprus #0E3E3E - Elementos secundários */
+    --secondary-foreground: 125 74% 92%;
+
+    --muted: 180 50% 15%; /* Cyprus #0E3E3E - Fundo das abas */
+    --muted-foreground: 125 74% 80%; /* Texto das abas inativas */
+
+    --accent: 210 98% 71%; /* Light Blue #6DB6FE - Cor de acento (pode ser ajustada) */
+    --accent-foreground: 184 65% 8%;
+
+    --destructive: 0 72% 51%; /* Um vermelho vivo para erros */
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 180 50% 15%; /* Cyprus */
+    --input: 180 50% 15%; /* Cyprus */
+    --ring: 162 100% 41%; /* Caribbean Green */
+  }
+
+  /* ========================================================================== */
+  /* TEMA AZUL                                  */
+  /* ========================================================================== */
+  [data-theme="blue"] {
+    --background: 216 100% 98%; /* Um branco levemente azulado, mais suave */
+    --foreground: 224 71% 4%; /* Um cinza bem escuro com tom azulado */
+
+    --card: 0 0% 100%;
+    --card-foreground: 224 71% 4%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 224 71% 4%;
+    --primary: 217 100% 50%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 214 90% 95%;
+    --secondary-foreground: 217 100% 50%;
+    --muted: 214 90% 95%;
+    --muted-foreground: 220 15% 45%;
+    --accent: 162 100% 41%; /* Caribbean Green #00D09E */
+    --accent-foreground: 224 71% 4%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 214 80% 90%; /* Borda um pouco mais escura que o fundo secundário */
+    --input: 214 80% 90%;
+
+    /* Usando o Vivid Blue para o anel de foco */
+    --ring: 208 100% 60%; /* Vivid Blue #3299FF */
+  }
+
+  [data-theme="blue"].dark {
+    --background: 220 25% 6%; /* Fundo principal (quase preto azulado) */
+    --foreground: 210 50% 95%; /* Texto principal claro */
+    --card: 220 25% 10%; /* Cards com um cinza azulado mais claro */
+    --card-foreground: 210 50% 95%;
+    --popover: 220 25% 6%;
+    --popover-foreground: 210 50% 95%;
+    --primary: 217 100% 60%;
+    --primary-foreground: 0 0% 100%; /* Texto branco sobre o primário */
+    --secondary: 220 25% 15%;
+    --secondary-foreground: 210 50% 95%;
+    --muted: 220 25% 15%; /* Fundo das abas */
+    --muted-foreground: 210 20% 75%;
+    --accent: 162 100% 41%;
+    --accent-foreground: 184 65% 8%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 220 25% 15%;
+    --input: 220 25% 15%;
+    --ring: 217 100% 60%;
   }
 }
 
@@ -64,14 +124,12 @@
   }
 }
 
-/* PWA Styles */
+/* PWA e Mobile (Mantidos) */
 @media (display-mode: standalone) {
   body {
     user-select: none;
   }
 }
-
-/* Mobile optimizations */
 @media (max-width: 768px) {
   .container {
     @apply px-4;

@@ -5,9 +5,11 @@ import { Inter } from "next/font/google";
 import { AuthProvider } from "@/components/providers/auth-provider";
 import { FinanceProvider } from "@/components/providers/finance-provider";
 import { ThemeProvider } from "@/components/theme/theme-provider";
+import { PaletteProvider } from "@/components/theme/palette-provider"; // 1. Importamos o novo provedor
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import "./globals.css";
+import { ModalProvider } from "@/components/providers/modal-provider";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -23,7 +25,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  themeColor: "#10b981",
+  themeColor: "#00D09E", // Atualizei para a cor primária do tema verde
 };
 
 export default function RootLayout({
@@ -57,19 +59,24 @@ export default function RootLayout({
         />
       </head>
       <body className={inter.className}>
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem
-          disableTransitionOnChange
-        >
-          <AuthProvider>
-            <FinanceProvider>
-              <ToastContainer />
-              {children}
-            </FinanceProvider>
-          </AuthProvider>
-        </ThemeProvider>
+        {/* 2. Envolvemos tudo com o PaletteProvider */}
+        <PaletteProvider defaultPalette="green" storageKey="app-palette">
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="system"
+            enableSystem
+            disableTransitionOnChange
+          >
+            <ModalProvider>
+              <AuthProvider>
+                <FinanceProvider>
+                  <ToastContainer />
+                  {children}
+                </FinanceProvider>
+              </AuthProvider>
+            </ModalProvider>
+          </ThemeProvider>
+        </PaletteProvider>
       </body>
     </html>
   );

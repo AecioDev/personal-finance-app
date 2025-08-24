@@ -5,20 +5,20 @@ import { cn } from "@/lib/utils";
 import { Account, Category, Transaction } from "@/interfaces/finance";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Button } from "../ui/button";
 import { SimpleTooltip } from "../common/simple-tooltip";
+import { Button } from "../ui/button";
 
 interface TransactionListProps {
   transactions: Transaction[];
   accounts: Account[];
-  categories: Category[]; // Adicionamos as categorias aqui
+  categories: Category[];
   onViewTransaction: (transaction: Transaction) => void;
 }
 
 export function TransactionList({
   transactions,
   accounts,
-  categories, // Recebemos as categorias
+  categories,
   onViewTransaction,
 }: TransactionListProps) {
   const getAccountName = (accountId: string) => {
@@ -26,87 +26,60 @@ export function TransactionList({
     return account?.name || "N/A";
   };
 
-  // Função para encontrar a categoria e retornar o ícone
   const getCategoryIcon = (categoryId: string) => {
     const category = categories.find((cat) => cat.id === categoryId);
-    return category?.icon || "mdi:help-circle-outline"; // Ícone padrão
+    return category?.icon || "mdi:help-circle-outline";
   };
 
   if (transactions.length === 0) {
     return (
-      <div className="text-center py-8 text-muted-foreground">
+      <div className="text-center py-12 text-muted-foreground">
         <Icon
           icon="mdi:receipt-text-outline"
-          className="w-12 h-12 mx-auto mb-2 opacity-50"
+          className="w-16 h-16 mx-auto mb-4 text-primary/50"
         />
-        <p>Nenhum lançamento encontrado para este mês.</p>
+        <p className="font-semibold">Nenhum lançamento!</p>
+        <p className="text-sm">Não há transações para este mês.</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-2 max-h-[25rem] overflow-y-auto pr-2">
+    <div className="space-y-3">
       {transactions.map((transaction) => {
         const isIncome = transaction.type === "income";
         const categoryIcon = getCategoryIcon(transaction.categoryId || "");
 
+        // Definindo as cores com base no tipo de transação
+        const statusColor = isIncome ? "bg-green-500" : "bg-red-500";
+        const textColor = isIncome ? "text-green-500" : "text-red-500";
+        const borderColor = isIncome ? "border-green-500" : "border-red-500";
+
         return (
           <div
             key={transaction.id}
+            onClick={() => onViewTransaction(transaction)}
             className={cn(
-              "flex items-center justify-between p-3 rounded-lg border",
-              isIncome
-                ? "bg-green-500/10 border-green-500/20"
-                : "bg-red-500/10 border-red-500/20"
+              "flex items-center justify-between p-3 rounded-xl bg-card hover:bg-muted/50 cursor-pointer transition-colors border-l-4",
+              borderColor
             )}
           >
-            {/* Wrapper para ícone + informações */}
-            <div className="flex items-center gap-3 min-w-0">
-              {" "}
-              {/* Adicionado min-w-0 aqui também para segurança */}
-              {/* Ícone da Categoria */}
+            <div className="flex items-center gap-4 min-w-0">
+              {/* Ícone Circular */}
               <div
                 className={cn(
-                  "flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center",
-                  isIncome ? "bg-green-500/20" : "bg-red-500/20"
+                  "flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center",
+                  statusColor
                 )}
               >
-                <Icon
-                  icon={categoryIcon}
-                  className={cn(
-                    "w-6 h-6",
-                    isIncome
-                      ? "text-green-600 dark:text-green-400"
-                      : "text-red-600 dark:text-red-400"
-                  )}
-                />
+                <Icon icon={categoryIcon} className="w-6 h-6 text-white" />
               </div>
-              {/* Informações da transação */}
+              {/* Informações da Transação */}
               <div className="flex flex-col min-w-0">
-                {" "}
-                {/* Adicionado min-w-0 */}
-                <p
-                  className={cn(
-                    "font-semibold leading-tight",
-                    isIncome
-                      ? "text-green-600 dark:text-green-400"
-                      : "text-red-600 dark:text-red-400"
-                  )}
-                >
-                  {isIncome ? "Recebimento: " : "Pagamento: "}
-                  {transaction.amount.toLocaleString("pt-BR", {
-                    style: "currency",
-                    currency: "BRL",
-                  })}
-                </p>
-                <p className="font-medium leading-tight text-foreground/90 truncate">
-                  {" "}
-                  {/* Adicionado truncate */}
+                <p className="font-bold text-base text-foreground truncate">
                   {transaction.description}
                 </p>
-                <p className="text-sm text-muted-foreground truncate">
-                  {" "}
-                  {/* Adicionado truncate */}
+                <p className="text-sm text-muted-foreground">
                   {format(new Date(transaction.date), "dd 'de' MMM", {
                     locale: ptBR,
                   })}
@@ -116,20 +89,14 @@ export function TransactionList({
               </div>
             </div>
 
-            {/* Lado Direito apenas com o Botão */}
-            <div className="flex items-center pl-2">
-              {" "}
-              {/* Adicionado um padding para garantir espaçamento */}
-              <SimpleTooltip label="Visualizar Detalhes">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="p-2 h-auto"
-                  onClick={() => onViewTransaction(transaction)}
-                >
-                  <Icon icon="mdi:eye-outline" className="w-5 h-5" />
-                </Button>
-              </SimpleTooltip>
+            {/* Valor */}
+            <div className="text-right pl-2">
+              <p className={cn("font-bold text-lg", textColor)}>
+                {transaction.amount.toLocaleString("pt-BR", {
+                  style: "currency",
+                  currency: "BRL",
+                })}
+              </p>
             </div>
           </div>
         );

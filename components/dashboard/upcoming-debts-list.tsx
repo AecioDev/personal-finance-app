@@ -1,12 +1,10 @@
 // components/dashboard/upcoming-debts-list.tsx
 "use client";
 
-import { Button } from "@/components/ui/button";
-import { Debt, DebtInstallment } from "@/interfaces/finance";
+import { Category, Debt, DebtInstallment } from "@/interfaces/finance";
 import { cn } from "@/lib/utils";
 import { differenceInDays, isPast, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { useRouter } from "next/navigation";
 import { Icon } from "@iconify/react";
 import { DebtInstallmentDetailsModal } from "../debts/debt-installment-details-modal";
 import { useState } from "react";
@@ -14,14 +12,14 @@ import { useState } from "react";
 interface UpcomingDebtsListProps {
   installments: DebtInstallment[];
   debts: Debt[];
+  categories: Category[];
 }
 
 export function UpcomingDebtsList({
   installments,
   debts,
+  categories,
 }: UpcomingDebtsListProps) {
-  const router = useRouter();
-
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [debtSelected, setDebtSelected] = useState<Debt | null>(null);
   const [selectedInstallment, setSelectedInstallment] =
@@ -33,99 +31,105 @@ export function UpcomingDebtsList({
     setIsModalOpen(true);
   };
 
-  const handleGoToPayment = (debtId: string, installmentId: string) => {
-    router.push(`/debts/${debtId}/installments/${installmentId}`);
-  };
-
   if (installments.length === 0) {
     return (
-      <div className="text-center py-8 text-muted-foreground">
+      <div className="text-center py-12 text-muted-foreground">
         <Icon
           icon="mdi:check-circle-outline"
-          className="w-12 h-12 mx-auto mb-2 text-green-500"
+          className="w-16 h-16 mx-auto mb-4 text-primary/50"
         />
-        <p>Nenhuma conta encontrada para este filtro!</p>
+        <p className="font-semibold">Tudo certo por aqui!</p>
+        <p className="text-sm">Nenhuma conta encontrada para este filtro.</p>
       </div>
     );
   }
 
+  const getDebtCategoryIcon = (debt: Debt | undefined) => {
+    if (!debt || !debt.categoryId) return "mdi:receipt-text-outline";
+    if (!categories) return "mdi:receipt-text-outline";
+    const category = categories.find((cat) => cat.id === debt.categoryId);
+    return category?.icon || "mdi:receipt-text-outline";
+  };
+
   return (
     <>
-      <div className="grid gap-2 max-h-[25rem] overflow-y-auto">
+      <div className="space-y-3">
         {installments.map((installment) => {
           const debt = debts.find((d) => d.id === installment.debtId);
+          if (!debt) return null;
+
           const dueDate = new Date(installment.expectedDueDate);
-
           const isPaid = installment.status === "paid";
-          let statusClass = "";
-          let textClass = "";
+          const isOverdue =
+            !isPaid &&
+            isPast(dueDate) &&
+            differenceInDays(new Date(), dueDate) > 0;
 
-          if (isPaid) {
-            statusClass = "bg-green-500/10 border-green-500/20 opacity-80";
-            textClass = "text-green-800 dark:text-green-300";
-          } else {
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            dueDate.setHours(0, 0, 0, 0);
-            const daysDiff = differenceInDays(today, dueDate);
-            const isOverdue = isPast(dueDate) && daysDiff > 0;
+          const statusColor = isPaid
+            ? "bg-green-500"
+            : isOverdue
+            ? "bg-red-500"
+            : "bg-accent";
+          const textColor = isPaid
+            ? "text-green-500"
+            : isOverdue
+            ? "text-red-500"
+            : "text-foreground";
+          const borderColor = isPaid
+            ? "border-green-500"
+            : isOverdue
+            ? "border-red-500"
+            : "border-accent";
 
-            if (isOverdue) {
-              if (daysDiff > 15) {
-                statusClass = "bg-red-500/10 border-red-500/20";
-                textClass = "text-red-800 dark:text-red-300";
-              } else {
-                statusClass = "bg-amber-500/10 border-amber-500/20";
-                textClass = "text-amber-800 dark:text-amber-300";
-              }
-            } else {
-              statusClass = "bg-sky-500/10 border-sky-500/20";
-              textClass = "text-sky-800 dark:text-sky-300";
-            }
-          }
+          const categoryIcon = getDebtCategoryIcon(debt);
 
-          return debt ? (
+          return (
             <div
               key={installment.id}
               onClick={() => handleViewDetails(debt, installment)}
               className={cn(
-                "p-3 rounded-md flex justify-between items-center",
-                statusClass
+                "flex items-center justify-between p-3 rounded-xl bg-card hover:bg-muted/50 cursor-pointer transition-colors border-l-4",
+                borderColor
               )}
             >
-              <div>
-                <p className={cn("font-semibold", textClass)}>
-                  {debt.description}
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  Vence em: {format(dueDate, "dd/MM/yyyy", { locale: ptBR })}
-                </p>
+              <div className="flex items-center gap-4 min-w-0">
+                <div
+                  className={cn(
+                    "flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center",
+                    statusColor
+                  )}
+                >
+                  <Icon icon={categoryIcon} className="w-6 h-6 text-white" />
+                </div>
+                <div className="flex flex-col min-w-0">
+                  <p className="font-bold text-base text-foreground truncate">
+                    {debt.description}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    {/* CORREÇÃO APLICADA AQUI */}
+                    {isPaid && installment.paymentDate
+                      ? `Pago em: ${format(
+                          new Date(installment.paymentDate),
+                          "dd 'de' MMM, yyyy",
+                          { locale: ptBR }
+                        )}`
+                      : `Vence em: ${format(dueDate, "dd 'de' MMM, yyyy", {
+                          locale: ptBR,
+                        })}`}
+                  </p>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <p className={cn("font-bold", textClass)}>
+
+              <div className="text-right pl-2">
+                <p className={cn("font-bold text-lg", textColor)}>
                   {installment.expectedAmount?.toLocaleString("pt-BR", {
                     style: "currency",
                     currency: "BRL",
                   })}
                 </p>
-                {isPaid ? (
-                  <div className="flex items-center justify-center w-[76px]">
-                    <Icon
-                      icon="mdi:check-circle"
-                      className="w-6 h-6 text-green-500"
-                    />
-                  </div>
-                ) : (
-                  <Button
-                    size="sm"
-                    onClick={() => handleGoToPayment(debt.id, installment.id)}
-                  >
-                    Pagar
-                  </Button>
-                )}
               </div>
             </div>
-          ) : null;
+          );
         })}
       </div>
 
