@@ -12,56 +12,70 @@
   /* TEMA VERDE (PADRÃO)                            */
   /* ========================================================================== */
   [data-theme="green"] {
-    --background: 125 100% 97%; /* Honeydew #F1FFF3 */
-    --foreground: 184 65% 8%; /* Fence Green #052224 */
-    --card: 0 0% 100%;
+    --background: 162 100% 41%; /* Caribbean Green #00D09E */
+    --foreground: 184 65% 8%;
+
+    --card: 162 80% 37%;
     --card-foreground: 184 65% 8%;
+
     --popover: 0 0% 100%;
     --popover-foreground: 184 65% 8%;
-    --primary: 162 100% 41%; /* Caribbean Green #00D09E */
-    --primary-foreground: 184 65% 8%;
-    --secondary: 125 74% 92%; /* Light Green #DFF7E2 */
-    --secondary-foreground: 184 65% 8%;
+
+    --primary: 125 100% 97%; /* Honeydew #F1FFF3 */
+    --primary-foreground: 184 65% 8%; /* Fence Green #052224 */
+
+    --secondary: 125 25% 80%; /* Verde fosco/acinzentado, mais escuro e suave */
+    --secondary-foreground: 184 65% 8%; /* Mantém o texto escuro para bom contraste */
+
     --muted: 125 74% 92%;
     --muted-foreground: 180 50% 25%; /* Cyprus #0E3E3E */
+
     --accent: 217 100% 50%; /* Ocean Blue #0068FF */
     --accent-foreground: 125 100% 97%;
+
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 100%;
+
     --border: 125 74% 88%;
     --input: 125 74% 88%;
     --ring: 217 100% 50%;
   }
 
   [data-theme="green"].dark {
-    /* Mapeado da Paleta de Cores do Figma */
-    --background: 183.53 73.91% 4.51%; /* Void #031314 - O fundo mais escuro hsl(183.53, 73.91%, 4.51%) */
-    --foreground: 125 74% 92%; /* Light Green #DFF7E2 - Cor do texto principal */
+    /* =================== VERSÃO CORRIGIDA FIEL AO FIGMA =================== */
 
-    --card: 184 65% 8%; /* Fence Green #052224 - Fundo dos cards, um pouco mais claro */
-    --card-foreground: 125 74% 92%;
+    /* Fundo principal da página (área do Hero). O tom mais escuro de todos. */
+    --background: 184 65% 5%; /* Void #031314 */
 
-    --popover: 184 65% 5%; /* Void */
+    /* Cor do texto principal. Agora é um verde bem claro para contraste máximo. */
+    --foreground: 125 74% 92%; /* Light Green #DFF7E2 */
+
+    /* Fundo dos cards da lista (Ex: Dívida do Mercado Pago). */
+    --card: 165.58, 100%, 40.78%; /* Cyprus #0E3E3E */
+    --card-foreground: 180 50% 15%; /* Cyprus #0E3E3E */
+
+    --popover: 184 65% 5%;
     --popover-foreground: 125 74% 92%;
 
-    --primary: 162 100% 41%; /* Caribbean Green #00D09E - Cor de destaque principal */
-    --primary-foreground: 184 65% 8%; /* Fence Green - Texto escuro para botões primários */
+    /* Fundo do container principal arredondado. */
+    --primary: 180 50% 15%; /* Cyprus #0E3E3E */
+    --primary-foreground: 125 74% 92%;
 
-    --secondary: 180 50% 15%; /* Cyprus #0E3E3E - Elementos secundários */
+    --secondary: 184 65% 8%; /* Fence Green #052224 */
     --secondary-foreground: 125 74% 92%;
 
-    --muted: 180 50% 15%; /* Cyprus #0E3E3E - Fundo das abas */
-    --muted-foreground: 125 74% 80%; /* Texto das abas inativas */
+    --muted: 184 65% 8%; /* Fence Green #052224 */
+    --muted-foreground: 125 74% 80%;
 
-    --accent: 210 98% 71%; /* Light Blue #6DB6FE - Cor de acento (pode ser ajustada) */
+    --accent: 162 100% 41%; /* Caribbean Green #00D09E */
     --accent-foreground: 184 65% 8%;
 
-    --destructive: 0 72% 51%; /* Um vermelho vivo para erros */
+    --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 180 50% 15%; /* Cyprus */
-    --input: 180 50% 15%; /* Cyprus */
-    --ring: 162 100% 41%; /* Caribbean Green */
+    --border: 180 50% 15%;
+    --input: 180 50% 15%;
+    --ring: 162 100% 41%;
   }
 
   /* ========================================================================== */

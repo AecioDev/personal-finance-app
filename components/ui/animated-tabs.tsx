@@ -34,7 +34,7 @@ export function AnimatedTabs({
   };
 
   const tabWidthPercent = 100 / tabs.length;
-  const padding = 8; // 8px de respiro, 4px de cada lado
+  const padding = 10; // 8px de respiro, 4px de cada lado
 
   return (
     <div
@@ -61,7 +61,7 @@ export function AnimatedTabs({
       ))}
       <motion.div
         layoutId={layoutId}
-        className="absolute inset-y-1 z-0 rounded-full bg-background"
+        className="absolute inset-y-1 z-0 rounded-full bg-card"
         style={{
           left: `calc(${
             tabWidthPercent * tabs.findIndex((t) => t.value === activeTab)

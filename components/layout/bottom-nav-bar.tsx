@@ -42,7 +42,7 @@ export function BottomNavBar() {
   const { openNewExpense, openNewTransaction } = useModal();
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 h-20 bg-card border-t shadow-[0_-2px_10px_rgba(0,0,0,0.05)] rounded-t-2xl z-50">
+    <div className="fixed bottom-0 left-0 right-0 h-20 bg-muted border-t rounded-2xl z-50">
       <nav className="grid grid-cols-5 items-center h-full">
         {navItems.map((item, index) => {
           if (item.type === "action") {
@@ -52,7 +52,7 @@ export function BottomNavBar() {
                   <DropdownMenuTrigger asChild>
                     <Button
                       size="icon"
-                      className="w-16 h-16 rounded-full bg-primary text-primary-foreground shadow-lg hover:bg-primary/90"
+                      className="w-16 h-16 rounded-full bg-card text-secondary-foreground shadow-lg hover:bg-primary/90"
                     >
                       <Icon icon="mdi:plus" className="h-8 w-8" />
                     </Button>
@@ -60,7 +60,7 @@ export function BottomNavBar() {
                   <DropdownMenuContent
                     side="top"
                     align="center"
-                    className="mb-2"
+                    className="mb-2 bg-primary"
                   >
                     {/* Itens do menu de Ações aumentados */}
                     <DropdownMenuItem
@@ -87,7 +87,7 @@ export function BottomNavBar() {
             return (
               <DropdownMenu key={item.label}>
                 <DropdownMenuTrigger asChild>
-                  <button className="flex flex-col items-center justify-center gap-1 text-muted-foreground transition-colors">
+                  <button className="flex flex-col items-center justify-center gap-1 text-secondary-foreground transition-colors">
                     <Icon icon={item.icon || "mdi:check"} className="h-6 w-6" />
                     <span className="text-xs">{item.label}</span>
                   </button>

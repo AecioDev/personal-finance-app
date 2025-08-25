@@ -60,7 +60,7 @@ export function TransactionList({
             key={transaction.id}
             onClick={() => onViewTransaction(transaction)}
             className={cn(
-              "flex items-center justify-between p-3 rounded-xl bg-card hover:bg-muted/50 cursor-pointer transition-colors border-l-4",
+              "flex items-center justify-between p-3 rounded-xl bg-primay hover:bg-muted/50 cursor-pointer transition-colors border-l-4",
               borderColor
             )}
           >

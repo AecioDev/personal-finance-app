@@ -88,7 +88,7 @@ export function UpcomingDebtsList({
               key={installment.id}
               onClick={() => handleViewDetails(debt, installment)}
               className={cn(
-                "flex items-center justify-between p-3 rounded-xl bg-card hover:bg-muted/50 cursor-pointer transition-colors border-l-4",
+                "flex items-center justify-between p-3 rounded-xl bg-primary hover:bg-muted/50 cursor-pointer transition-colors border-l-4",
                 borderColor
               )}
             >
@@ -106,7 +106,6 @@ export function UpcomingDebtsList({
                     {debt.description}
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    {/* CORREÇÃO APLICADA AQUI */}
                     {isPaid && installment.paymentDate
                       ? `Pago em: ${format(
                           new Date(installment.paymentDate),
