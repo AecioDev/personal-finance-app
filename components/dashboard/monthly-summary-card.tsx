@@ -35,9 +35,9 @@ export function MonthlySummaryCard({
 
   return (
     // 3. Ajustar o estilo do Card principal
-    <Card className="rounded-[2rem] shadow-md">
+    <Card className="rounded-[2rem] shadow-md bg-primary text-primary-foreground">
       <CardContent className="p-4 space-y-4">
-        <div className="flex justify-between items-center text-primary">
+        <div className="flex justify-between items-center text-primary-foreground">
           <Button variant="ghost" size="icon" onClick={onPreviousMonth}>
             <Icon icon="mdi:chevron-left" className="h-6 w-6" />
           </Button>
@@ -48,14 +48,12 @@ export function MonthlySummaryCard({
             <Icon icon="mdi:chevron-right" className="h-6 w-6" />
           </Button>
         </div>
-
-        {/* 4. Adicionar a barra de progresso e os textos de meta */}
         <div>
           <Progress
             value={progressValue}
-            className="h-4 bg-amber-300 [&>div]:bg-input"
+            className="h-4 bg-amber-300 [&>div]:bg-primary-foreground"
           />
-          <div className="flex justify-between text-xs text-muted mt-1">
+          <div className="flex justify-between text-sm text-primary-foreground mt-1">
             <span>{progressValue.toFixed(0)}% pago</span>
             <span>
               Meta:{" "}
@@ -70,7 +68,7 @@ export function MonthlySummaryCard({
         {/* 5. Ajustar o grid e as cores dos valores */}
         <div className="grid grid-cols-3 text-center divide-x divide-border">
           <div>
-            <p className="text-xs text-muted">Previsto</p>
+            <p className="text-sm text-primary-foreground">Previsto</p>
             <p className="font-bold text-base text-foreground">
               {summary.totalPrevisto.toLocaleString("pt-BR", {
                 style: "currency",
@@ -79,7 +77,7 @@ export function MonthlySummaryCard({
             </p>
           </div>
           <div>
-            <p className="text-xs text-muted">Pago</p>
+            <p className="text-sm text-primary-foreground">Pago</p>
             <p className="font-bold text-base text-accent">
               {summary.totalPago.toLocaleString("pt-BR", {
                 style: "currency",
@@ -88,7 +86,7 @@ export function MonthlySummaryCard({
             </p>
           </div>
           <div>
-            <p className="text-xs text-muted">Falta</p>
+            <p className="text-sm text-primary-foreground">Falta</p>
             <p className="font-bold text-base text-amber-300">
               {summary.faltaPagar.toLocaleString("pt-BR", {
                 style: "currency",

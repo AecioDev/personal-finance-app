@@ -5,8 +5,6 @@ import { cn } from "@/lib/utils";
 import { Account, Category, Transaction } from "@/interfaces/finance";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { SimpleTooltip } from "../common/simple-tooltip";
-import { Button } from "../ui/button";
 
 interface TransactionListProps {
   transactions: Transaction[];
@@ -51,9 +49,11 @@ export function TransactionList({
         const categoryIcon = getCategoryIcon(transaction.categoryId || "");
 
         // Definindo as cores com base no tipo de transação
-        const statusColor = isIncome ? "bg-green-500" : "bg-red-500";
-        const textColor = isIncome ? "text-green-500" : "text-red-500";
-        const borderColor = isIncome ? "border-green-500" : "border-red-500";
+        const statusColor = isIncome ? "bg-green-500" : "bg-destructive";
+        const textColor = isIncome ? "text-green-500" : "text-destructive";
+        const borderColor = isIncome
+          ? "border-green-500"
+          : "border-destructive";
 
         return (
           <div

@@ -2,6 +2,13 @@
 
 import React, { createContext, useContext, useState, ReactNode } from "react";
 
+// Definindo o formato de uma ação customizada
+type CustomAction = {
+  label: string;
+  icon: string;
+  action: () => void;
+};
+
 // Define o que o nosso contexto vai fornecer
 interface ModalContextType {
   isNewExpenseOpen: boolean;
@@ -10,6 +17,8 @@ interface ModalContextType {
   isNewTransactionOpen: boolean;
   openNewTransaction: () => void;
   closeNewTransaction: () => void;
+  customActions: CustomAction[];
+  setCustomActions: (actions: CustomAction[]) => void;
 }
 
 // Cria o contexto com um valor padrão
@@ -19,6 +28,7 @@ const ModalContext = createContext<ModalContextType | undefined>(undefined);
 export function ModalProvider({ children }: { children: ReactNode }) {
   const [isNewExpenseOpen, setIsNewExpenseOpen] = useState(false);
   const [isNewTransactionOpen, setIsNewTransactionOpen] = useState(false);
+  const [customActions, setCustomActions] = useState<CustomAction[]>([]);
 
   const value = {
     isNewExpenseOpen,
@@ -27,6 +37,8 @@ export function ModalProvider({ children }: { children: ReactNode }) {
     isNewTransactionOpen,
     openNewTransaction: () => setIsNewTransactionOpen(true),
     closeNewTransaction: () => setIsNewTransactionOpen(false),
+    customActions,
+    setCustomActions,
   };
 
   return (

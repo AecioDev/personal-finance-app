@@ -8,25 +8,20 @@ import { useModal } from "@/components/providers/modal-provider";
 import { useFinance } from "@/components/providers/finance-provider";
 import { useAuth } from "@/components/providers/auth-provider";
 import { useToast } from "@/components/ui/use-toast";
-import { DebtInstallment, Transaction } from "@/interfaces/finance";
-import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  DebtInstallment,
+  Transaction,
+  TransactionType,
+} from "@/interfaces/finance";
+import { Button } from "@/components/ui/button";
 import { AnimatedTabs } from "@/components/ui/animated-tabs";
-import { Icon } from "@iconify/react";
 import { DebtInstallmentModal } from "../debts/debt-installment-modal";
-import { SimpleDebtForm } from "../forms/simple-debt-form";
-import { SimpleTransactionForm } from "../forms/simple-transaction-form";
 import { getMonth, getYear, addMonths, subMonths, isPast } from "date-fns";
 import { MonthlySummaryCard } from "./monthly-summary-card";
 import { UpcomingDebtsList } from "./upcoming-debts-list";
 import { TransactionList } from "./transaction-list";
 import { TransactionDetailsModal } from "./transaction-details-modal";
-import { cn } from "@/lib/utils"; // Importando o utilitário cn
+import { cn } from "@/lib/utils";
 
 export function DashboardView() {
   const { toast } = useToast();
@@ -41,15 +36,14 @@ export function DashboardView() {
     loadingFinanceData,
     errorFinanceData,
   } = useFinance();
-  const {
-    isNewExpenseOpen,
-    closeNewExpense,
-    isNewTransactionOpen,
-    closeNewTransaction,
-  } = useModal();
 
   const [activeMainTab, setActiveMainTab] = useState("debts");
   const [debtFilter, setDebtFilter] = useState<"open" | "paid" | "all">("open");
+  // =================== NOVO ESTADO AQUI ===================
+  const [transactionFilter, setTransactionFilter] = useState<
+    TransactionType | "all"
+  >("all");
+  // ========================================================
   const [displayDate, setDisplayDate] = useState(new Date());
   const [isInstallmentModalOpen, setIsInstallmentModalOpen] = useState(false);
   const [editingInstallment, setEditingInstallment] =
@@ -70,7 +64,7 @@ export function DashboardView() {
 
   const { monthlySummary, transactionsForMonth, filteredDebtsForMonth } =
     useMemo(() => {
-      // ... (sua lógica de useMemo continua a mesma)
+      // ... (lógica de resumo e dívidas mantida) ...
       const selectedMonth = getMonth(displayDate);
       const selectedYear = getYear(displayDate);
       const allInstallmentsForMonth = debtInstallments.filter((inst) => {
@@ -132,6 +126,13 @@ export function DashboardView() {
       };
     }, [debtInstallments, transactions, displayDate, debtFilter]);
 
+  const filteredTransactions = useMemo(() => {
+    if (transactionFilter === "all") {
+      return transactionsForMonth;
+    }
+    return transactionsForMonth.filter((t) => t.type === transactionFilter);
+  }, [transactionsForMonth, transactionFilter]);
+
   const nextDebtToPayInstallment = useMemo(() => {
     return (
       debtInstallments
@@ -181,28 +182,26 @@ export function DashboardView() {
 
   return (
     <>
-      <div className="bg-background pb-5">
-        <div className="text-foreground p-6">
+      <div className="bg-primary">
+        <div className="text-primary-foreground p-6 pt-8">
           <div className="flex justify-between items-center mb-6">
             <div>
               <h1 className="text-2xl font-bold">
                 Olá, {user?.displayName?.split(" ")[0] || "Usuário"}!
               </h1>
-              <p className="text-sm text-primary-foreground/80">
-                Bem-vindo de volta
-              </p>
+              <p className="text-sm opacity-80">Bem-vindo de volta</p>
             </div>
             <Link href="/profile">
               <img
                 src={user?.photoURL || "/placeholder-user.jpg"}
                 alt={user?.displayName || "Usuário"}
-                className="w-11 h-11 rounded-full cursor-pointer border-2 border-primary-foreground/50 hover:opacity-90 transition-opacity"
+                className="w-11 h-11 rounded-full cursor-pointer border-2 border-white/50 hover:opacity-90 transition-opacity"
               />
             </Link>
           </div>
           {nextDebtToPay && nextDebtToPayInstallment ? (
             <div>
-              <p className="text-sm text-primary-foreground/80 mb-1">
+              <p className="text-sm opacity-80 mb-1">
                 {isOverdue ? "Parcela Vencida" : "Próxima Parcela"}
               </p>
               <p className="text-xl font-bold tracking-tight mb-1">
@@ -210,11 +209,10 @@ export function DashboardView() {
                 {nextDebtToPayInstallment.installmentNumber}/
                 {nextDebtToPay.totalInstallments}
               </p>
-              {/* =================== AJUSTE AQUI =================== */}
               <p
                 className={cn(
                   "text-4xl font-extrabold mb-3",
-                  isOverdue ? "text-amber-300" : "text-accent"
+                  isOverdue ? "text-amber-300" : "text-white"
                 )}
               >
                 R$
@@ -222,11 +220,10 @@ export function DashboardView() {
                   .toFixed(2)
                   .replace(".", ",")}
               </p>
-              {/* =================================================== */}
               <div className="grid grid-cols-2 gap-2">
                 <Button
                   size="lg"
-                  className="bg-muted-foreground text-muted hover:bg-primary-foreground/90"
+                  className="bg-accent text-accent-foreground hover:bg-accent/80"
                 >
                   Pagar
                 </Button>
@@ -234,6 +231,7 @@ export function DashboardView() {
                   size="lg"
                   variant="outline"
                   onClick={handleCriticalDebtsClick}
+                  className="bg-primary/50 border-primary-foreground/50 text-primary-foreground hover:bg-primary/70"
                 >
                   Dívidas Críticas
                 </Button>
@@ -242,14 +240,14 @@ export function DashboardView() {
           ) : (
             <div className="text-center py-8">
               <p className="font-bold text-lg">Tudo em dia por aqui!</p>
-              <p className="text-sm text-primary-foreground/80">
+              <p className="text-sm opacity-80">
                 Nenhuma conta próxima do vencimento.
               </p>
             </div>
           )}
         </div>
 
-        <div className="bg-primary rounded-[3.5rem] p-4 space-y-4 pb-8">
+        <div className="bg-background rounded-t-[2.5rem] p-4 space-y-4">
           <MonthlySummaryCard
             summary={monthlySummary}
             displayDate={displayDate}
@@ -292,35 +290,37 @@ export function DashboardView() {
                 </div>
               )}
               {activeMainTab === "transactions" && (
-                <TransactionList
-                  transactions={transactionsForMonth}
-                  accounts={accounts}
-                  categories={categories}
-                  onViewTransaction={handleViewTransaction}
-                />
+                // =================== NOVO FILTRO AQUI ===================
+                <div>
+                  <AnimatedTabs
+                    defaultValue={transactionFilter}
+                    onValueChange={(value) =>
+                      setTransactionFilter(value as any)
+                    }
+                    tabs={[
+                      { label: "Receitas", value: "income" },
+                      { label: "Despesas", value: "expense" },
+                      { label: "Todos", value: "all" },
+                    ]}
+                    tabClassName="text-sm"
+                    layoutId="transaction-filter-tabs"
+                  />
+                  <div className="mt-4">
+                    <TransactionList
+                      transactions={filteredTransactions}
+                      accounts={accounts}
+                      categories={categories}
+                      onViewTransaction={handleViewTransaction}
+                    />
+                  </div>
+                </div>
+                // ========================================================
               )}
             </div>
           </div>
         </div>
       </div>
 
-      {/* MODAIS */}
-      <Dialog open={isNewExpenseOpen} onOpenChange={closeNewExpense}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Registrar Nova Despesa</DialogTitle>
-          </DialogHeader>
-          <SimpleDebtForm onFinished={closeNewExpense} />
-        </DialogContent>
-      </Dialog>
-      <Dialog open={isNewTransactionOpen} onOpenChange={closeNewTransaction}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Novo Lançamento</DialogTitle>
-          </DialogHeader>
-          <SimpleTransactionForm onFinished={closeNewTransaction} />
-        </DialogContent>
-      </Dialog>
       <DebtInstallmentModal
         isOpen={isInstallmentModalOpen}
         onOpenChange={setIsInstallmentModalOpen}

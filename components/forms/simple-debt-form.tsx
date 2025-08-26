@@ -33,7 +33,6 @@ import { Checkbox } from "../ui/checkbox";
 import { DatePicker } from "../ui/date-picker";
 import { CurrencyInput } from "../ui/currency-input";
 import { AnimatePresence, motion } from "framer-motion";
-import { DebtFormData } from "@/schemas/debt-schema";
 
 interface SimpleDebtFormProps {
   onFinished?: () => void;
@@ -205,7 +204,6 @@ export function SimpleDebtForm({ onFinished }: SimpleDebtFormProps) {
             )}
           />
 
-          {/* CHECKBOXES LADO A LADO COM LÓGICA DE EXCLUSÃO */}
           <div className="grid grid-cols-2 gap-4">
             <FormField
               control={form.control}
@@ -249,7 +247,6 @@ export function SimpleDebtForm({ onFinished }: SimpleDebtFormProps) {
             />
           </div>
 
-          {/* DESCRIÇÕES CONDICIONAIS */}
           <div className="text-xs text-muted-foreground space-y-1 pl-1 min-h-[32px]">
             {isRecurring && (
               <p>
@@ -265,7 +262,6 @@ export function SimpleDebtForm({ onFinished }: SimpleDebtFormProps) {
             )}
           </div>
 
-          {/* CAMPOS DE PAGAMENTO CONDICIONAIS */}
           <AnimatePresence>
             {payNow && (
               <motion.div
@@ -336,20 +332,28 @@ export function SimpleDebtForm({ onFinished }: SimpleDebtFormProps) {
         </form>
       </Form>
 
-      {/* BOTÕES COM NOMES ORIGINAIS */}
       <div className="flex justify-end gap-2 pt-6">
         <Button
           variant="outline"
           onClick={form.handleSubmit((data) => processSubmit(data, true))}
           disabled={!!submittingAction}
         >
-          {submittingAction === "saveAndNew" ? "Salvando..." : "Cadastrar +"}
+          {submittingAction === "saveAndNew" ? (
+            <Icon icon="mdi:loading" className="animate-spin mr-2" />
+          ) : (
+            <Icon icon="mdi:plus" className="mr-2" />
+          )}
+          Salvar e Novo
         </Button>
         <Button
           onClick={form.handleSubmit((data) => processSubmit(data, false))}
           disabled={!!submittingAction}
+          className="bg-primary text-primary-foreground hover:bg-primary/90"
         >
-          {submittingAction === "save" ? "Salvando..." : "Cadastrar"}
+          {submittingAction === "save" && (
+            <Icon icon="mdi:loading" className="animate-spin mr-2" />
+          )}
+          Salvar Despesa
         </Button>
       </div>
 

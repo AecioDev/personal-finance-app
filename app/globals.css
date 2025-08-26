@@ -9,64 +9,86 @@
   }
 
   /* ========================================================================== */
-  /* TEMA VERDE (PADRÃO)                            */
+  /* TEMA VERDE (PADRÃO FIGMA)                      */
   /* ========================================================================== */
   [data-theme="green"] {
-    --background: 162 100% 41%; /* Caribbean Green #00D09E */
-    --foreground: 184 65% 8%;
+    /* Fundo principal da aplicação (o tom mais claro) */
+    --background: 125 100% 97%; /* Honeydew #F1FFF3 */
+    /* Cor principal do texto */
+    --foreground: 184 65% 8%; /* Fence Green #052224 */
 
-    --card: 162 80% 37%;
+    /* Fundo dos cards. No Figma, é um branco puro. */
+    --card: 0 0% 100%;
     --card-foreground: 184 65% 8%;
 
-    --popover: 0 0% 100%;
+    /* Fundo de popovers e dialogs */
+    --popover: 125 74% 92%; /* Light Green #DFF7E2 */
     --popover-foreground: 184 65% 8%;
 
-    --primary: 125 100% 97%; /* Honeydew #F1FFF3 */
-    --primary-foreground: 184 65% 8%; /* Fence Green #052224 */
+    /* Cor primária de AÇÃO (botões, links, abas ativas) */
+    --primary: 162 100% 41%; /* Texto sobre a cor primária (texto escuro no botão verde) - Caribbean Green #00D09E */
+    --primary-foreground: 184 65% 8%;
 
-    --secondary: 125 25% 80%; /* Verde fosco/acinzentado, mais escuro e suave */
-    --secondary-foreground: 184 65% 8%; /* Mantém o texto escuro para bom contraste */
+    /* Cor secundária (fundos de containers, como a caixa do dashboard) */
+    --secondary: 125 74% 92%; /* Light Green #DFF7E2 */
+    --secondary-foreground: 184 65% 8%;
 
-    --muted: 125 74% 92%;
-    --muted-foreground: 180 50% 25%; /* Cyprus #0E3E3E */
+    /* Cor para elementos de baixa prioridade (fundo de abas inativas) */
+    --muted: 125 74% 92%; /* Light Green #DFF7E2 */
+    --muted-foreground: 180 50% 25%; /* Texto sobre a cor muted - Cyprus #0E3E3E */
 
-    --accent: 217 100% 50%; /* Ocean Blue #0068FF */
+    /* Cor para superfícies customizadas como cards e abas no dashboard */
+    --surface: 125 25% 80%; /* Tom de verde claro fosco */
+    --surface-foreground: 184 65% 8%; /* Texto para a superfície */
+
+    /* Cor de destaque para interações */
+    --accent: 217 85% 55%; /* Antes: 217 100% 50% */
     --accent-foreground: 125 100% 97%;
 
+    /* Cor para ações destrutivas */
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 125 74% 88%;
-    --input: 125 74% 88%;
-    --ring: 217 100% 50%;
+    --border: 125 74% 88%; /* Cor das bordas e inputs */
+    --input: 125 74% 92%; /* Fundo dos inputs (igual ao secondary no Figma) */
+    --ring: 162 100% 41%; /* Cor do anel de foco */
   }
 
+  /* ========================================================================== */
+  /* TEMA VERDE DARK (PADRÃO FIGMA)                 */
+  /* ========================================================================== */
   [data-theme="green"].dark {
-    /* =================== VERSÃO CORRIGIDA FIEL AO FIGMA =================== */
-
-    /* Fundo principal da página (área do Hero). O tom mais escuro de todos. */
+    /* Fundo principal da página (o tom mais escuro) */
     --background: 184 65% 5%; /* Void #031314 */
-
-    /* Cor do texto principal. Agora é um verde bem claro para contraste máximo. */
+    /* Cor principal do texto (o tom mais claro) */
     --foreground: 125 74% 92%; /* Light Green #DFF7E2 */
 
-    /* Fundo dos cards da lista (Ex: Dívida do Mercado Pago). */
-    --card: 165.58, 100%, 40.78%; /* Cyprus #0E3E3E */
-    --card-foreground: 180 50% 15%; /* Cyprus #0E3E3E */
+    /* Fundo dos cards da lista */
+    --card: 184 65% 8%; /* Fence Green #052224 */
+    --card-foreground: 125 74% 92%;
 
-    --popover: 184 65% 5%;
+    /* Fundo de popovers */
+    --popover: 180 50% 15%; /* Cyprus #0E3E3E */
     --popover-foreground: 125 74% 92%;
 
-    /* Fundo do container principal arredondado. */
+    /* Cor primária (container do dashboard) */
     --primary: 180 50% 15%; /* Cyprus #0E3E3E */
+    /* Texto sobre a cor primária */
     --primary-foreground: 125 74% 92%;
 
+    /* Cor secundária (fundo do card de resumo) */
     --secondary: 184 65% 8%; /* Fence Green #052224 */
     --secondary-foreground: 125 74% 92%;
 
-    --muted: 184 65% 8%; /* Fence Green #052224 */
+    /* Fundo das abas inativas */
+    --muted: 184 65% 8%; /* Cyprus #0E3E3E */
     --muted-foreground: 125 74% 80%;
 
+    /* Cor para superfícies customizadas (Dialogs) */
+    --surface: 180 50% 15%; /* Cyprus #0E3E3E */
+    --surface-foreground: 125 74% 92%;
+
+    /* Cor de destaque para AÇÕES (botões, abas ativas) */
     --accent: 162 100% 41%; /* Caribbean Green #00D09E */
     --accent-foreground: 184 65% 8%;
 
@@ -74,7 +96,8 @@
     --destructive-foreground: 0 0% 100%;
 
     --border: 180 50% 15%;
-    --input: 180 50% 15%;
+    /* Fundo dos inputs no modo escuro */
+    --input: 184 65% 8%;
     --ring: 162 100% 41%;
   }
 

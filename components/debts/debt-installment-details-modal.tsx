@@ -1,10 +1,13 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useMemo } from "react";
 import {
+  Account,
   Debt,
   DebtInstallment,
   DebtInstallmentStatus,
+  PaymentMethod,
+  Transaction,
 } from "@/interfaces/finance";
 import {
   Dialog,
@@ -17,6 +20,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { getDDMMYYYY } from "@/lib/dates";
 import { differenceInDays, isPast } from "date-fns";
+import { useFinance } from "../providers/finance-provider";
+import { Icon } from "@iconify/react"; // Importando o Icon
+import { cn } from "@/lib/utils";
 
 interface DebtInstallmentDetailsModalProps {
   isOpen: boolean;
@@ -31,10 +37,32 @@ export function DebtInstallmentDetailsModal({
   debt,
   installment,
 }: DebtInstallmentDetailsModalProps) {
-  const hasPayments =
-    installment &&
-    installment.transactionIds &&
-    installment.transactionIds.length > 0;
+  const { transactions, accounts, paymentMethods } = useFinance();
+
+  const paymentInfo = useMemo(() => {
+    if (
+      !installment ||
+      installment.status !== "paid" ||
+      !installment.transactionIds?.length
+    ) {
+      return null;
+    }
+
+    const paymentTransaction = transactions.find(
+      (t) => t.id === installment.transactionIds[0]
+    );
+    if (!paymentTransaction) return null;
+
+    const account = accounts.find((a) => a.id === paymentTransaction.accountId);
+    const paymentMethod = paymentMethods.find(
+      (p) => p.id === paymentTransaction.paymentMethodId
+    );
+
+    return {
+      accountName: account?.name || "Não encontrada",
+      paymentMethodName: paymentMethod?.name || "Não encontrado",
+    };
+  }, [installment, transactions, accounts, paymentMethods]);
 
   const overdueInfo = useMemo(() => {
     if (!installment || installment.status === "paid")
@@ -68,26 +96,18 @@ export function DebtInstallmentDetailsModal({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>
-            <div className="space-y-4">
-              <div>{debt?.description || "Dívida"}</div>
-              {debt?.type === "complete" && (
-                <div>Detalhes da Parcela {installment?.installmentNumber}</div>
-              )}
-            </div>
+            {debt?.description || "Detalhes da Despesa"}
           </DialogTitle>
           <DialogDescription>
-            {debt?.type === "complete" ? (
-              <span>Resumo dos valores e status desta parcela.</span>
-            ) : (
-              <span>Resumo dos valores desta despesa.</span>
-            )}
+            Resumo dos valores e status desta despesa.
           </DialogDescription>
         </DialogHeader>
 
-        <hr className="border-1 border-muted-foreground" />
+        <hr className="border-border" />
 
         {installment && (
-          <div className="space-y-4  text-sm">
+          <div className="space-y-4 text-sm">
+            {/* ... (resto das informações do modal continua igual) ... */}
             <div className="flex justify-between">
               <span className="text-muted-foreground">Status</span>
               <span className="font-medium capitalize">
@@ -109,7 +129,7 @@ export function DebtInstallmentDetailsModal({
                 })}
               </span>
             </div>
-            {hasPayments && (
+            {installment.status === "paid" && (
               <>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Valor Pago</span>
@@ -120,60 +140,50 @@ export function DebtInstallmentDetailsModal({
                     })}
                   </span>
                 </div>
-                {installment.interestPaidAmount > 0 && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Juros Pagos</span>
-                    <span className="font-medium text-orange-600">
-                      {installment.interestPaidAmount.toLocaleString("pt-BR", {
-                        style: "currency",
-                        currency: "BRL",
-                      })}
-                    </span>
-                  </div>
-                )}
-                {installment.discountAmount > 0 && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">
-                      Desconto Recebido
-                    </span>
-                    <span className="font-medium text-green-600">
-                      {installment.discountAmount.toLocaleString("pt-BR", {
-                        style: "currency",
-                        currency: "BRL",
-                      })}
-                    </span>
-                  </div>
-                )}
-                {installment.remainingAmount > 0 &&
-                  installment.status === "partial" && (
-                    <div className="flex justify-between border-t pt-4 mt-4">
-                      <span className="text-muted-foreground">
-                        Valor Restante
-                      </span>
-                      <span className="font-bold text-red-500">
-                        {installment.remainingAmount.toLocaleString("pt-BR", {
-                          style: "currency",
-                          currency: "BRL",
-                        })}
+                {paymentInfo && (
+                  <>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Conta</span>
+                      <span className="font-medium">
+                        {paymentInfo.accountName}
                       </span>
                     </div>
-                  )}
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">
+                        Forma de Pag.
+                      </span>
+                      <span className="font-medium">
+                        {paymentInfo.paymentMethodName}
+                      </span>
+                    </div>
+                  </>
+                )}
               </>
-            )}
-
-            {overdueInfo.isOverdue && (
-              <div className="flex justify-between border-t pt-4 mt-4">
-                <span className="text-muted-foreground">Vencida há</span>
-                <span className="font-bold text-red-500">
-                  {overdueInfo.days} dias
-                </span>
-              </div>
             )}
           </div>
         )}
+        {overdueInfo.isOverdue && (
+          <div className="mt-4 flex items-center gap-4 rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-destructive">
+            <Icon
+              icon="mdi:robot-angry-outline"
+              className="h-10 w-10 flex-shrink-0"
+            />
+            <div className="text-xs">
+              <p className="font-bold">
+                Esta despesa está atrasada há {overdueInfo.days}{" "}
+                {overdueInfo.days === 1 ? "dia" : "dias"}.
+              </p>
+              <p>A cada dia que passa, mais juros você paga!</p>
+            </div>
+          </div>
+        )}
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+        <DialogFooter className={cn(overdueInfo.isOverdue ? "mt-0" : "mt-4")}>
+          <Button
+            variant="outline"
+            className="w-full"
+            onClick={() => onOpenChange(false)}
+          >
             Fechar
           </Button>
         </DialogFooter>

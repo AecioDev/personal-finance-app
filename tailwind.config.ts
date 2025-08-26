@@ -53,9 +53,12 @@ const config = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        surface: {
+          DEFAULT: "hsl(var(--surface))",
+          foreground: "hsl(var(--surface-foreground))",
+        },
         // Adicionado a nova cor para o tema do Tailwind
         "header-footer-background": "hsl(var(--header-footer-background))",
-        "modal-background": "hsl(var(--modal-background))",
       },
       keyframes: {
         "accordion-down": {

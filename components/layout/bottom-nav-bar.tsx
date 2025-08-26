@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "../ui/button";
 
+// ... (seu array navItems continua o mesmo)
 const navItems = [
   {
     type: "link",
@@ -39,7 +40,8 @@ const navItems = [
 
 export function BottomNavBar() {
   const pathname = usePathname();
-  const { openNewExpense, openNewTransaction } = useModal();
+  // Pegando as ações padrão e as customizadas do nosso provider
+  const { openNewExpense, openNewTransaction, customActions } = useModal();
 
   return (
     <div className="fixed bottom-0 left-0 right-0 h-20 bg-muted border-t rounded-2xl z-50">
@@ -52,7 +54,7 @@ export function BottomNavBar() {
                   <DropdownMenuTrigger asChild>
                     <Button
                       size="icon"
-                      className="w-16 h-16 rounded-full bg-card text-secondary-foreground shadow-lg hover:bg-primary/90"
+                      className="w-16 h-16 rounded-full bg-primary text-primary-foreground shadow-lg hover:bg-primary/90"
                     >
                       <Icon icon="mdi:plus" className="h-8 w-8" />
                     </Button>
@@ -60,29 +62,51 @@ export function BottomNavBar() {
                   <DropdownMenuContent
                     side="top"
                     align="center"
-                    className="mb-2 bg-primary"
+                    className="mb-2 bg-surface"
                   >
-                    {/* Itens do menu de Ações aumentados */}
-                    <DropdownMenuItem
-                      onClick={openNewExpense}
-                      className="py-3 px-4 text-base"
-                    >
-                      <Icon icon="mdi:trending-down" className="mr-3 h-5 w-5" />
-                      <span>Nova Despesa</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={openNewTransaction}
-                      className="py-3 px-4 text-base"
-                    >
-                      <Icon icon="mdi:cash-plus" className="mr-3 h-5 w-5" />
-                      <span>Novo Lançamento</span>
-                    </DropdownMenuItem>
+                    {/* =================== LÓGICA CONTEXTUAL AQUI =================== */}
+                    {customActions.length > 0 ? (
+                      // Se existem ações customizadas, mostra elas
+                      customActions.map((action) => (
+                        <DropdownMenuItem
+                          key={action.label}
+                          onClick={action.action}
+                          className="py-3 px-4 text-base"
+                        >
+                          <Icon icon={action.icon} className="mr-3 h-5 w-5" />
+                          <span>{action.label}</span>
+                        </DropdownMenuItem>
+                      ))
+                    ) : (
+                      // Se não, mostra as ações padrão
+                      <>
+                        <DropdownMenuItem
+                          onClick={openNewExpense}
+                          className="py-3 px-4 text-base"
+                        >
+                          <Icon
+                            icon="mdi:trending-down"
+                            className="mr-3 h-5 w-5"
+                          />
+                          <span>Nova Despesa</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={openNewTransaction}
+                          className="py-3 px-4 text-base"
+                        >
+                          <Icon icon="mdi:cash-plus" className="mr-3 h-5 w-5" />
+                          <span>Novo Lançamento</span>
+                        </DropdownMenuItem>
+                      </>
+                    )}
+                    {/* ============================================================= */}
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
             );
           }
 
+          // ... (o resto do seu componente continua igual)
           if (item.type === "menu") {
             return (
               <DropdownMenu key={item.label}>

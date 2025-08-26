@@ -68,17 +68,17 @@ export function UpcomingDebtsList({
           const statusColor = isPaid
             ? "bg-green-500"
             : isOverdue
-            ? "bg-red-500"
+            ? "bg-destructive"
             : "bg-accent";
           const textColor = isPaid
             ? "text-green-500"
             : isOverdue
-            ? "text-red-500"
+            ? "text-destructive"
             : "text-foreground";
           const borderColor = isPaid
             ? "border-green-500"
             : isOverdue
-            ? "border-red-500"
+            ? "border-destructive"
             : "border-accent";
 
           const categoryIcon = getDebtCategoryIcon(debt);
@@ -88,7 +88,7 @@ export function UpcomingDebtsList({
               key={installment.id}
               onClick={() => handleViewDetails(debt, installment)}
               className={cn(
-                "flex items-center justify-between p-3 rounded-xl bg-primary hover:bg-muted/50 cursor-pointer transition-colors border-l-4",
+                "flex items-center justify-between p-3 rounded-xl bg-background hover:bg-muted/50 cursor-pointer transition-colors border-l-4",
                 borderColor
               )}
             >

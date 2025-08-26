@@ -51,8 +51,8 @@ export function AnimatedTabs({
             // 1. Padding vertical reduzido para deixar o botão mais compacto
             "relative z-10 flex-1 rounded-full py-1.5 text-sm font-medium transition-colors duration-300",
             activeTab === tab.value
-              ? "text-primary"
-              : "text-muted-foreground hover:text-foreground",
+              ? "text-primary-foreground"
+              : "text-primary-foreground hover:text-primary",
             tabClassName
           )}
         >
@@ -61,7 +61,7 @@ export function AnimatedTabs({
       ))}
       <motion.div
         layoutId={layoutId}
-        className="absolute inset-y-1 z-0 rounded-full bg-card"
+        className="absolute inset-y-1 z-0 rounded-full bg-primary"
         style={{
           left: `calc(${
             tabWidthPercent * tabs.findIndex((t) => t.value === activeTab)

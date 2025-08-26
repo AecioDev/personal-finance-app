@@ -4,19 +4,17 @@ import React, { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useFinance } from "@/components/providers/finance-provider";
+import { useModal } from "@/components/providers/modal-provider"; // Importando o useModal
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Icon } from "@iconify/react";
-import { ButtonNew } from "@/components/ui/button-new";
-import { ButtonBack } from "@/components/ui/button-back";
 import { useToast } from "@/components/ui/use-toast";
-import { getDDMMYYYY } from "@/lib/dates";
 import { Debt } from "@/interfaces/finance";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { format, getMonth, getYear, addMonths, subMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { AnimatedTabs } from "../ui/animated-tabs";
 
 type StatusFilter = "all" | "open" | "inProgress" | "finished";
 
@@ -30,21 +28,27 @@ export function DebtsView() {
     errorFinanceData,
   } = useFinance();
   const { toast } = useToast();
+  const { setCustomActions } = useModal(); // Pegando a função para setar ações
+
+  // Efeito para registrar e limpar a ação customizada desta página
+  useEffect(() => {
+    setCustomActions([
+      {
+        label: "Nova Dívida",
+        icon: "mdi:credit-card-plus-outline",
+        action: () => router.push("/new-debt"),
+      },
+    ]);
+
+    // Função de limpeza: quando o componente desmontar, limpa as ações
+    return () => setCustomActions([]);
+  }, [setCustomActions, router]);
 
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("open");
   const [displayDate, setDisplayDate] = useState(new Date());
 
-  useEffect(() => {
-    if (errorFinanceData) {
-      toast({
-        title: "Erro ao carregar dados",
-        description: errorFinanceData,
-        variant: "destructive",
-      });
-    }
-  }, [errorFinanceData, toast]);
-
+  // ... (toda a sua lógica de filtros e status continua a mesma)
   const getCategoryIcon = (categoryId?: string) => {
     if (!categoryId) return "mdi:tag-outline";
     const category = categories.find((cat) => cat.id === categoryId);
@@ -111,19 +115,28 @@ export function DebtsView() {
   }
 
   return (
-    <>
-      <div className="space-y-6">
-        <div className="flex items-center justify-between mb-6">
-          <ButtonBack onClick={() => router.back()} />
-          <h1 className="text-2xl font-bold">Minhas Dívidas</h1>
-          <ButtonNew onClick={() => router.push("/new-debt")}>
-            Nova Dívida
-          </ButtonNew>
+    <div className="bg-primary">
+      <div className="flex h-56 flex-col text-primary-foreground">
+        {/* Linha superior apenas com o botão de voltar */}
+        <div className="flex-shrink-0 p-4">
+          <Icon
+            icon="mdi:arrow-left"
+            onClick={() => router.back()}
+            className="h-6 w-6 cursor-pointer"
+          />
         </div>
+        {/* Container do título para centralização perfeita */}
+        <div className="flex flex-grow items-center justify-center -mt-14">
+          <h1 className="text-3xl font-semibold">Minhas Dívidas</h1>
+        </div>
+      </div>
 
-        <Card className="bg-muted/30">
+      {/* Container Branco Curvado com margem negativa para sobrepor */}
+      <div className="rounded-t-[2.5rem] bg-background space-y-4 p-4">
+        {/* Card de Filtros */}
+        <Card className="bg-surface">
           <CardContent className="p-4 space-y-4">
-            <div className="flex items-center justify-between p-2 rounded-md bg-background/50">
+            <div className="flex items-center justify-between p-2 rounded-md">
               <Button variant="ghost" size="icon" onClick={handlePreviousMonth}>
                 <Icon icon="mdi:chevron-left" className="h-6 w-6" />
               </Button>
@@ -147,22 +160,22 @@ export function DebtsView() {
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
-            <ToggleGroup
-              type="single"
-              value={statusFilter}
-              onValueChange={(value: StatusFilter) =>
-                value && setStatusFilter(value)
-              }
-              className="justify-center"
-            >
-              <ToggleGroupItem value="all">Todas</ToggleGroupItem>
-              <ToggleGroupItem value="open">Em Aberto</ToggleGroupItem>
-              <ToggleGroupItem value="inProgress">Em Andamento</ToggleGroupItem>
-              <ToggleGroupItem value="finished">Finalizadas</ToggleGroupItem>
-            </ToggleGroup>
+            <AnimatedTabs
+              defaultValue={statusFilter}
+              onValueChange={(value) => setStatusFilter(value as any)}
+              tabs={[
+                { label: "Abertas", value: "open" },
+                { label: "Andamento", value: "inProgress" },
+                { label: "Finalizadas", value: "finished" },
+                { label: "Todas", value: "all" },
+              ]}
+              tabClassName="text-xs"
+              layoutId="debts-status-filter"
+            />
           </CardContent>
         </Card>
 
+        {/* Lista de Dívidas */}
         {filteredDebts.length === 0 ? (
           <Card>
             <CardContent className="text-center py-12">
@@ -179,10 +192,9 @@ export function DebtsView() {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid gap-4">
+          <div className="grid gap-3">
             {filteredDebts.map((debt) => {
               const status = getDebtStatus(debt);
-
               const installmentForMonth = debtInstallments.find(
                 (inst) =>
                   inst.debtId === debt.id &&
@@ -192,18 +204,6 @@ export function DebtsView() {
                     getYear(displayDate)
               );
 
-              const lastPaymentDate = !debt.isActive
-                ? debtInstallments
-                    .filter(
-                      (inst) => inst.debtId === debt.id && inst.paymentDate
-                    )
-                    .sort(
-                      (a, b) =>
-                        new Date(b.paymentDate!).getTime() -
-                        new Date(a.paymentDate!).getTime()
-                    )[0]?.paymentDate
-                : null;
-
               return (
                 <Link
                   key={debt.id}
@@ -212,9 +212,7 @@ export function DebtsView() {
                 >
                   <Card
                     className={
-                      debt.isActive
-                        ? "hover:bg-muted/50 transition-colors cursor-pointer"
-                        : "opacity-70"
+                      "hover:bg-muted/50 transition-colors cursor-pointer"
                     }
                   >
                     <CardContent className="flex items-center gap-3 p-4">
@@ -224,50 +222,25 @@ export function DebtsView() {
                           className="w-5 h-5 text-primary"
                         />
                       </div>
-
                       <div className="min-w-0 flex-grow">
-                        <h3 className="text-lg font-semibold truncate">
+                        <h3 className="font-semibold truncate">
                           {debt.description}
                         </h3>
-
-                        <div className="text-sm text-muted-foreground mt-2 space-y-1">
-                          <p>
-                            Valor:{" "}
-                            <span className="font-semibold text-foreground">
-                              {(
-                                installmentForMonth?.expectedAmount ||
-                                debt.originalAmount
-                              ).toLocaleString("pt-BR", {
-                                style: "currency",
-                                currency: "BRL",
-                              })}
-                            </span>
-                          </p>
-                          <p>
-                            {!debt.isActive
-                              ? "Finalizada em: "
-                              : "Vencimento: "}
-                            <span className="font-semibold text-foreground">
-                              {!debt.isActive && lastPaymentDate
-                                ? getDDMMYYYY(lastPaymentDate)
-                                : getDDMMYYYY(
-                                    installmentForMonth?.expectedDueDate ||
-                                      debt.startDate
-                                  )}
-                            </span>
-                          </p>
-                        </div>
-
-                        <div className="mt-2">
-                          <Badge variant={status.variant}>{status.text}</Badge>
-                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          Valor:{" "}
+                          <span className="font-semibold text-foreground">
+                            {(
+                              installmentForMonth?.expectedAmount ||
+                              debt.originalAmount
+                            ).toLocaleString("pt-BR", {
+                              style: "currency",
+                              currency: "BRL",
+                            })}
+                          </span>
+                        </p>
                       </div>
-
                       <div className="flex-shrink-0">
-                        <Icon
-                          icon="mdi:eye"
-                          className="w-5 h-5 text-muted-foreground"
-                        />
+                        <Badge variant={status.variant}>{status.text}</Badge>
                       </div>
                     </CardContent>
                   </Card>
@@ -277,6 +250,6 @@ export function DebtsView() {
           </div>
         )}
       </div>
-    </>
+    </div>
   );
 }
