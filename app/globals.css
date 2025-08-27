@@ -42,12 +42,25 @@
     --surface-foreground: 184 65% 8%; /* Texto para a superfície */
 
     /* Cor de destaque para interações */
-    --accent: 217 85% 55%; /* Antes: 217 100% 50% */
+    --accent: 217 85% 55%; /* Azul Fosco - Antes: 217 100% 50% */
     --accent-foreground: 125 100% 97%;
 
     /* Cor para ações destrutivas */
-    --destructive: 0 84.2% 60.2%;
+    --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
+
+    --status-complete: 162 100% 41%; /* Caribbean Green #00D09E */
+    --status-complete-foreground: 184 65% 8%;
+
+    --status-in-progress: 217 85% 55%; /* Azul Fosco */
+    --status-in-progress-foreground: 125 100% 97%;
+
+    /* Cor de destaque para interações */
+    --success: 217 85% 55%; /* Azul Fosco - Antes: 217 100% 50% */
+    --success-foreground: 125 100% 97%;
+
+    --warning: 38 92% 50%; /* Tom de Âmbar */
+    --warning-foreground: 45 82% 10%; /* Texto escuro para contraste */
 
     --border: 125 74% 88%; /* Cor das bordas e inputs */
     --input: 125 74% 92%; /* Fundo dos inputs (igual ao secondary no Figma) */
@@ -73,8 +86,7 @@
 
     /* Cor primária (container do dashboard) */
     --primary: 180 50% 15%; /* Cyprus #0E3E3E */
-    /* Texto sobre a cor primária */
-    --primary-foreground: 125 74% 92%;
+    --primary-foreground: 125 74% 92%; /* Texto sobre a cor primária */
 
     /* Cor secundária (fundo do card de resumo) */
     --secondary: 184 65% 8%; /* Fence Green #052224 */
@@ -92,8 +104,20 @@
     --accent: 162 100% 41%; /* Caribbean Green #00D09E */
     --accent-foreground: 184 65% 8%;
 
-    --destructive: 0 72% 51%;
+    --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 100%;
+
+    --status-complete: 162 100% 41%; /* Caribbean Green #00D09E */
+    --status-complete-foreground: 184 65% 8%;
+
+    --status-in-progress: 217 85% 55%; /* Azul Fosco */
+    --status-in-progress-foreground: 125 100% 97%;
+
+    --success: 162 100% 41%; /* Caribbean Green #00D09E */
+    --success-foreground: 184 65% 8%;
+
+    --warning: 45 96% 47%; /* Âmbar um pouco mais vibrante para o escuro */
+    --warning-foreground: 45 82% 10%;
 
     --border: 180 50% 15%;
     /* Fundo dos inputs no modo escuro */

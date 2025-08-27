@@ -212,7 +212,7 @@ export function DashboardView() {
               <p
                 className={cn(
                   "text-4xl font-extrabold mb-3",
-                  isOverdue ? "text-amber-300" : "text-white"
+                  isOverdue ? "text-warning" : "text-white"
                 )}
               >
                 R$
@@ -290,7 +290,6 @@ export function DashboardView() {
                 </div>
               )}
               {activeMainTab === "transactions" && (
-                // =================== NOVO FILTRO AQUI ===================
                 <div>
                   <AnimatedTabs
                     defaultValue={transactionFilter}
@@ -314,7 +313,6 @@ export function DashboardView() {
                     />
                   </div>
                 </div>
-                // ========================================================
               )}
             </div>
           </div>

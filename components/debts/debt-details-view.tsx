@@ -7,44 +7,25 @@ import {
   Debt,
   DebtInstallment,
   DebtInstallmentStatus,
-  Transaction,
 } from "@/interfaces/finance";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Icon } from "@iconify/react";
-import { ButtonBack } from "@/components/ui/button-back";
 import { useToast } from "@/components/ui/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { DebtInstallmentModal } from "./debt-installment-modal";
 import { ConfirmationDialog } from "@/components/common/confirmation-dialog";
 import { getDDMMYYYY } from "@/lib/dates";
-import { cn } from "@/lib/utils";
+import { cn, getCalculatedInstallmentStatus } from "@/lib/utils";
 import { Progress } from "@/components/ui/progress";
+import { PageViewLayout } from "@/components/layout/page-view-layout";
 import { SimpleDebtEditModal } from "./simple-debt-edit-modal";
+import { isPast, isToday } from "date-fns";
+import { AnimatedTabs } from "../ui/animated-tabs";
 
 interface DebtDetailsViewProps {
   debtId: string;
 }
-
-const StatCard = ({
-  icon,
-  label,
-  value,
-  valueClassName,
-}: {
-  icon: string;
-  label: string;
-  value: string;
-  valueClassName?: string;
-}) => (
-  <div className="flex items-center gap-3 rounded-lg p-3 bg-muted/50">
-    <Icon icon={icon} className="w-6 h-6 text-muted-foreground flex-shrink-0" />
-    <div>
-      <p className="text-sm text-muted-foreground">{label}</p>
-      <p className={cn("font-bold text-lg", valueClassName)}>{value}</p>
-    </div>
-  </div>
-);
 
 export function DebtDetailsView({ debtId }: DebtDetailsViewProps) {
   const router = useRouter();
@@ -58,18 +39,13 @@ export function DebtDetailsView({ debtId }: DebtDetailsViewProps) {
   } = useFinance();
   const { toast } = useToast();
 
-  const [viewMode, setViewMode] = useState<"installments" | "transactions">(
-    "installments"
-  );
+  const [activeMainTab, setActiveMainTab] = useState("installments");
   const [isInstallmentModalOpen, setIsInstallmentModalOpen] = useState(false);
   const [editingInstallment, setEditingInstallment] =
     useState<DebtInstallment | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isSimpleDebtModalOpen, setIsSimpleDebtModalOpen] = useState(false);
-
-  // --- NOVO ESTADO PARA CONTROLAR A EXCLUSÃO ---
   const [isDeleting, setIsDeleting] = useState(false);
-  // ---------------------------------------------
 
   const currentDebt = useMemo(
     () => debts.find((d) => d.id === debtId),
@@ -97,17 +73,8 @@ export function DebtDetailsView({ debtId }: DebtDetailsViewProps) {
   const debtProgress = useMemo(() => {
     if (!currentDebt || !currentDebt.totalRepaymentAmount) return 0;
     const totalPaid = currentDebt.totalPaidOnThisDebt || 0;
-    return (totalPaid / currentDebt.totalRepaymentAmount) * 100;
+    return Math.min((totalPaid / currentDebt.totalRepaymentAmount) * 100, 100);
   }, [currentDebt]);
-
-  const nextDueDate = useMemo(() => {
-    const nextInstallment = filteredInstallments.find(
-      (i) => i.status === "pending"
-    );
-    return nextInstallment
-      ? getDDMMYYYY(nextInstallment.expectedDueDate)
-      : "N/A";
-  }, [filteredInstallments]);
 
   useEffect(() => {
     if (errorFinanceData) {
@@ -129,16 +96,13 @@ export function DebtDetailsView({ debtId }: DebtDetailsViewProps) {
   const getInstallmentBadgeInfo = (status: DebtInstallmentStatus) => {
     switch (status) {
       case "paid":
-        return { className: "bg-green-600 text-white", text: "Paga" } as const;
+        return { variant: "complete", text: "Paga" } as const;
       case "overdue":
         return { variant: "destructive", text: "Atrasada" } as const;
       case "partial":
-        return {
-          className: "bg-yellow-500 text-white",
-          text: "Parcial",
-        } as const;
+        return { variant: "warning", text: "Parcial" } as const;
       default:
-        return { variant: "secondary", text: "Pendente" } as const;
+        return { variant: "progress", text: "Pendente" } as const;
     }
   };
 
@@ -182,181 +146,226 @@ export function DebtDetailsView({ debtId }: DebtDetailsViewProps) {
 
   if (loadingFinanceData && !currentDebt) {
     return (
-      <div className="p-4 text-center">Carregando detalhes da dívida...</div>
+      <PageViewLayout title="Resumo da Dívida">
+        <div className="p-4 text-center">Carregando detalhes da dívida...</div>
+      </PageViewLayout>
     );
   }
 
   if (isDeleting || !currentDebt) {
-    return <div className="p-4 text-center">Excluindo dívida...</div>;
+    return (
+      <PageViewLayout title="Resumo da Dívida">
+        <div className="p-4 text-center">Excluindo dívida...</div>
+      </PageViewLayout>
+    );
   }
 
   const canEditOrDelete = (currentDebt.totalPaidOnThisDebt || 0) === 0;
 
   return (
-    <>
-      <div className="space-y-6">
-        <div className="flex items-center justify-between mb-6">
-          <ButtonBack onClick={() => router.back()} />
-          <h1 className="text-xl md:text-2xl font-bold text-center mx-4 truncate">
-            Resumo da Dívida
-          </h1>
-          <div className="w-10 h-10"></div>
-        </div>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>{currentDebt.description}</CardTitle>
-
-            <div className="flex items-center gap-2 flex-shrink-0">
-              <Button variant="outline" size="icon" onClick={handleEditDebt}>
-                <Icon icon="mdi:pencil" className="w-4 h-4" />
+    <PageViewLayout title="Resumo da Dívida">
+      {/* Card do Resumo */}
+      <Card className="rounded-[2rem] shadow-md bg-primary text-primary-foreground">
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle>{currentDebt.description}</CardTitle>
+          <div className="flex items-center gap-4 flex-shrink-0">
+            <Button variant="outline" size="icon" onClick={handleEditDebt}>
+              <Icon icon="mdi:pencil" className="w-4 h-4" />
+            </Button>
+            {canEditOrDelete && (
+              <Button
+                variant="destructive"
+                size="icon"
+                onClick={openDeleteDialog}
+              >
+                <Icon icon="mdi:delete" className="w-4 h-4" />
               </Button>
-              {canEditOrDelete && (
-                <Button
-                  variant="destructive"
-                  size="icon"
-                  onClick={openDeleteDialog}
-                >
-                  <Icon icon="mdi:delete" className="w-4 h-4" />
-                </Button>
-              )}
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <div className="flex justify-between items-center mb-1 text-sm text-muted-foreground">
-                <span>Progresso</span>
-                <span>{debtProgress.toFixed(0)}%</span>
-              </div>
-              <Progress value={debtProgress} />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <StatCard
-                icon="mdi:cash-minus"
-                label="Saldo Devedor"
-                value={
-                  currentDebt.currentOutstandingBalance?.toLocaleString(
+            )}
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4 font-medium">
+          <div>
+            <Progress
+              value={debtProgress}
+              className="h-4 bg-warning [&>div]:bg-primary-foreground"
+            />
+            <div className="mt-2 flex justify-between text-sm text-muted-foreground">
+              <span>{debtProgress.toFixed(0)}% pago</span>
+              <span>
+                Meta:{" "}
+                <span className="text-foreground">
+                  {(currentDebt.totalRepaymentAmount ?? 0).toLocaleString(
                     "pt-BR",
                     {
                       style: "currency",
                       currency: "BRL",
                     }
-                  ) ?? "R$ 0,00"
-                }
-                valueClassName="text-red-600 dark:text-red-400"
-              />
-              <StatCard
-                icon="mdi:cash-check"
-                label="Total Pago"
-                value={
-                  currentDebt.totalPaidOnThisDebt?.toLocaleString("pt-BR", {
+                  )}
+                </span>
+              </span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-2 pt-2">
+            <div className="flex flex-col items-center">
+              <span className="text-sm text-muted-foreground">Previsto</span>
+              <span className="text-lg font-bold text-foreground">
+                {(currentDebt.totalRepaymentAmount ?? 0).toLocaleString(
+                  "pt-BR",
+                  {
                     style: "currency",
                     currency: "BRL",
-                  }) ?? "R$ 0,00"
-                }
-                valueClassName="text-green-600 dark:text-green-400"
-              />
-              <StatCard
-                icon="mdi:calendar-arrow-right"
-                label="Próximo Vencimento"
-                value={nextDueDate}
-              />
+                  }
+                )}
+              </span>
             </div>
-          </CardContent>
-        </Card>
+            <div className="flex flex-col items-center">
+              <span className="text-sm text-muted-foreground">Pago</span>
+              <span className="text-lg font-bold text-success">
+                {(currentDebt.totalPaidOnThisDebt ?? 0).toLocaleString(
+                  "pt-BR",
+                  {
+                    style: "currency",
+                    currency: "BRL",
+                  }
+                )}
+              </span>
+            </div>
+            <div className="flex flex-col items-center">
+              <span className="text-sm text-muted-foreground">Falta</span>
+              <span className="text-lg font-bold text-warning">
+                {(currentDebt.currentOutstandingBalance ?? 0).toLocaleString(
+                  "pt-BR",
+                  {
+                    style: "currency",
+                    currency: "BRL",
+                  }
+                )}
+              </span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>
-              {viewMode === "installments" ? "Parcelas" : "Transações"}
-            </CardTitle>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() =>
-                setViewMode((prev) =>
-                  prev === "installments" ? "transactions" : "installments"
-                )
-              }
-            >
-              <Icon icon="mdi:swap-horizontal" className="mr-2 h-4 w-4" />
-              {viewMode === "installments" ? "Ver Transações" : "Ver Parcelas"}
-            </Button>
-          </CardHeader>
-          <CardContent>
-            {viewMode === "installments" ? (
-              <div className="space-y-2">
-                {filteredInstallments.map((installment) => {
-                  const badgeInfo = getInstallmentBadgeInfo(installment.status);
-                  return (
-                    <div
-                      key={installment.id}
-                      className="flex items-center justify-between p-3 rounded-lg border bg-muted/20"
-                    >
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <p className="font-semibold truncate">
-                            Parcela {installment.installmentNumber}
-                          </p>
-                          <Badge {...badgeInfo}>{badgeInfo.text}</Badge>
-                        </div>
-                        <p className="text-sm text-muted-foreground">
-                          Venc: {getDDMMYYYY(installment.expectedDueDate)}
-                        </p>
-                        <p className="text-sm font-medium">
-                          {installment.expectedAmount.toLocaleString("pt-BR", {
-                            style: "currency",
-                            currency: "BRL",
-                          })}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2 flex-shrink-0 ml-2">
-                        {installment.status !== "paid" && (
-                          <Button
-                            size="sm"
-                            onClick={() => handleGoToPayment(installment.id)}
-                          >
-                            Pagar
-                          </Button>
-                        )}
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          onClick={() => handleEditInstallment(installment)}
-                        >
-                          <Icon icon="mdi:pencil" className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {relatedTransactions.map((transaction) => (
+      {/* Card das Parcelas */}
+      <div className="mt-2">
+        <AnimatedTabs
+          defaultValue="installments"
+          onValueChange={setActiveMainTab}
+          tabs={[
+            { label: "Contas", value: "installments" },
+            { label: "Lançamentos", value: "transactions" },
+          ]}
+          tabClassName="text-base"
+          layoutId="main-tabs"
+        />
+        <div className="space-y-3 mt-4">
+          {activeMainTab === "installments" ? (
+            <div className="space-y-4">
+              {filteredInstallments.map((installment) => {
+                const instStatus = getCalculatedInstallmentStatus(installment);
+                const isPaid = instStatus === "paid";
+                const isOverdue = instStatus === "overdue";
+
+                const borderColor = isPaid
+                  ? "border-green-500"
+                  : isOverdue
+                  ? "border-destructive"
+                  : "border-accent";
+
+                const badgeInfo = getInstallmentBadgeInfo(instStatus);
+
+                return (
                   <div
-                    key={transaction.id}
-                    className="flex justify-between items-center p-3 border rounded-lg"
+                    key={installment.id}
+                    className={cn(
+                      "flex items-center justify-between p-2 rounded-xl bg-background hover:bg-muted/50 cursor-pointer transition-colors border-b-2 border-l-4",
+                      borderColor
+                    )}
                   >
-                    <div>
-                      <p className="font-semibold">{transaction.description}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {getDDMMYYYY(transaction.date)}
-                      </p>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="font-semibold">
+                          Parcela {installment.installmentNumber}
+                        </p>
+                        <Badge variant={badgeInfo.variant}>
+                          {badgeInfo.text}
+                        </Badge>
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-sm font-medium text-muted-foreground">
+                          {isPaid && installment.paymentDate
+                            ? "Pago em: "
+                            : isOverdue
+                            ? "Venceu em: "
+                            : "Vencimento: "}
+
+                          <span className="text-foreground">
+                            {isPaid && installment.paymentDate
+                              ? getDDMMYYYY(installment.paymentDate)
+                              : getDDMMYYYY(installment.expectedDueDate)}
+                          </span>
+                        </span>
+                        <span className="text-sm font-medium text-muted-foreground">
+                          Valor:{" "}
+                          <span className="text-foreground">
+                            {installment.expectedAmount.toLocaleString(
+                              "pt-BR",
+                              {
+                                style: "currency",
+                                currency: "BRL",
+                              }
+                            )}
+                          </span>
+                        </span>
+                      </div>
                     </div>
-                    <p className="font-bold text-red-500">
-                      {transaction.amount.toLocaleString("pt-BR", {
-                        style: "currency",
-                        currency: "BRL",
-                      })}
+                    <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+                      {!isPaid && (
+                        <Button
+                          size="sm"
+                          onClick={() => handleGoToPayment(installment.id)}
+                        >
+                          Pagar
+                        </Button>
+                      )}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleEditInstallment(installment)}
+                      >
+                        {isPaid && <span>Editar</span>}
+                        <Icon icon="mdi:pencil" className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {relatedTransactions.map((transaction) => (
+                <div
+                  key={transaction.id}
+                  className="flex justify-between items-center p-3 border rounded-lg"
+                >
+                  <div>
+                    <p className="font-semibold">{transaction.description}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {getDDMMYYYY(transaction.date)}
                     </p>
                   </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                  <p className="font-bold text-destructive">
+                    {transaction.amount.toLocaleString("pt-BR", {
+                      style: "currency",
+                      currency: "BRL",
+                    })}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       <DebtInstallmentModal
@@ -380,6 +389,6 @@ export function DebtDetailsView({ debtId }: DebtDetailsViewProps) {
         onConfirm={handleDeleteConfirm}
         variant="destructive"
       />
-    </>
+    </PageViewLayout>
   );
 }

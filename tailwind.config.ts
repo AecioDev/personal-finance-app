@@ -57,8 +57,21 @@ const config = {
           DEFAULT: "hsl(var(--surface))",
           foreground: "hsl(var(--surface-foreground))",
         },
+        warning: {
+          DEFAULT: "hsl(var(--warning))",
+          foreground: "hsl(var(--warning-foreground))",
+        },
+        success: {
+          DEFAULT: "hsl(var(--success))",
+          foreground: "hsl(var(--success-foreground))",
+        },
         // Adicionado a nova cor para o tema do Tailwind
         "header-footer-background": "hsl(var(--header-footer-background))",
+        "status-complete": "hsl(var(--status-complete))",
+        "status-complete-foreground": "hsl(var(--status-complete-foreground))",
+        "status-in-progress": "hsl(var(--status-in-progress))",
+        "status-in-progress-foreground":
+          "hsl(var(--status-in-progress-foreground))",
       },
       keyframes: {
         "accordion-down": {

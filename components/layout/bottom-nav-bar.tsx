@@ -54,7 +54,7 @@ export function BottomNavBar() {
                   <DropdownMenuTrigger asChild>
                     <Button
                       size="icon"
-                      className="w-16 h-16 rounded-full bg-primary text-primary-foreground shadow-lg hover:bg-primary/90"
+                      className="w-16 h-16 rounded-full bg-accent text-accent-foreground shadow-lg hover:bg-accent/80"
                     >
                       <Icon icon="mdi:plus" className="h-8 w-8" />
                     </Button>
@@ -99,7 +99,6 @@ export function BottomNavBar() {
                         </DropdownMenuItem>
                       </>
                     )}
-                    {/* ============================================================= */}
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>

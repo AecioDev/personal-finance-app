@@ -23,7 +23,7 @@ export function PageViewLayout({ title, children }: PageViewLayoutProps) {
       {/* Cabeçalho Verde Padrão */}
       <div className="flex h-56 flex-col text-primary-foreground">
         {/* Linha superior apenas com o botão de voltar */}
-        <div className="flex-shrink-0 p-4">
+        <div className="relative z-10 flex-shrink-0 p-4">
           <Icon
             icon="mdi:arrow-left"
             onClick={() => router.back()}
