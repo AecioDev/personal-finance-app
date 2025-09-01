@@ -259,7 +259,7 @@ export function DebtForm({ debtId }: DebtFormProps) {
                   />
 
                   {!isRecurring && (
-                    <div className="space-y-6 border rounded-md">
+                    <>
                       <div className="grid md:grid-cols-2 gap-6">
                         <FormField
                           control={formMethods.control}
@@ -320,7 +320,7 @@ export function DebtForm({ debtId }: DebtFormProps) {
                           </FormItem>
                         )}
                       />
-                    </div>
+                    </>
                   )}
 
                   <div className="grid md:grid-cols-2 gap-6">
@@ -361,6 +361,7 @@ export function DebtForm({ debtId }: DebtFormProps) {
                   <Button
                     type="submit"
                     className="w-full"
+                    variant={"secondary"}
                     disabled={isSubmitting || loadingFinanceData}
                   >
                     {isSubmitting ? "Salvando..." : "Salvar Dívida"}
