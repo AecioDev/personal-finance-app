@@ -155,14 +155,7 @@ export function DebtForm({ debtId }: DebtFormProps) {
     <>
       <FormProvider {...formMethods}>
         <div className="space-y-6">
-          <div className="flex items-center justify-between mb-6">
-            <ButtonBack onClick={() => router.back()} />
-            <h1 className="text-2xl font-bold text-center mx-4">
-              {debtId ? "Editar Dívida" : "Nova Dívida"}
-            </h1>
-            <div className="w-10 h-10"></div>
-          </div>
-          <Card>
+          <Card className="rounded-[2rem] shadow-md bg-primary text-primary-foreground">
             <CardHeader>
               <CardTitle>Detalhes da Dívida</CardTitle>
             </CardHeader>
@@ -255,6 +248,7 @@ export function DebtForm({ debtId }: DebtFormProps) {
                       <FormItem className="flex flex-row items-center space-x-3 space-y-0">
                         <FormControl>
                           <Checkbox
+                            className="border-background"
                             checked={field.value}
                             onCheckedChange={field.onChange}
                           />
@@ -265,7 +259,7 @@ export function DebtForm({ debtId }: DebtFormProps) {
                   />
 
                   {!isRecurring && (
-                    <div className="space-y-6 p-4 border rounded-md">
+                    <div className="space-y-6 border rounded-md">
                       <div className="grid md:grid-cols-2 gap-6">
                         <FormField
                           control={formMethods.control}

@@ -88,7 +88,7 @@ export function DebtInstallmentFormContent({
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="grid gap-4 py-4">
+    <form onSubmit={handleSubmit(onSubmit)} className="grid gap-4">
       <div className="space-y-2">
         <Label htmlFor="expectedDueDate">Data de Vencimento</Label>
         <Input
@@ -98,7 +98,7 @@ export function DebtInstallmentFormContent({
           disabled={isSubmitting || loading}
         />
         {errors.expectedDueDate && (
-          <p className="text-red-500 text-sm">
+          <p className="text-destructive text-sm">
             {errors.expectedDueDate.message}
           </p>
         )}
@@ -114,18 +114,20 @@ export function DebtInstallmentFormContent({
           disabled={isSubmitting || loading}
         />
         {errors.expectedAmount && (
-          <p className="text-red-500 text-sm">
+          <p className="text-destructive text-sm">
             {errors.expectedAmount.message}
           </p>
         )}
       </div>
-
-      <Button type="submit" disabled={isSubmitting || loading}>
-        {isSubmitting ? "Salvando..." : "Salvar Alterações"}
-      </Button>
-      <Button type="button" variant="outline" onClick={() => handleClose()}>
-        Fechar
-      </Button>
+      <hr className="border border-1 border-background mt-2" />
+      <div className="flex flex-col w-full space-y-4">
+        <Button type="submit" disabled={isSubmitting || loading}>
+          {isSubmitting ? "Salvando..." : "Salvar Alterações"}
+        </Button>
+        <Button type="button" variant="outline" onClick={() => handleClose()}>
+          Fechar
+        </Button>
+      </div>
     </form>
   );
 }

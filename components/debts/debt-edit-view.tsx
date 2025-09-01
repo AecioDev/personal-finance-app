@@ -17,6 +17,8 @@ import { Badge } from "@/components/ui/badge";
 import { DebtInstallmentModal } from "./debt-installment-modal";
 import { getDDMMYYYY } from "@/lib/dates";
 import { DebtForm } from "./debt-form";
+import { PageViewLayout } from "../layout/page-view-layout";
+import { cn, getCalculatedInstallmentStatus } from "@/lib/utils";
 
 interface DebtEditViewProps {
   debtId: string;
@@ -46,16 +48,13 @@ export function DebtEditView({ debtId }: DebtEditViewProps) {
   const getInstallmentBadgeInfo = (status: DebtInstallmentStatus) => {
     switch (status) {
       case "paid":
-        return { className: "bg-green-600 text-white", text: "Paga" } as const;
+        return { variant: "complete", text: "Paga" } as const;
       case "overdue":
         return { variant: "destructive", text: "Atrasada" } as const;
       case "partial":
-        return {
-          className: "bg-yellow-500 text-white",
-          text: "Parcial",
-        } as const;
+        return { variant: "warning", text: "Parcial" } as const;
       default:
-        return { variant: "secondary", text: "Pendente" } as const;
+        return { variant: "progress", text: "Pendente" } as const;
     }
   };
 
@@ -84,62 +83,73 @@ export function DebtEditView({ debtId }: DebtEditViewProps) {
   }
 
   return (
-    <>
-      <div className="space-y-6">
-        {/* Formulário para editar o cabeçalho da dívida */}
-        <DebtForm debtId={debtId} />
+    <PageViewLayout title="Editar Dívida">
+      {/* Formulário para editar o cabeçalho da dívida */}
+      <DebtForm debtId={debtId} />
 
-        {/* Card para listar e editar as parcelas */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Parcelas da Dívida</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {filteredInstallments.map((installment) => {
-                const badgeInfo = getInstallmentBadgeInfo(installment.status);
-                const canEdit = installment.status === "pending";
+      {/* Card para listar e editar as parcelas */}
+      <Card className="rounded-[2rem] shadow-md bg-primary text-primary-foreground">
+        <CardHeader>
+          <CardTitle>Parcelas da Dívida</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-2">
+            {filteredInstallments.map((installment) => {
+              const instStatus = getCalculatedInstallmentStatus(installment);
+              const isPaid = instStatus === "paid";
+              const isOverdue = instStatus === "overdue";
 
-                return (
-                  <div
-                    key={installment.id}
-                    className="flex items-center justify-between p-3 rounded-lg border bg-muted/20"
-                  >
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <p className="font-semibold truncate">
-                          Parcela {installment.installmentNumber}
-                        </p>
-                        <Badge {...badgeInfo}>{badgeInfo.text}</Badge>
-                      </div>
-                      <p className="text-sm text-muted-foreground">
-                        Venc: {getDDMMYYYY(installment.expectedDueDate)}
+              const borderColor = isPaid
+                ? "border-green-500"
+                : isOverdue
+                ? "border-destructive"
+                : "border-accent";
+
+              const badgeInfo = getInstallmentBadgeInfo(instStatus);
+              const canEdit = instStatus === "pending";
+
+              return (
+                <div
+                  key={installment.id}
+                  className={cn(
+                    "flex items-center justify-between p-2 rounded-xl hover:bg-muted/50 cursor-pointer transition-colors border-b-2 border-l-4",
+                    borderColor
+                  )}
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-8">
+                      <p className="font-semibold truncate">
+                        Parcela {installment.installmentNumber}
                       </p>
-                      <p className="text-sm font-medium">
-                        {installment.expectedAmount.toLocaleString("pt-BR", {
-                          style: "currency",
-                          currency: "BRL",
-                        })}
-                      </p>
+                      <Badge {...badgeInfo}>{badgeInfo.text}</Badge>
                     </div>
-                    <div className="flex items-center gap-2 flex-shrink-0 ml-2">
-                      {canEdit && (
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          onClick={() => handleEditInstallment(installment)}
-                        >
-                          <Icon icon="mdi:pencil" className="w-4 h-4" />
-                        </Button>
-                      )}
-                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Venc: {getDDMMYYYY(installment.expectedDueDate)}
+                    </p>
+                    <p className="text-sm font-medium">
+                      {installment.expectedAmount.toLocaleString("pt-BR", {
+                        style: "currency",
+                        currency: "BRL",
+                      })}
+                    </p>
                   </div>
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+                  <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+                    {canEdit && (
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => handleEditInstallment(installment)}
+                      >
+                        <Icon icon="mdi:pencil" className="w-4 h-4" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
 
       <DebtInstallmentModal
         isOpen={isInstallmentModalOpen}
@@ -149,6 +159,6 @@ export function DebtEditView({ debtId }: DebtEditViewProps) {
           toast({ title: "Parcela atualizada!" });
         }}
       />
-    </>
+    </PageViewLayout>
   );
 }
