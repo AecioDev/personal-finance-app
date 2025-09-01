@@ -88,68 +88,64 @@ export function DebtEditView({ debtId }: DebtEditViewProps) {
       <DebtForm debtId={debtId} />
 
       {/* Card para listar e editar as parcelas */}
-      <Card className="rounded-[2rem] shadow-md bg-primary text-primary-foreground">
-        <CardHeader>
-          <CardTitle>Parcelas da Dívida</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-2">
-            {filteredInstallments.map((installment) => {
-              const instStatus = getCalculatedInstallmentStatus(installment);
-              const isPaid = instStatus === "paid";
-              const isOverdue = instStatus === "overdue";
+      <h1 className="text-2xl font-semibold py-4">Parcelas da Dívida</h1>
+      <div className="mt-2">
+        <div className="space-y-3 mt-4">
+          {filteredInstallments.map((installment) => {
+            const instStatus = getCalculatedInstallmentStatus(installment);
+            const isPaid = instStatus === "paid";
+            const isOverdue = instStatus === "overdue";
 
-              const borderColor = isPaid
-                ? "border-green-500"
-                : isOverdue
-                ? "border-destructive"
-                : "border-accent";
+            const borderColor = isPaid
+              ? "border-green-500"
+              : isOverdue
+              ? "border-destructive"
+              : "border-accent";
 
-              const badgeInfo = getInstallmentBadgeInfo(instStatus);
-              const canEdit = instStatus === "pending";
+            const badgeInfo = getInstallmentBadgeInfo(instStatus);
+            const canEdit = instStatus === "pending";
 
-              return (
-                <div
-                  key={installment.id}
-                  className={cn(
-                    "flex items-center justify-between p-2 rounded-xl hover:bg-muted/50 cursor-pointer transition-colors border-b-2 border-l-4",
-                    borderColor
-                  )}
-                >
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-8">
-                      <p className="font-semibold truncate">
-                        Parcela {installment.installmentNumber}
-                      </p>
-                      <Badge {...badgeInfo}>{badgeInfo.text}</Badge>
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      Venc: {getDDMMYYYY(installment.expectedDueDate)}
+            return (
+              <div
+                key={installment.id}
+                className={cn(
+                  "flex items-center justify-between p-2 rounded-xl hover:bg-muted/50 cursor-pointer transition-colors border-b-2 border-l-4",
+                  borderColor
+                )}
+              >
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-8">
+                    <p className="font-semibold truncate">
+                      Parcela {installment.installmentNumber}
                     </p>
-                    <p className="text-sm font-medium">
-                      {installment.expectedAmount.toLocaleString("pt-BR", {
-                        style: "currency",
-                        currency: "BRL",
-                      })}
-                    </p>
+                    <Badge {...badgeInfo}>{badgeInfo.text}</Badge>
                   </div>
-                  <div className="flex items-center gap-2 flex-shrink-0 ml-2">
-                    {canEdit && (
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        onClick={() => handleEditInstallment(installment)}
-                      >
-                        <Icon icon="mdi:pencil" className="w-4 h-4" />
-                      </Button>
-                    )}
-                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Venc: {getDDMMYYYY(installment.expectedDueDate)}
+                  </p>
+                  <p className="text-sm font-medium">
+                    {installment.expectedAmount.toLocaleString("pt-BR", {
+                      style: "currency",
+                      currency: "BRL",
+                    })}
+                  </p>
                 </div>
-              );
-            })}
-          </div>
-        </CardContent>
-      </Card>
+                <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+                  {canEdit && (
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => handleEditInstallment(installment)}
+                    >
+                      <Icon icon="mdi:pencil" className="w-4 h-4" />
+                    </Button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
 
       <DebtInstallmentModal
         isOpen={isInstallmentModalOpen}
