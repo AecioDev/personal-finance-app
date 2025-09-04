@@ -4,7 +4,6 @@
 import React, { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useModal } from "@/components/providers/modal-provider";
 import { useFinance } from "@/components/providers/finance-provider";
 import { useAuth } from "@/components/providers/auth-provider";
 import { useToast } from "@/components/ui/use-toast";
@@ -34,16 +33,16 @@ export function DashboardView() {
     accounts,
     categories,
     loadingFinanceData,
+    dataSeedCheckCompleted,
     errorFinanceData,
   } = useFinance();
 
+  const [isLoadingContent, setIsLoadingContent] = useState(true);
   const [activeMainTab, setActiveMainTab] = useState("debts");
   const [debtFilter, setDebtFilter] = useState<"open" | "paid" | "all">("open");
-  // =================== NOVO ESTADO AQUI ===================
   const [transactionFilter, setTransactionFilter] = useState<
     TransactionType | "all"
   >("all");
-  // ========================================================
   const [displayDate, setDisplayDate] = useState(new Date());
   const [isInstallmentModalOpen, setIsInstallmentModalOpen] = useState(false);
   const [editingInstallment, setEditingInstallment] =
@@ -61,6 +60,15 @@ export function DashboardView() {
       });
     }
   }, [errorFinanceData, toast]);
+
+  useEffect(() => {
+    // A tela de loading só vai sumir quando:
+    // 1. O carregamento principal do Firebase acabar
+    // 2. A NOSSA NOVA verificação de dados padrão acabar
+    if (loadingFinanceData && dataSeedCheckCompleted) {
+      setIsLoadingContent(false);
+    }
+  }, [loadingFinanceData, dataSeedCheckCompleted]);
 
   const { monthlySummary, transactionsForMonth, filteredDebtsForMonth } =
     useMemo(() => {
@@ -168,7 +176,7 @@ export function DashboardView() {
     setIsTransactionModalOpen(true);
   };
 
-  if (loadingFinanceData) {
+  if (isLoadingContent) {
     return (
       <div className="flex justify-center items-center h-screen bg-background">
         <p className="text-muted-foreground">Carregando seus dados...</p>
