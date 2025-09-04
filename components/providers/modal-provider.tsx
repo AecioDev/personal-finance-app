@@ -1,3 +1,5 @@
+// components/providers/modal-provider.tsx
+
 "use client";
 
 import React, { createContext, useContext, useState, ReactNode } from "react";
@@ -17,6 +19,9 @@ interface ModalContextType {
   isNewTransactionOpen: boolean;
   openNewTransaction: () => void;
   closeNewTransaction: () => void;
+  isCategoryManagerOpen: boolean;
+  openCategoryManager: () => void;
+  closeCategoryManager: () => void;
   customActions: CustomAction[];
   setCustomActions: (actions: CustomAction[]) => void;
 }
@@ -28,6 +33,7 @@ const ModalContext = createContext<ModalContextType | undefined>(undefined);
 export function ModalProvider({ children }: { children: ReactNode }) {
   const [isNewExpenseOpen, setIsNewExpenseOpen] = useState(false);
   const [isNewTransactionOpen, setIsNewTransactionOpen] = useState(false);
+  const [isCategoryManagerOpen, setIsCategoryManagerOpen] = useState(false);
   const [customActions, setCustomActions] = useState<CustomAction[]>([]);
 
   const value = {
@@ -37,6 +43,9 @@ export function ModalProvider({ children }: { children: ReactNode }) {
     isNewTransactionOpen,
     openNewTransaction: () => setIsNewTransactionOpen(true),
     closeNewTransaction: () => setIsNewTransactionOpen(false),
+    isCategoryManagerOpen,
+    openCategoryManager: () => setIsCategoryManagerOpen(true),
+    closeCategoryManager: () => setIsCategoryManagerOpen(false),
     customActions,
     setCustomActions,
   };

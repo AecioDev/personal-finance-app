@@ -14,7 +14,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "../ui/button";
 
-// ... (seu array navItems continua o mesmo)
 const navItems = [
   {
     type: "link",
@@ -41,7 +40,12 @@ const navItems = [
 export function BottomNavBar() {
   const pathname = usePathname();
   // Pegando as ações padrão e as customizadas do nosso provider
-  const { openNewExpense, openNewTransaction, customActions } = useModal();
+  const {
+    openNewExpense,
+    openNewTransaction,
+    openCategoryManager,
+    customActions,
+  } = useModal();
 
   return (
     <div className="fixed bottom-0 left-0 right-0 h-20 bg-muted border-t rounded-2xl z-50">
@@ -64,7 +68,6 @@ export function BottomNavBar() {
                     align="center"
                     className="mb-2 bg-surface"
                   >
-                    {/* =================== LÓGICA CONTEXTUAL AQUI =================== */}
                     {customActions.length > 0 ? (
                       // Se existem ações customizadas, mostra elas
                       customActions.map((action) => (
@@ -105,7 +108,6 @@ export function BottomNavBar() {
             );
           }
 
-          // ... (o resto do seu componente continua igual)
           if (item.type === "menu") {
             return (
               <DropdownMenu key={item.label}>
@@ -116,7 +118,6 @@ export function BottomNavBar() {
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent side="top" align="end" className="mb-2">
-                  {/* Itens do menu de Cadastros aumentados */}
                   <DropdownMenuItem asChild className="py-3 px-4 text-base">
                     <Link href="/accounts">
                       <Icon icon="mdi:bank-outline" className="mr-3 h-5 w-5" />
@@ -130,6 +131,16 @@ export function BottomNavBar() {
                         className="mr-3 h-5 w-5"
                       />
                       <span>Formas de Pagamento</span>
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild className="py-3 px-4 text-base">
+                    <Link href="/categories">
+                      <Icon
+                        icon="mdi:tag-multiple-outline"
+                        className="mr-3 h-5 w-5"
+                      />
+                      <span>Categorias</span>
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />

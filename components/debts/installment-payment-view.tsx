@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { FormProvider, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -19,10 +19,10 @@ import {
   CardTitle,
   CardDescription,
 } from "@/components/ui/card";
-import { ButtonBack } from "@/components/ui/button-back";
 import { useToast } from "@/components/ui/use-toast";
 import { cn } from "@/lib/utils";
 import { InstallmentPaymentForm } from "./installment-payment-form";
+import { PageViewLayout } from "../layout/page-view-layout";
 
 export function InstallmentPaymentView() {
   const router = useRouter();
@@ -31,17 +31,11 @@ export function InstallmentPaymentView() {
   const {
     debts,
     debtInstallments,
-    paymentMethods,
-    accounts,
     processInstallmentPayment,
     loadingFinanceData,
   } = useFinance();
 
   const installmentId = params.installmentId as string;
-
-  const [discountSuggestion, setDiscountSuggestion] = useState<number | null>(
-    null
-  );
 
   const installment = useMemo(
     () => debtInstallments.find((inst) => inst.id === installmentId),
@@ -52,11 +46,12 @@ export function InstallmentPaymentView() {
     [debts, installment]
   );
 
+  // O FormProvider continua aqui para que o InstallmentPaymentForm funcione
   const formMethods = useForm<PartialPaymentFormData>({
     resolver: zodResolver(partialPaymentSchema),
     defaultValues: {
       amount: 0,
-      paymentDate: undefined, // <-- MUDANÇA AQUI: Inicia vazio
+      paymentDate: new Date(),
       paymentMethodId: "",
       accountId: "",
       interestPaid: 0,
@@ -64,54 +59,22 @@ export function InstallmentPaymentView() {
     },
   });
 
-  const {
-    setValue,
-    watch,
-    reset,
-    formState: { isSubmitting },
-  } = formMethods;
-  const amountPaid = watch("amount");
+  const { reset } = formMethods;
 
   useEffect(() => {
     if (installment) {
       const dueAmount =
-        installment.currentDueAmount || installment.expectedAmount;
+        installment.remainingAmount ?? installment.expectedAmount;
       reset({
         amount: dueAmount,
-        paymentMethodId: paymentMethods[0]?.id || "",
-        accountId: accounts[0]?.id || "",
-        interestPaid: 0,
-        discountReceived: 0,
-        paymentDate: undefined, // <-- MUDANÇA AQUI: Garante que o reset também limpe a data
+        paymentDate: new Date(),
       });
     }
-  }, [installment, reset, accounts, paymentMethods]);
-
-  useEffect(() => {
-    if (!installment || amountPaid === null || isNaN(amountPaid)) return;
-    const originalAmount = installment.expectedAmount;
-    if (amountPaid > originalAmount) {
-      setValue("interestPaid", amountPaid - originalAmount);
-      setDiscountSuggestion(null);
-    } else if (amountPaid < originalAmount && amountPaid > 0) {
-      setDiscountSuggestion(originalAmount - amountPaid);
-      setValue("interestPaid", 0);
-    } else {
-      setValue("interestPaid", 0);
-      setDiscountSuggestion(null);
-    }
-  }, [amountPaid, installment, setValue]);
-
-  const handleApplyDiscount = () => {
-    if (discountSuggestion === null) return;
-    setValue("discountReceived", discountSuggestion);
-    setDiscountSuggestion(null);
-    toast({ title: "Desconto aplicado!" });
-  };
+  }, [installment, reset]);
 
   const handlePaymentSubmit = async (data: PartialPaymentFormData) => {
     if (!installment) return;
-    await processInstallmentPayment(installment.id, {
+    const success = await processInstallmentPayment(installment.id, {
       amount: data.amount,
       accountId: data.accountId,
       paymentMethodId: data.paymentMethodId,
@@ -119,99 +82,94 @@ export function InstallmentPaymentView() {
       interestPaid: data.interestPaid,
       discountReceived: data.discountReceived,
     });
-    toast({
-      title: "Sucesso!",
-      description: "Pagamento registrado.",
-      variant: "success",
-    });
-    router.back();
+    if (success) {
+      toast({
+        title: "Sucesso!",
+        description: "Pagamento registrado.",
+      });
+      router.back();
+    }
   };
 
   if (loadingFinanceData)
-    return <div className="p-4 text-center">Carregando...</div>;
+    return (
+      <PageViewLayout title="Registrar Pagamento">
+        <div className="p-4 text-center">Carregando...</div>
+      </PageViewLayout>
+    );
   if (!installment || !debt)
     return (
-      <div className="p-4 text-center">Dados da parcela não encontrados.</div>
+      <PageViewLayout title="Erro">
+        <div className="p-4 text-center">Dados da parcela não encontrados.</div>
+      </PageViewLayout>
     );
 
-  const hasUpdatedAmount =
-    installment.currentDueAmount &&
-    installment.currentDueAmount > installment.expectedAmount;
-
   return (
-    <FormProvider {...formMethods}>
-      <div className="container mx-auto max-w-2xl p-4 space-y-6">
-        <div className="flex items-center gap-4">
-          <ButtonBack onClick={() => router.back()} />
-          <h1 className="text-2xl font-bold truncate">{debt.description}</h1>
-        </div>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>
-              Resumo da Parcela #{installment.installmentNumber}
-            </CardTitle>
-            <CardDescription>
-              Vencimento em: {getDDMMYYYY(installment.expectedDueDate)}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-            <div>
-              <p className="text-sm text-muted-foreground">Previsto</p>
-              <p className="font-bold text-lg">
-                R$ {(installment.expectedAmount || 0).toFixed(2)}
-              </p>
-            </div>
-            {hasUpdatedAmount && (
+    <PageViewLayout title="Registrar Pagamento">
+      <FormProvider {...formMethods}>
+        <div className="space-y-6">
+          {/* Card de Resumo Refatorado */}
+          <Card className="rounded-[2rem] shadow-md bg-primary text-primary-foreground">
+            <CardHeader>
+              <CardTitle>{debt.description}</CardTitle>
+              <CardDescription>
+                Resumo da Parcela #{installment.installmentNumber}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="grid grid-cols-3 gap-4 text-center font-medium">
               <div>
-                <p className="text-sm text-muted-foreground">Atualizado</p>
-                <p className="font-bold text-lg text-amber-500">
-                  R$ {(installment.currentDueAmount || 0).toFixed(2)}
+                <p className="text-sm text-muted-foreground">Vencimento</p>
+                <p className="font-bold text-lg font-numeric">
+                  {getDDMMYYYY(installment.expectedDueDate)}
                 </p>
               </div>
-            )}
-            <div>
-              <p className="text-sm text-muted-foreground">Realizado</p>
-              <p className="font-bold text-lg text-green-500">
-                R$ {(installment.paidAmount || 0).toFixed(2)}
-              </p>
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Falta</p>
-              <p
-                className={cn(
-                  "font-bold text-lg",
-                  installment.remainingAmount > 0
-                    ? "text-red-500"
-                    : "text-muted-foreground"
-                )}
-              >
-                R${" "}
-                {(
-                  installment.remainingAmount ?? installment.expectedAmount
-                ).toFixed(2)}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+              <div>
+                <p className="text-sm text-muted-foreground">Valor a Pagar</p>
+                <p
+                  className={cn(
+                    "font-bold text-lg font-numeric",
+                    (installment.remainingAmount ?? 0) > 0
+                      ? "text-destructive"
+                      : "text-muted-foreground"
+                  )}
+                >
+                  {(
+                    installment.remainingAmount ?? installment.expectedAmount
+                  ).toLocaleString("pt-BR", {
+                    style: "currency",
+                    currency: "BRL",
+                  })}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Já Pago</p>
+                <p className="font-bold text-lg font-numeric text-accent">
+                  {(installment.paidAmount || 0).toLocaleString("pt-BR", {
+                    style: "currency",
+                    currency: "BRL",
+                  })}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Registrar Novo Pagamento</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <InstallmentPaymentForm
-              onSubmit={handlePaymentSubmit}
-              installment={installment}
-              accounts={accounts}
-              paymentMethods={paymentMethods}
-              discountSuggestion={discountSuggestion}
-              handleApplyDiscount={handleApplyDiscount}
-              isSubmitting={isSubmitting}
-            />
-          </CardContent>
-        </Card>
-      </div>
-    </FormProvider>
+          {/* Card do Formulário */}
+          <Card className="rounded-[2rem] shadow-md">
+            <CardHeader>
+              <CardTitle>Dados do Pagamento</CardTitle>
+              <CardDescription>
+                Preencha as informações para registrar o pagamento.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <InstallmentPaymentForm
+                onSubmit={handlePaymentSubmit}
+                installment={installment}
+              />
+            </CardContent>
+          </Card>
+        </div>
+      </FormProvider>
+    </PageViewLayout>
   );
 }

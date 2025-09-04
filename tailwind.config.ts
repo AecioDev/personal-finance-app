@@ -65,6 +65,15 @@ const config = {
           DEFAULT: "hsl(var(--success))",
           foreground: "hsl(var(--success-foreground))",
         },
+        light: {
+          DEFAULT: "hsl(var(--light))",
+          foreground: "hsl(var(--light-foreground))",
+        },
+        fault: {
+          DEFAULT: "hsl(var(--fault))",
+          foreground: "hsl(var(--fault-foreground))",
+        },
+
         // Adicionado a nova cor para o tema do Tailwind
         "header-footer-background": "hsl(var(--header-footer-background))",
         "status-complete": "hsl(var(--status-complete))",

@@ -1,10 +1,10 @@
-import { useEffect } from "react";
+import { useEffect, useState, useRef } from "react";
 import {
   Firestore,
   collection,
   query,
   onSnapshot,
-  Timestamp, // 1. Importa o tipo Timestamp
+  Timestamp,
 } from "firebase/firestore";
 import {
   Account,
@@ -13,7 +13,6 @@ import {
   Debt,
   DebtInstallment,
   PaymentMethod,
-  DebtType,
 } from "@/interfaces/finance";
 import { User as FirebaseUser } from "firebase/auth";
 
@@ -27,10 +26,9 @@ interface UseFinanceDataProps {
   setDebts: React.Dispatch<React.SetStateAction<Debt[]>>;
   setDebtInstallments: React.Dispatch<React.SetStateAction<DebtInstallment[]>>;
   setPaymentMethods: React.Dispatch<React.SetStateAction<PaymentMethod[]>>;
-  setDebtTypes: React.Dispatch<React.SetStateAction<DebtType[]>>;
+  setLoading: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
-// 2. Função auxiliar para converter Timestamps em Dates
 const convertTimestampsToDates = (data: any) => {
   const convertedData = { ...data };
   for (const key in convertedData) {
@@ -51,140 +49,101 @@ export const useFinanceData = ({
   setDebts,
   setDebtInstallments,
   setPaymentMethods,
-  setDebtTypes,
+  setLoading,
 }: UseFinanceDataProps) => {
+  const initialFetchCounter = useRef(0);
+  const totalListeners = 7;
+
   useEffect(() => {
-    let unsubscribeAccounts: () => void = () => {};
-    let unsubscribeCategories: () => void = () => {};
-    let unsubscribeTransactions: () => void = () => {};
-    let unsubscribeDebts: () => void = () => {};
-    let unsubscribeDebtInstallments: () => void = () => {};
-    let unsubscribePaymentMethods: () => void = () => {};
-    let unsubscribeDebtTypes: () => void = () => {};
-
-    if (user && db && projectId) {
-      const getUserCollectionRef = (collectionName: string) =>
-        collection(
-          db,
-          `artifacts/${projectId}/users/${user.uid}/${collectionName}`
-        );
-
-      unsubscribeAccounts = onSnapshot(
-        query(getUserCollectionRef("accounts")),
-        (snapshot) => {
-          const fetchedAccounts: Account[] = snapshot.docs.map(
-            (doc) => ({ id: doc.id, ...doc.data() } as Account)
-          );
-          setAccounts(fetchedAccounts);
-        }
-      );
-
-      unsubscribeCategories = onSnapshot(
-        query(getUserCollectionRef("categories")),
-        (snapshot) => {
-          const fetchedCategories: Category[] = snapshot.docs.map(
-            (doc) =>
-              ({
-                id: doc.id,
-                ...convertTimestampsToDates(doc.data()),
-              } as Category)
-          );
-          setCategories(fetchedCategories);
-        }
-      );
-
-      unsubscribeTransactions = onSnapshot(
-        query(getUserCollectionRef("transactions")),
-        (snapshot) => {
-          const fetchedTransactions: Transaction[] = [];
-          snapshot.forEach((doc) => {
-            // 3. Aplica a conversão aqui
-            const convertedData = convertTimestampsToDates(doc.data());
-            fetchedTransactions.push({
-              id: doc.id,
-              ...convertedData,
-            } as Transaction);
-          });
-          fetchedTransactions.sort((a, b) => {
-            // 4. Agora podemos usar .getTime() com segurança
-            const dateA = a.createdAt?.getTime() ?? a.date.getTime();
-            const dateB = b.createdAt?.getTime() ?? b.date.getTime();
-            return dateB - dateA;
-          });
-          setTransactions(fetchedTransactions);
-        }
-      );
-
-      unsubscribeDebts = onSnapshot(
-        query(getUserCollectionRef("debts")),
-        (snapshot) => {
-          const fetchedDebts: Debt[] = [];
-          snapshot.forEach((doc) => {
-            // 3. Aplica a conversão aqui
-            const convertedData = convertTimestampsToDates(doc.data());
-            fetchedDebts.push({ id: doc.id, ...convertedData } as Debt);
-          });
-          setDebts(fetchedDebts);
-        }
-      );
-
-      unsubscribeDebtInstallments = onSnapshot(
-        query(getUserCollectionRef("debtInstallments")),
-        (snapshot) => {
-          const fetchedInstallments: DebtInstallment[] = [];
-          snapshot.forEach((doc) => {
-            // 3. Aplica a conversão aqui
-            const convertedData = convertTimestampsToDates(doc.data());
-            fetchedInstallments.push({
-              id: doc.id,
-              ...convertedData,
-            } as DebtInstallment);
-          });
-          fetchedInstallments.sort(
-            // 4. Agora podemos usar .getTime() com segurança
-            (a, b) => a.expectedDueDate.getTime() - b.expectedDueDate.getTime()
-          );
-          setDebtInstallments(fetchedInstallments);
-        }
-      );
-
-      unsubscribePaymentMethods = onSnapshot(
-        query(getUserCollectionRef("paymentMethods")),
-        (snapshot) => {
-          const fetchedPaymentMethods: PaymentMethod[] = snapshot.docs.map(
-            (doc) => ({ id: doc.id, ...doc.data() } as PaymentMethod)
-          );
-          setPaymentMethods(fetchedPaymentMethods);
-        }
-      );
-
-      unsubscribeDebtTypes = onSnapshot(
-        query(getUserCollectionRef("debtTypes")),
-        (snapshot) => {
-          const fetchedDebtTypes: DebtType[] = snapshot.docs.map(
-            (doc) => ({ id: doc.id, ...doc.data() } as DebtType)
-          );
-          setDebtTypes(fetchedDebtTypes);
-        }
-      );
-
-      return () => {
-        unsubscribeAccounts();
-        unsubscribeCategories();
-        unsubscribeTransactions();
-        unsubscribeDebts();
-        unsubscribeDebtInstallments();
-        unsubscribePaymentMethods();
-        unsubscribeDebtTypes();
-      };
-    } else {
+    if (!user || !db || !projectId) {
+      setLoading(false);
       setAccounts([]);
       setCategories([]);
       setTransactions([]);
       setDebts([]);
       setDebtInstallments([]);
       setPaymentMethods([]);
-      setDebtTypes([]);
+      return;
     }
+
+    setLoading(true);
+    initialFetchCounter.current = 0;
+
+    const listenersUnsubscribed: (() => void)[] = [];
+    const collections: (keyof Omit<
+      UseFinanceDataProps,
+      "db" | "user" | "projectId" | "setLoading"
+    >)[] = [
+      "setAccounts",
+      "setCategories",
+      "setTransactions",
+      "setDebts",
+      "setDebtInstallments",
+      "setPaymentMethods",
+    ];
+
+    const setters: { [key: string]: Function } = {
+      setAccounts,
+      setCategories,
+      setTransactions,
+      setDebts,
+      setDebtInstallments,
+      setPaymentMethods,
+    };
+
+    const collectionNames: { [key: string]: string } = {
+      setAccounts: "accounts",
+      setCategories: "categories",
+      setTransactions: "transactions",
+      setDebts: "debts",
+      setDebtInstallments: "debtInstallments",
+      setPaymentMethods: "paymentMethods",
+    };
+
+    const handleInitialFetch = () => {
+      initialFetchCounter.current += 1;
+      if (initialFetchCounter.current === totalListeners) {
+        setLoading(false);
+      }
+    };
+
+    collections.forEach((setterKey) => {
+      const collectionName = collectionNames[setterKey];
+      const setter = setters[setterKey];
+
+      const q = query(
+        collection(
+          db,
+          `artifacts/${projectId}/users/${user.uid}/${collectionName}`
+        )
+      );
+      const unsubscribe = onSnapshot(
+        q,
+        (snapshot) => {
+          const isInitialLoad =
+            snapshot.metadata.fromCache === false &&
+            initialFetchCounter.current < totalListeners;
+
+          const data = snapshot.docs.map((doc) => ({
+            id: doc.id,
+            ...convertTimestampsToDates(doc.data()),
+          }));
+          setter(data);
+
+          if (isInitialLoad) {
+            handleInitialFetch();
+          }
+        },
+        (error) => {
+          console.error(`Error fetching ${collectionName}: `, error);
+          handleInitialFetch();
+        }
+      );
+      listenersUnsubscribed.push(unsubscribe);
+    });
+
+    return () => {
+      listenersUnsubscribed.forEach((unsubscribe) => unsubscribe());
+    };
   }, [db, user, projectId]);
 };

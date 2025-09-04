@@ -8,6 +8,7 @@ import { ptBR } from "date-fns/locale";
 import { Icon } from "@iconify/react";
 import { DebtInstallmentDetailsModal } from "../debts/debt-installment-details-modal";
 import { useState } from "react";
+import { Button } from "../ui/button";
 
 interface UpcomingDebtsListProps {
   installments: DebtInstallment[];
@@ -88,7 +89,7 @@ export function UpcomingDebtsList({
               key={installment.id}
               onClick={() => handleViewDetails(debt, installment)}
               className={cn(
-                "flex items-center justify-between p-3 rounded-xl bg-background hover:bg-muted/50 cursor-pointer transition-colors border-l-4",
+                "flex items-center justify-between p-3 rounded-xl bg-background hover:bg-muted/50 cursor-pointer transition-colors border-l-4 border-b-2",
                 borderColor
               )}
             >
@@ -101,9 +102,22 @@ export function UpcomingDebtsList({
                 >
                   <Icon icon={categoryIcon} className="w-6 h-6 text-white" />
                 </div>
+                {/* INFORMAÇÕES AGRUPADAS AQUI */}
                 <div className="flex flex-col min-w-0">
                   <p className="font-bold text-base text-foreground truncate">
                     {debt.description}
+                  </p>
+                  {/* VALOR MOVIDO PARA CÁ */}
+                  <p
+                    className={cn(
+                      "font-bold text-base font-numeric",
+                      textColor
+                    )}
+                  >
+                    {installment.expectedAmount?.toLocaleString("pt-BR", {
+                      style: "currency",
+                      currency: "BRL",
+                    })}
                   </p>
                   <p className="text-sm text-muted-foreground">
                     {isPaid && installment.paymentDate
@@ -119,13 +133,24 @@ export function UpcomingDebtsList({
                 </div>
               </div>
 
-              <div className="text-right pl-2">
-                <p className={cn("font-bold text-lg", textColor)}>
-                  {installment.expectedAmount?.toLocaleString("pt-BR", {
-                    style: "currency",
-                    currency: "BRL",
-                  })}
-                </p>
+              {/* BOTÃO DE AÇÃO MANTIDO À DIREITA */}
+              <div className="pl-2">
+                {!isPaid && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="rounded-full h-9 w-9 flex-shrink-0"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleViewDetails(debt, installment);
+                    }}
+                  >
+                    <Icon
+                      icon="fa6-solid:chevron-right"
+                      className="h-4 w-4 text-muted-foreground"
+                    />
+                  </Button>
+                )}
               </div>
             </div>
           );

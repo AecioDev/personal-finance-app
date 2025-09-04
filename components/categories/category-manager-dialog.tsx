@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Icon } from "@iconify/react";
 import { useFinance } from "@/components/providers/finance-provider";
 import { useToast } from "@/components/ui/use-toast";
@@ -9,187 +9,157 @@ import { Category } from "@/interfaces/finance";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog";
-import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
-import { ConfirmationDialog } from "@/components/common/confirmation-dialog";
-import { suggestedIcons } from "./icon-list";
+import { defaultCategories } from "@/lib/data/defaults";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { cn } from "@/lib/utils"; // Importando o helper 'cn'
 
 interface CategoryManagerDialogProps {
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
+  categoryToEdit?: Category | null;
 }
 
 export function CategoryManagerDialog({
   isOpen,
   onOpenChange,
+  categoryToEdit,
 }: CategoryManagerDialogProps) {
   const { toast } = useToast();
-  // CORREÇÃO PRINCIPAL: Tudo vem do useFinance() agora!
-  const { categories, loadingFinanceData, addCategory, deleteCategory } =
-    useFinance();
+  const { addCategory, updateCategory } = useFinance();
 
-  const [newCategoryName, setNewCategoryName] = useState("");
-  const [newCategoryIcon, setNewCategoryIcon] = useState(
-    suggestedIcons[0].icon
-  );
+  const [categoryName, setCategoryName] = useState("");
+  const [categoryIcon, setCategoryIcon] = useState(defaultCategories[0].icon);
 
-  const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(
-    null
-  );
-  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  useEffect(() => {
+    if (isOpen) {
+      if (categoryToEdit) {
+        setCategoryName(categoryToEdit.name);
+        setCategoryIcon(categoryToEdit.icon);
+      } else {
+        setCategoryName("");
+        setCategoryIcon(defaultCategories[0].icon);
+      }
+    }
+  }, [isOpen, categoryToEdit]);
 
-  const handleAddNewCategory = async (e: React.FormEvent) => {
+  const handleClose = () => {
+    onOpenChange(false);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newCategoryName.trim()) return;
-
-    setIsSubmitting(true);
-    try {
-      // Chama a função do provider, que já sabe o que fazer.
-      await addCategory({ name: newCategoryName, icon: newCategoryIcon });
-      toast({ title: "Sucesso!", description: "Nova categoria criada." });
-      setNewCategoryName("");
-      setNewCategoryIcon(suggestedIcons[0].icon);
-    } catch (error) {
-      // O provider já setou o erro, mas podemos mostrar um toast aqui se quisermos.
+    if (!categoryName.trim()) {
       toast({
-        title: "Erro!",
-        description: "Não foi possível criar a categoria.",
+        title: "Atenção!",
+        description: "O nome da categoria не pode estar em branco.",
         variant: "destructive",
       });
-    } finally {
-      setIsSubmitting(false);
+      return;
     }
-  };
-
-  const handleDeleteClick = (category: Category) => {
-    setCategoryToDelete(category);
-    setIsDeleteConfirmOpen(true);
-  };
-
-  const handleConfirmDelete = async () => {
-    if (!categoryToDelete) return;
 
     try {
-      // Chama a função do provider. Simples assim.
-      await deleteCategory(categoryToDelete.id);
-      toast({ title: "Sucesso!", description: "Categoria excluída." });
+      if (categoryToEdit) {
+        await updateCategory(categoryToEdit.id, {
+          name: categoryName,
+          icon: categoryIcon,
+        });
+        toast({ title: "Sucesso!", description: "Categoria atualizada." });
+      } else {
+        await addCategory({ name: categoryName, icon: categoryIcon });
+        toast({ title: "Sucesso!", description: "Nova categoria criada." });
+      }
+      handleClose();
     } catch (error) {
       toast({
         title: "Erro!",
-        description: "Não foi possível excluir a categoria.",
+        description: `Não foi possível salvar a categoria.`,
         variant: "destructive",
       });
-    } finally {
-      setIsDeleteConfirmOpen(false);
-      setCategoryToDelete(null);
     }
   };
+
+  const isFormDisabled = !categoryName.trim();
+  const dialogTitle = categoryToEdit ? "Editar Categoria" : "Nova Categoria";
+  const dialogDescription = "Preencha os detalhes da sua categoria abaixo.";
 
   return (
-    <>
-      <Dialog open={isOpen} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Gerenciar Categorias</DialogTitle>
-          </DialogHeader>
+    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="text-xl">{dialogTitle}</DialogTitle>
+          <DialogDescription>{dialogDescription}</DialogDescription>
+        </DialogHeader>
 
-          {/* O formulário e a lista não mudam, apenas a origem dos dados e funções */}
-          <form onSubmit={handleAddNewCategory} className="mt-4 border-b pb-6">
-            {/* ... (código do formulário de nova categoria, sem alterações) ... */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-              <div className="space-y-2 col-span-1 md:col-span-2">
-                <Label htmlFor="new-category-name">
-                  Nome da Nova Categoria
-                </Label>
-                <Input
-                  id="new-category-name"
-                  value={newCategoryName}
-                  onChange={(e) => setNewCategoryName(e.target.value)}
-                  placeholder="Ex: Lazer"
-                  disabled={isSubmitting}
-                />
+        <form onSubmit={handleSubmit} className="mt-6 space-y-6">
+          <div>
+            <Label
+              htmlFor="category-name"
+              className="mb-2 block text-sm font-medium"
+            >
+              Descrição
+            </Label>
+            <Input
+              id="category-name"
+              value={categoryName}
+              onChange={(e) => setCategoryName(e.target.value)}
+              placeholder="Ex: Moradia, Lazer..."
+              className="text-base h-12"
+            />
+          </div>
+
+          <div>
+            <Label className="mb-2 block text-sm font-medium">Ícone</Label>
+            <ScrollArea className="h-40 w-full rounded-md border p-2">
+              <div className="grid grid-cols-5 gap-2">
+                {defaultCategories.map(({ icon, name }) => (
+                  <div
+                    key={name}
+                    title={name}
+                    className={cn(
+                      "flex justify-center items-center aspect-square cursor-pointer rounded-md border-2 transition-colors",
+                      // Lógica da borda: primária se selecionado, padrão se não.
+                      categoryIcon === icon
+                        ? "border-primary"
+                        : "border-border hover:border-primary/40"
+                    )}
+                    onClick={() => setCategoryIcon(icon)}
+                  >
+                    <Icon
+                      icon={icon}
+                      className={cn(
+                        "h-10 w-10 transition-colors",
+                        categoryIcon === icon
+                          ? "text-primary"
+                          : "text-muted-foreground"
+                      )}
+                    />
+                  </div>
+                ))}
               </div>
-              <Button
-                type="submit"
-                disabled={isSubmitting || !newCategoryName.trim()}
-              >
-                <Icon icon="mdi:plus" className="mr-2" />
-                {isSubmitting ? "Adicionando..." : "Adicionar"}
-              </Button>
-            </div>
-            <div className="mt-4 space-y-2">
-              <Label>Ícone</Label>
-              <ScrollArea className="h-24 w-full rounded-md border p-2">
-                <div className="flex flex-wrap gap-2">
-                  {suggestedIcons.map(({ icon }) => (
-                    <Button
-                      key={icon}
-                      type="button"
-                      variant={newCategoryIcon === icon ? "default" : "outline"}
-                      size="icon"
-                      onClick={() => setNewCategoryIcon(icon)}
-                    >
-                      <Icon icon={icon} className="h-5 w-5" />
-                    </Button>
-                  ))}
-                </div>
-              </ScrollArea>
-            </div>
-          </form>
+            </ScrollArea>
+          </div>
 
-          <h3 className="text-lg font-medium mt-4">Categorias Existentes</h3>
-          <ScrollArea className="h-64 mt-2">
-            <Table>
-              <TableBody>
-                {loadingFinanceData && (
-                  <TableRow>
-                    <TableCell className="text-center">Carregando...</TableCell>
-                  </TableRow>
-                )}
-                {!loadingFinanceData &&
-                  categories.map((category) => (
-                    <TableRow key={category.id}>
-                      <TableCell className="w-12">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted">
-                          <Icon icon={category.icon} className="h-5 w-5" />
-                        </div>
-                      </TableCell>
-                      <TableCell>{category.name}</TableCell>
-                      <TableCell className="text-right">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDeleteClick(category)}
-                        >
-                          <Icon
-                            icon="mdi:delete-outline"
-                            className="text-destructive"
-                          />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-              </TableBody>
-            </Table>
-          </ScrollArea>
-        </DialogContent>
-      </Dialog>
-
-      <ConfirmationDialog
-        isOpen={isDeleteConfirmOpen}
-        onOpenChange={setIsDeleteConfirmOpen}
-        title={`Excluir "${categoryToDelete?.name}"?`}
-        description="Esta ação removerá a categoria de todas as despesas associadas. Esta ação não pode ser desfeita."
-        onConfirm={handleConfirmDelete}
-        variant="destructive"
-      />
-    </>
+          <div className="flex items-center justify-end gap-2 pt-4 border-t">
+            <Button type="button" variant="ghost" onClick={handleClose}>
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={isFormDisabled}>
+              <Icon
+                icon={categoryToEdit ? "fa6-solid:check" : "fa6-solid:plus"}
+                className="mr-2 h-5 w-5"
+              />
+              {categoryToEdit ? "Salvar Alterações" : "Criar Categoria"}
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }

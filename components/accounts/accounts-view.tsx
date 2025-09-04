@@ -4,187 +4,130 @@ import React, { useState } from "react";
 import { useFinance } from "@/components/providers/finance-provider";
 import { Account } from "@/interfaces/finance";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Icon } from "@iconify/react";
 import { useToast } from "@/components/ui/use-toast";
-import { ButtonNew } from "@/components/ui/button-new";
-import { ButtonBack } from "@/components/ui/button-back";
-import { useRouter } from "next/navigation";
-import { AccountsForm } from "./accounts-form";
+import { PageViewLayout } from "../layout/page-view-layout";
+import { ConfirmationDialog } from "../common/confirmation-dialog";
+import { AccountManagerDialog } from "./account-manager-dialog";
 
 export function AccountsView() {
-  const {
-    accounts,
-    addAccount,
-    updateAccount,
-    deleteAccount,
-    loadingFinanceData,
-    errorFinanceData,
-  } = useFinance();
   const { toast } = useToast();
-  const router = useRouter();
+  const { accounts, deleteAccount, loadingFinanceData } = useFinance();
 
-  const [isFormOpen, setIsFormOpen] = useState(false);
-  const [editingAccount, setEditingAccount] = useState<Account | null>(null);
+  const [accountSelected, setAccountSelected] = useState<Account | null>(null);
+  const [isManagerOpen, setIsManagerOpen] = useState(false);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
 
-  const handleOpenForm = (account?: Account) => {
-    setEditingAccount(account || null);
-    setIsFormOpen(true);
+  const handleEditClick = (account: Account) => {
+    setAccountSelected(account);
+    setIsManagerOpen(true);
   };
 
-  const handleSaveAccount = async (
-    accountData: Omit<Account, "id" | "uid" | "createdAt">
-  ) => {
+  const handleAddClick = () => {
+    setAccountSelected(null);
+    setIsManagerOpen(true);
+  };
+
+  const handleDeleteClick = (account: Account) => {
+    setAccountSelected(account);
+    setIsDeleteConfirmOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!accountSelected) return;
     try {
-      if (editingAccount) {
-        await updateAccount(editingAccount.id, accountData);
-      } else {
-        await addAccount(accountData);
-      }
+      await deleteAccount(accountSelected.id);
+      toast({ title: "Sucesso!", description: "Conta excluída." });
     } catch (error) {
-      console.error("Erro ao salvar conta no view:", error);
-      throw error;
+      toast({
+        title: "Erro!",
+        description: "Não foi possível excluir a conta.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeleteConfirmOpen(false);
+      setAccountSelected(null);
     }
   };
-
-  const handleDeleteAccount = async (accountId: string) => {
-    if (window.confirm("Tem certeza que deseja excluir esta conta?")) {
-      try {
-        if (loadingFinanceData) {
-          toast({
-            title: "Aguarde",
-            description:
-              "Os dados financeiros ainda estão sendo carregados. Tente novamente em alguns instantes.",
-            variant: "default",
-          });
-          return;
-        }
-        await deleteAccount(accountId);
-        toast({
-          title: "Sucesso",
-          description: "Conta excluída.",
-          variant: "success",
-        });
-      } catch (error) {
-        toast({
-          title: "Erro",
-          description: "Não foi possível excluir a conta.",
-          variant: "destructive",
-        });
-        console.error("Erro ao excluir conta:", error);
-      }
-    }
-  };
-
-  if (loadingFinanceData) {
-    return (
-      <div className="flex justify-center items-center h-48">
-        <p className="text-gray-500 dark:text-gray-400">Carregando contas...</p>
-      </div>
-    );
-  }
-
-  if (errorFinanceData) {
-    return (
-      <div className="text-center text-red-500 p-4">
-        <p>Erro ao carregar dados: {errorFinanceData}</p>
-      </div>
-    );
-  }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">Minhas Contas</h1>
-
-        <div className="flex gap-2">
-          <ButtonBack onClick={() => router.back()} />
-          <ButtonNew
-            onClick={() => handleOpenForm()}
-            disabled={loadingFinanceData}
-          >
-            Nova Conta
-          </ButtonNew>
-        </div>
+    <PageViewLayout title="Minhas Contas">
+      <div>
+        <Button
+          className="w-full my-2 text-base font-semibold"
+          size="sm"
+          onClick={handleAddClick}
+          disabled={loadingFinanceData}
+        >
+          <Icon icon="mdi:plus" className="h-6 w-6" />
+          Nova Conta
+        </Button>
       </div>
 
-      {accounts.length === 0 ? (
-        <Card>
-          <CardContent className="text-center py-12">
-            <Icon
-              icon="mdi:bank-outline"
-              className="w-16 h-16 mx-auto mb-4 text-muted-foreground"
-            />
-            <h3 className="text-lg font-semibold mb-2">
-              Nenhuma conta cadastrada
-            </h3>
-            <p className="text-muted-foreground mb-4">
-              Adicione sua primeira conta para começar a controlar suas finanças
-            </p>
-            <ButtonNew
-              onClick={() => handleOpenForm()}
-              disabled={loadingFinanceData}
+      {loadingFinanceData && <p>Carregando...</p>}
+
+      {!loadingFinanceData && (
+        <div className="space-y-4">
+          {accounts.map((item) => (
+            <div
+              key={item.id}
+              className="flex items-center justify-between p-3 rounded-xl bg-background hover:bg-muted/50 transition-colors border-l-4 border-b-4 border-primary"
             >
-              Adicionar Primeira Conta
-            </ButtonNew>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid gap-4">
-          {accounts.map((account) => (
-            <Card key={account.id}>
-              <CardContent className="flex items-center justify-between p-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
-                    <Icon
-                      icon={account.icon || "mdi:bank"}
-                      className="w-5 h-5 text-primary"
-                    />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-semibold">{account.name}</h3>
-                    <p className="text-sm text-muted-foreground">
-                      R$
-                      {account.balance !== null && account.balance !== undefined
-                        ? account.balance.toLocaleString("pt-BR", {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          })
-                        : "0,00"}
-                    </p>
-                  </div>
+              <div className="flex items-center gap-4 min-w-0">
+                <div className="flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center bg-primary/10">
+                  <Icon
+                    icon={item.icon || "fa6-solid:piggy-bank"}
+                    className="w-8 h-8 text-primary"
+                  />
                 </div>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => handleOpenForm(account)}
-                    disabled={loadingFinanceData}
-                  >
-                    <Icon icon="mdi:pencil" className="w-4 h-4" />
-                  </Button>
-                  <Button
-                    variant="destructive"
-                    size="icon"
-                    onClick={() => handleDeleteAccount(account.id)}
-                    disabled={loadingFinanceData}
-                  >
-                    <Icon icon="mdi:delete" className="w-4 h-4" />
-                  </Button>
+                <div className="flex flex-col min-w-0">
+                  <p className="font-bold text-lg text-foreground truncate">
+                    {item.name}
+                  </p>
+                  <p className="font-numeric text-muted-foreground">
+                    R${" "}
+                    {item.balance?.toLocaleString("pt-BR", {
+                      minimumFractionDigits: 2,
+                    }) ?? "0,00"}
+                  </p>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+
+              <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+                <Button
+                  size="icon"
+                  variant="outline"
+                  onClick={() => handleEditClick(item)}
+                >
+                  <Icon icon="fa6-solid:pencil" />
+                </Button>
+                <Button
+                  variant="destructive"
+                  size="icon"
+                  onClick={() => handleDeleteClick(item)}
+                >
+                  <Icon icon="fa6-solid:trash-can" />
+                </Button>
+              </div>
+            </div>
           ))}
         </div>
       )}
 
-      <AccountsForm
-        isOpen={isFormOpen}
-        onOpenChange={setIsFormOpen}
-        editingAccount={editingAccount}
-        onSave={handleSaveAccount}
-        loadingFinanceData={loadingFinanceData}
+      <AccountManagerDialog
+        isOpen={isManagerOpen}
+        onOpenChange={setIsManagerOpen}
+        accountToEdit={accountSelected}
       />
-    </div>
+
+      <ConfirmationDialog
+        isOpen={isDeleteConfirmOpen}
+        onOpenChange={setIsDeleteConfirmOpen}
+        title={`Excluir "${accountSelected?.name}"?`}
+        description="Esta ação não pode ser desfeita e removerá permanentemente a conta."
+        onConfirm={handleConfirmDelete}
+        variant="destructive"
+      />
+    </PageViewLayout>
   );
 }

@@ -1,7 +1,7 @@
 // src/app/layout.tsx
 import type React from "react";
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
+import { Inter, Roboto_Slab } from "next/font/google";
 import { AuthProvider } from "@/components/providers/auth-provider";
 import { FinanceProvider } from "@/components/providers/finance-provider";
 import { ThemeProvider } from "@/components/theme/theme-provider";
@@ -12,6 +12,11 @@ import "./globals.css";
 import { ModalProvider } from "@/components/providers/modal-provider";
 
 const inter = Inter({ subsets: ["latin"] });
+const robotoSlab = Roboto_Slab({
+  subsets: ["latin"],
+  weight: "700",
+  variable: "--font-roboto-slab",
+});
 
 export const metadata: Metadata = {
   title: "Controle Financeiro",
@@ -58,8 +63,9 @@ export default function RootLayout({
           href="/icons/favicon-16x16.png"
         />
       </head>
-      <body className={inter.className}>
-        {/* 2. Envolvemos tudo com o PaletteProvider */}
+      <body
+        className={`${inter.className} ${robotoSlab.variable} bg-slate-50 dark:bg-slate-900`}
+      >
         <PaletteProvider defaultPalette="green" storageKey="app-palette">
           <ThemeProvider
             attribute="class"

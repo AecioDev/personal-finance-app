@@ -3,7 +3,7 @@
 import * as React from "react";
 
 // Define os nomes dos temas que criamos no CSS
-type Palette = "green" | "blue";
+type Palette = "green" | "blue" | "orange" | "purple";
 
 type PaletteProviderProps = {
   children: React.ReactNode;

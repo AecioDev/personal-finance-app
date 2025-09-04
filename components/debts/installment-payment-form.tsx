@@ -1,10 +1,11 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { useFormContext } from "react-hook-form";
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -22,36 +23,79 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Icon } from "@iconify/react";
 import { DatePicker } from "@/components/ui/date-picker";
 import { CurrencyInput } from "@/components/ui/currency-input";
-import { Account, DebtInstallment, PaymentMethod } from "@/interfaces/finance";
+import { DebtInstallment } from "@/interfaces/finance";
 import { PartialPaymentFormData } from "@/schemas/partial-payment-schema";
-import { getDDMMYYYY } from "@/lib/dates"; // <-- Importa a função de formatação
-import { Input } from "@/components/ui/input";
+import { useFinance } from "../providers/finance-provider";
+import { useToast } from "../ui/use-toast";
+import { Input } from "../ui/input";
+import { getDDMMYYYY } from "@/lib/dates";
 
 interface InstallmentPaymentFormProps {
   onSubmit: (data: PartialPaymentFormData) => void;
   installment: DebtInstallment;
-  accounts: Account[];
-  paymentMethods: PaymentMethod[];
-  discountSuggestion: number | null;
-  handleApplyDiscount: () => void;
-  isSubmitting: boolean;
 }
 
 export function InstallmentPaymentForm({
   onSubmit,
   installment,
-  accounts,
-  paymentMethods,
-  discountSuggestion,
-  handleApplyDiscount,
-  isSubmitting,
 }: InstallmentPaymentFormProps) {
   const form = useFormContext<PartialPaymentFormData>();
-  const amountPaid = form.watch("amount");
+  const { accounts, paymentMethods } = useFinance();
+  const { toast } = useToast();
+  const {
+    setValue,
+    watch,
+    formState: { isSubmitting },
+  } = form;
+
+  const amountPaid = watch("amount");
+  const interestPaidValue = watch("interestPaid");
+  const discountReceivedValue = watch("discountReceived");
+  const [discountSuggestion, setDiscountSuggestion] = useState<number | null>(
+    null
+  );
+
+  useEffect(() => {
+    if (amountPaid === null || isNaN(amountPaid)) return;
+
+    const remainingAmount =
+      installment.remainingAmount ?? installment.expectedAmount;
+
+    if (amountPaid > remainingAmount) {
+      setValue("interestPaid", amountPaid - remainingAmount);
+      setValue("discountReceived", 0);
+      setDiscountSuggestion(null);
+    } else if (amountPaid < remainingAmount && amountPaid > 0) {
+      setDiscountSuggestion(remainingAmount - amountPaid);
+      setValue("interestPaid", 0);
+    } else {
+      setValue("interestPaid", 0);
+      setDiscountSuggestion(null);
+    }
+  }, [amountPaid, installment, setValue]);
+
+  useEffect(() => {
+    if (interestPaidValue && interestPaidValue > 0) {
+      setValue("discountReceived", 0);
+    }
+  }, [interestPaidValue, setValue]);
+
+  useEffect(() => {
+    if (discountReceivedValue && discountReceivedValue > 0) {
+      setValue("interestPaid", 0);
+    }
+  }, [discountReceivedValue, setValue]);
+
+  const handleApplyDiscount = () => {
+    if (discountSuggestion === null) return;
+    setValue("discountReceived", discountSuggestion);
+    setDiscountSuggestion(null);
+    toast({ title: "Desconto aplicado com sucesso!" });
+  };
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
         <FormField
           control={form.control}
           name="amount"
@@ -76,8 +120,8 @@ export function InstallmentPaymentForm({
             <AlertTitle>Dica do Assistente</AlertTitle>
             <AlertDescription className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
               <span>
-                A diferença de R$ {discountSuggestion.toFixed(2)} pode quitar a
-                parcela.
+                Clique para adicionar a diferença de R${" "}
+                {discountSuggestion.toFixed(2)} como desconto.
               </span>
               <Button type="button" size="sm" onClick={handleApplyDiscount}>
                 Aplicar como Desconto
@@ -86,21 +130,21 @@ export function InstallmentPaymentForm({
           </Alert>
         )}
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <FormField
             control={form.control}
             name="interestPaid"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Juros / Multa</FormLabel>
+                <FormLabel>Juros / Multa Pagos</FormLabel>
                 <FormControl>
                   <CurrencyInput
                     value={field.value || 0}
                     onChange={field.onChange}
-                    placeholder="R$ 0,00"
-                    readOnly={amountPaid > (installment.expectedAmount ?? 0)}
+                    disabled={(discountReceivedValue || 0) > 0}
                   />
                 </FormControl>
+                <FormDescription>Parte do valor que foi juros.</FormDescription>
                 <FormMessage />
               </FormItem>
             )}
@@ -110,14 +154,15 @@ export function InstallmentPaymentForm({
             name="discountReceived"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Desconto</FormLabel>
+                <FormLabel>Desconto Recebido</FormLabel>
                 <FormControl>
                   <CurrencyInput
                     value={field.value || 0}
                     onChange={field.onChange}
-                    placeholder="R$ 0,00"
+                    disabled={(interestPaidValue || 0) > 0}
                   />
                 </FormControl>
+                <FormDescription>Valor abatido do total.</FormDescription>
                 <FormMessage />
               </FormItem>
             )}
@@ -139,7 +184,7 @@ export function InstallmentPaymentForm({
           control={form.control}
           name="paymentDate"
           render={({ field }) => (
-            <FormItem>
+            <FormItem className="flex flex-col">
               <FormLabel>Data do Pagamento</FormLabel>
               <FormControl>
                 <DatePicker value={field.value} onChange={field.onChange} />
@@ -154,17 +199,22 @@ export function InstallmentPaymentForm({
           name="accountId"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Conta Utilizada</FormLabel>
+              <FormLabel>Pagar com a Conta</FormLabel>
               <Select onValueChange={field.onChange} value={field.value}>
                 <FormControl>
                   <SelectTrigger>
-                    <SelectValue placeholder="Selecione a conta..." />
+                    <SelectValue placeholder="Selecione a conta de origem..." />
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
                   {accounts.map((account) => (
                     <SelectItem key={account.id} value={account.id}>
-                      {account.name}
+                      {account.name} (Saldo:{" "}
+                      {account.balance?.toLocaleString("pt-BR", {
+                        style: "currency",
+                        currency: "BRL",
+                      })}
+                      )
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -183,7 +233,7 @@ export function InstallmentPaymentForm({
               <Select onValueChange={field.onChange} value={field.value}>
                 <FormControl>
                   <SelectTrigger>
-                    <SelectValue placeholder="Selecione a forma..." />
+                    <SelectValue placeholder="Selecione a forma de pagamento..." />
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
@@ -200,9 +250,13 @@ export function InstallmentPaymentForm({
         />
 
         <div className="pt-4">
-          <Button type="submit" className="w-full" disabled={isSubmitting}>
+          <Button
+            type="submit"
+            className="w-full bg-accent text-accent-foreground"
+            disabled={isSubmitting}
+          >
             <Icon icon="mdi:cash-check" className="mr-2 h-4 w-4" />
-            {isSubmitting ? "Registrando..." : "Registrar Pagamento"}
+            {isSubmitting ? "Registrando..." : "Confirmar Pagamento"}
           </Button>
         </div>
       </form>

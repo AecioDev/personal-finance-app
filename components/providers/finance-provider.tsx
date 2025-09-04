@@ -6,9 +6,18 @@ import React, {
   createContext,
   useContext,
   ReactNode,
+  useRef,
 } from "react";
 import { getApp } from "firebase/app";
-import { getFirestore, Firestore, doc, updateDoc } from "firebase/firestore";
+import {
+  getFirestore,
+  Firestore,
+  doc,
+  updateDoc,
+  writeBatch,
+  collection,
+  getDocs,
+} from "firebase/firestore";
 
 import {
   Account,
@@ -18,9 +27,13 @@ import {
   Debt,
   DebtInstallment,
   PaymentMethod,
-  DebtType,
 } from "@/interfaces/finance";
 import { useAuth } from "./auth-provider";
+import {
+  defaultCategories,
+  defaultPaymentMethods,
+  defaultAccount,
+} from "@/lib/data/defaults";
 
 import { useFinanceData } from "@/hooks/use-finance-data";
 import { useAccountsCrud } from "@/hooks/use-accounts-crud";
@@ -28,10 +41,10 @@ import { useTransactionsCrud } from "@/hooks/use-transactions-crud";
 import { useDebtsCrud } from "@/hooks/use-debts-crud";
 import { useDebtInstallmentsCrud } from "@/hooks/use-debt-installments-crud";
 import { usePaymentMethodsCrud } from "@/hooks/use-payment-methods-crud";
-import { useDebtTypesCrud } from "@/hooks/use-debt-types-crud";
 import { useCategoriesCrud } from "@/hooks/use-categories-crud";
 import { DebtFormData } from "@/schemas/debt-schema";
 import { SimpleDebtFormData } from "@/schemas/simple-debt-schema";
+import { useToast } from "../ui/use-toast";
 
 interface FinanceContextType {
   accounts: Account[];
@@ -40,7 +53,6 @@ interface FinanceContextType {
   debts: Debt[];
   debtInstallments: DebtInstallment[];
   paymentMethods: PaymentMethod[];
-  debtTypes: DebtType[];
 
   processInstallmentPayment: (
     installmentId: string,
@@ -106,14 +118,6 @@ interface FinanceContextType {
     data: Partial<Omit<PaymentMethod, "id" | "uid">>
   ) => Promise<void>;
   deletePaymentMethod: (methodId: string) => Promise<void>;
-  addDebtType: (
-    debtType: Omit<DebtType, "id" | "uid" | "createdAt" | "isActive">
-  ) => Promise<void>;
-  updateDebtType: (
-    debtTypeId: string,
-    data: Partial<Omit<DebtType, "id" | "uid">>
-  ) => Promise<void>;
-  deleteDebtType: (debtTypeId: string) => Promise<void>;
 
   addCategory: (data: { name: string; icon: string }) => Promise<string | null>;
   updateCategory: (
@@ -142,6 +146,7 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({
   children,
 }) => {
   const { user, loading: authLoading, projectId } = useAuth();
+  const { toast } = useToast();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -150,10 +155,10 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({
     []
   );
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
-  const [debtTypes, setDebtTypes] = useState<DebtType[]>([]);
   const [loadingFinanceData, setLoadingFinanceData] = useState(true);
   const [errorFinanceData, setErrorFinanceData] = useState<string | null>(null);
-  const dbRef = React.useRef<Firestore | null>(null);
+  const dbRef = useRef<Firestore | null>(null);
+  const hasCheckedData = useRef(false);
 
   useEffect(() => {
     if (!authLoading && projectId && user) {
@@ -176,16 +181,225 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({
     setDebts,
     setDebtInstallments,
     setPaymentMethods,
-    setDebtTypes,
+    setLoading: setLoadingFinanceData,
   });
 
   useEffect(() => {
-    if (authLoading) {
-      setLoadingFinanceData(true);
-    } else {
-      setLoadingFinanceData(false);
+    // Roda apenas se:
+    // 1. O carregamento inicial dos dados terminou
+    // 2. O usuário está logado
+    // 3. A verificação ainda NÃO foi feita nesta sessão
+    if (!loadingFinanceData && user && projectId && !hasCheckedData.current) {
+      const runDataCheck = async () => {
+        console.log("Iniciando verificação de dados padrão (com migração)...");
+        hasCheckedData.current = true; // Impede que o hook rode novamente na mesma sessão
+
+        const normalizeString = (str: string) =>
+          str
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .toLowerCase()
+            .trim();
+
+        try {
+          const db = getFirestore();
+          const batch = writeBatch(db);
+
+          const getUserCollectionRef = (collectionName: string) =>
+            collection(
+              db,
+              `artifacts/${projectId}/users/${user.uid}/${collectionName}`
+            );
+
+          // Buscamos os dados existentes
+          const accountsSnap = await getDocs(getUserCollectionRef("accounts"));
+          const categoriesSnap = await getDocs(
+            getUserCollectionRef("categories")
+          );
+          const paymentMethodsSnap = await getDocs(
+            getUserCollectionRef("paymentMethods")
+          );
+
+          const existingAccounts = accountsSnap.docs.map(
+            (doc) => ({ id: doc.id, ...doc.data() } as Account)
+          );
+          const existingCategories = categoriesSnap.docs.map(
+            (doc) => ({ id: doc.id, ...doc.data() } as Category)
+          );
+          const existingPaymentMethods = paymentMethodsSnap.docs.map(
+            (doc) => ({ id: doc.id, ...doc.data() } as PaymentMethod)
+          );
+
+          let operationsFound = false;
+
+          // 1. Conta Padrão (Lógica Corrigida)
+          if (
+            !existingAccounts.some((acc) => acc.defaultId === defaultAccount.id)
+          ) {
+            const userCreatedMatch = existingAccounts.find(
+              (acc) =>
+                !acc.defaultId &&
+                normalizeString(acc.name) ===
+                  normalizeString(defaultAccount.name)
+            );
+            if (userCreatedMatch) {
+              // "Adota" a conta existente
+              const accRef = doc(
+                getUserCollectionRef("accounts"),
+                userCreatedMatch.id
+              );
+              batch.update(accRef, { defaultId: defaultAccount.id });
+              operationsFound = true;
+            } else if (existingAccounts.length === 0) {
+              // Só cria se o usuário não tiver NENHUMA conta
+              const accountRef = doc(getUserCollectionRef("accounts"));
+              const { id, ...accData } = defaultAccount;
+              batch.set(accountRef, {
+                ...accData,
+                uid: user.uid,
+                defaultId: id,
+                createdAt: new Date(), // Adiciona o createdAt
+              });
+              operationsFound = true;
+            }
+          }
+
+          // 2. Formas de Pagamento (Lógica mantida, pois estava correta)
+          defaultPaymentMethods.forEach((defaultPM: any) => {
+            if (
+              existingPaymentMethods.some((pm) => pm.defaultId === defaultPM.id)
+            )
+              return;
+
+            const userCreatedMatch = existingPaymentMethods.find((pm) => {
+              if (pm.defaultId) return false;
+              const normalizedExistingName = normalizeString(pm.name);
+              const normalizedDefaultName = normalizeString(defaultPM.name);
+
+              if (normalizedExistingName === normalizedDefaultName) return true;
+
+              if (defaultPM.aliases) {
+                return defaultPM.aliases.some(
+                  (alias: string) =>
+                    normalizeString(alias) === normalizedExistingName
+                );
+              }
+              return false;
+            });
+
+            if (userCreatedMatch) {
+              const pmRef = doc(
+                getUserCollectionRef("paymentMethods"),
+                userCreatedMatch.id
+              );
+              batch.update(pmRef, { defaultId: defaultPM.id });
+              operationsFound = true;
+            } else {
+              const pmRef = doc(getUserCollectionRef("paymentMethods"));
+              const { id, aliases, ...pmData } = defaultPM;
+              batch.set(pmRef, {
+                ...pmData,
+                uid: user.uid,
+                isActive: true,
+                defaultId: id,
+                createdAt: new Date(),
+              });
+              operationsFound = true;
+            }
+          });
+
+          // 3. Categorias (Lógica mantida, pois estava correta)
+          defaultCategories.forEach((defaultCat: any) => {
+            if (
+              existingCategories.some((cat) => cat.defaultId === defaultCat.id)
+            )
+              return;
+
+            const userCreatedMatch = existingCategories.find((cat) => {
+              if (cat.defaultId) return false;
+              const normalizedExistingName = normalizeString(cat.name);
+              const normalizedDefaultName = normalizeString(defaultCat.name);
+
+              if (normalizedExistingName === normalizedDefaultName) return true;
+
+              if (defaultCat.aliases) {
+                return defaultCat.aliases.some(
+                  (alias: string) =>
+                    normalizeString(alias) === normalizedExistingName
+                );
+              }
+              return false;
+            });
+
+            if (userCreatedMatch) {
+              const catRef = doc(
+                getUserCollectionRef("categories"),
+                userCreatedMatch.id
+              );
+              batch.update(catRef, { defaultId: defaultCat.id });
+              operationsFound = true;
+            } else {
+              const catRef = doc(getUserCollectionRef("categories"));
+              const { id, aliases, ...catData } = defaultCat;
+              batch.set(catRef, {
+                ...catData,
+                uid: user.uid,
+                defaultId: id,
+                createdAt: new Date(),
+              });
+              operationsFound = true;
+            }
+          });
+
+          if (operationsFound) {
+            await batch.commit();
+            console.log("Dados padrão criados ou migrados com sucesso.");
+          }
+
+          // 4. Lógica de Dívidas sem Categoria (Agora roda de forma segura)
+          const debtsToUpdate = debts.filter((debt) => !debt.categoryId);
+          if (debtsToUpdate.length > 0) {
+            // Re-busca as categorias para garantir que temos a mais atualizada
+            const finalCategoriesSnap = await getDocs(
+              getUserCollectionRef("categories")
+            );
+            const allCategories = finalCategoriesSnap.docs.map(
+              (doc) => ({ id: doc.id, ...doc.data() } as Category)
+            );
+
+            const genericCategory = allCategories.find(
+              (c) => c.defaultId === "default-outras-despesas" // Busca pelo ID padrão
+            );
+
+            if (genericCategory) {
+              const debtBatch = writeBatch(db);
+              debtsToUpdate.forEach((debt) => {
+                const debtRef = doc(
+                  db,
+                  `artifacts/${projectId}/users/${user.uid}/debts`,
+                  debt.id
+                );
+                debtBatch.update(debtRef, { categoryId: genericCategory.id });
+              });
+              await debtBatch.commit();
+              console.log(
+                `${debtsToUpdate.length} dívidas foram atualizadas com categoria padrão.`
+              );
+            }
+          }
+        } catch (err) {
+          console.error("Erro na verificação/migração de dados:", err);
+          toast({
+            title: "Erro de Sincronização",
+            description: "Não foi possível verificar os dados padrão.",
+            variant: "destructive",
+          });
+        }
+      };
+
+      runDataCheck();
     }
-  }, [authLoading]);
+  }, [loadingFinanceData, user, projectId, toast]);
 
   const updateAccountBalance = async (
     accountId: string,
@@ -257,13 +471,6 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({
       setErrorFinanceData,
     });
 
-  const { addDebtType, updateDebtType, deleteDebtType } = useDebtTypesCrud({
-    db: dbRef.current,
-    user,
-    projectId,
-    setErrorFinanceData,
-  });
-
   const {
     processInstallmentPayment,
     revertInstallmentPayment,
@@ -288,7 +495,6 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({
         debts,
         debtInstallments,
         paymentMethods,
-        debtTypes,
         loadingFinanceData,
         errorFinanceData,
         addAccount,
@@ -310,9 +516,6 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({
         addPaymentMethod,
         updatePaymentMethod,
         deletePaymentMethod,
-        addDebtType,
-        updateDebtType,
-        deleteDebtType,
         getAccountById,
         processInstallmentPayment,
         revertInstallmentPayment,

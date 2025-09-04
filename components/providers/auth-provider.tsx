@@ -35,9 +35,6 @@ export const useAuth = () => {
   return context;
 };
 
-// REMOVIDO: O objeto firebaseConfig hardcoded foi removido daqui.
-// Ele será lido das variáveis de ambiente.
-
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   children,
 }) => {
@@ -57,8 +54,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
         process.env.NEXT_PUBLIC_FIREBASE_CONFIG || "{}"
       );
       console.log(
-        "AuthProvider: Firebase Config (lida das variáveis de ambiente):",
-        firebaseConfig
+        "AuthProvider: Firebase Config (variáveis de ambiente carregadas):"
       );
 
       if (

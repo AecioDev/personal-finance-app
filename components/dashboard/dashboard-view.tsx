@@ -202,7 +202,7 @@ export function DashboardView() {
           {nextDebtToPay && nextDebtToPayInstallment ? (
             <div>
               <p className="text-sm opacity-80 mb-1">
-                {isOverdue ? "Parcela Vencida" : "Próxima Parcela"}
+                {isOverdue ? "Parcela Vencida!" : "Próxima Parcela"}
               </p>
               <p className="text-xl font-bold tracking-tight mb-1">
                 {nextDebtToPay.description} -{" "}
@@ -212,7 +212,7 @@ export function DashboardView() {
               <p
                 className={cn(
                   "text-4xl font-extrabold mb-3",
-                  isOverdue ? "text-warning" : "text-white"
+                  isOverdue ? "text-fault" : "text-white"
                 )}
               >
                 R$

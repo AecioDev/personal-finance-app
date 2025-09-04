@@ -24,6 +24,7 @@ export interface Account {
   balance: number | null;
   icon?: string;
   uid: string;
+  defaultId?: string;
 }
 
 export interface PaymentMethod {
@@ -33,6 +34,7 @@ export interface PaymentMethod {
   isActive: boolean;
   uid: string;
   defaultAccountId?: string;
+  defaultId?: string;
 }
 
 export interface Category {
@@ -40,14 +42,7 @@ export interface Category {
   uid: string;
   name: string;
   icon: string;
-}
-
-export interface DebtType {
-  id: string;
-  name: string;
-  description?: string;
-  isActive: boolean;
-  uid: string;
+  defaultId?: string;
 }
 
 export interface Debt {
