@@ -56,7 +56,7 @@ export function CategoryView() {
     <PageViewLayout title="Categorias">
       <div>
         <Button
-          className="w-full my-2 text-base font-semibold"
+          className="w-full my-2 text-base font-semibold bg-status-complete text-status-complete-foreground"
           size="sm"
           onClick={handleAddClick}
         >
@@ -69,11 +69,14 @@ export function CategoryView() {
         {categories.map((item) => (
           <div
             key={item.id}
-            className="flex items-center justify-between p-3 rounded-xl bg-background hover:bg-muted/50 cursor-pointer transition-colors border-l-4 border-b-4 border-primary "
+            className="flex items-center justify-between p-3 rounded-xl bg-background hover:bg-muted/50 cursor-pointer transition-colors border-l-4 border-b-2 border-status-complete"
           >
             <div className="flex items-center gap-4 min-w-0">
               <div className="flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center">
-                <Icon icon={item.icon} className="w-10 h-10 text-primary" />
+                <Icon
+                  icon={item.icon}
+                  className="w-10 h-10 text-status-complete"
+                />
               </div>
               <div className="flex flex-col min-w-0">
                 <p className="font-bold text-lg text-foreground truncate">

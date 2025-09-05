@@ -21,6 +21,7 @@ import { UpcomingDebtsList } from "./upcoming-debts-list";
 import { TransactionList } from "./transaction-list";
 import { TransactionDetailsModal } from "./transaction-details-modal";
 import { cn } from "@/lib/utils";
+import { Icon } from "@iconify/react/dist/iconify.js";
 
 export function DashboardView() {
   const { toast } = useToast();
@@ -37,7 +38,8 @@ export function DashboardView() {
     errorFinanceData,
   } = useFinance();
 
-  const [isLoadingContent, setIsLoadingContent] = useState(true);
+  const isLoadingContent = loadingFinanceData || !dataSeedCheckCompleted;
+
   const [activeMainTab, setActiveMainTab] = useState("debts");
   const [debtFilter, setDebtFilter] = useState<"open" | "paid" | "all">("open");
   const [transactionFilter, setTransactionFilter] = useState<
@@ -61,18 +63,8 @@ export function DashboardView() {
     }
   }, [errorFinanceData, toast]);
 
-  useEffect(() => {
-    // A tela de loading só vai sumir quando:
-    // 1. O carregamento principal do Firebase acabar
-    // 2. A NOSSA NOVA verificação de dados padrão acabar
-    if (loadingFinanceData && dataSeedCheckCompleted) {
-      setIsLoadingContent(false);
-    }
-  }, [loadingFinanceData, dataSeedCheckCompleted]);
-
   const { monthlySummary, transactionsForMonth, filteredDebtsForMonth } =
     useMemo(() => {
-      // ... (lógica de resumo e dívidas mantida) ...
       const selectedMonth = getMonth(displayDate);
       const selectedYear = getYear(displayDate);
       const allInstallmentsForMonth = debtInstallments.filter((inst) => {
@@ -179,10 +171,24 @@ export function DashboardView() {
   if (isLoadingContent) {
     return (
       <div className="flex justify-center items-center h-screen bg-background">
-        <p className="text-muted-foreground">Carregando seus dados...</p>
+        <div className="text-center space-y-2">
+          <p className="text-muted-foreground">Carregando seus dados...</p>
+          {!dataSeedCheckCompleted && (
+            <p className="text-xs text-muted-foreground animate-pulse">
+              Finalizando verificação inicial...
+            </p>
+          )}
+        </div>
       </div>
     );
   }
+
+  const handleGoToPayment = () => {
+    if (!nextDebtToPay || !nextDebtToPayInstallment) return;
+    router.push(
+      `/debts/${nextDebtToPay.id}/installments/${nextDebtToPayInstallment.id}`
+    );
+  };
 
   const isOverdue = nextDebtToPayInstallment
     ? isPast(new Date(nextDebtToPayInstallment.expectedDueDate))
@@ -231,15 +237,17 @@ export function DashboardView() {
               <div className="grid grid-cols-2 gap-2">
                 <Button
                   size="lg"
-                  className="bg-accent text-accent-foreground hover:bg-accent/80"
+                  className="text-base bg-accent text-accent-foreground hover:bg-accent/80"
+                  onClick={handleGoToPayment}
                 >
+                  <Icon icon="fa6-solid:dollar-sign" className="h-4 w-4" />
                   Pagar
                 </Button>
                 <Button
                   size="lg"
                   variant="outline"
                   onClick={handleCriticalDebtsClick}
-                  className="bg-primary/50 border-primary-foreground/50 text-primary-foreground hover:bg-primary/70"
+                  className="bg-primary/50 border-primary-foreground/50 text-base text-primary-foreground hover:bg-primary/70"
                 >
                   Dívidas Críticas
                 </Button>

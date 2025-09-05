@@ -63,7 +63,11 @@ export function PaymentMethodManagerDialog({
   // Efeito para popular o formulário quando estiver editando
   useEffect(() => {
     if (methodToEdit) {
-      form.reset(methodToEdit);
+      const formValues = {
+        ...methodToEdit,
+        description: methodToEdit.description || "",
+      };
+      form.reset(formValues);
     } else {
       form.reset(defaultFormValues);
     }
@@ -161,7 +165,9 @@ export function PaymentMethodManagerDialog({
                         <span
                           className={cn(
                             "font-bold",
-                            isActiveValue ? "text-primary" : "text-destructive"
+                            isActiveValue
+                              ? "text-status-complete"
+                              : "text-surface-foreground"
                           )}
                         >
                           {isActiveValue ? "ATIVA" : "INATIVA"}
@@ -182,7 +188,7 @@ export function PaymentMethodManagerDialog({
 
             <Button
               type="submit"
-              className="w-full"
+              className="w-full bg-status-complete text-status-complete-foreground"
               disabled={form.formState.isSubmitting}
             >
               <Icon icon="fa6-solid:floppy-disk" className="mr-2 h-4 w-4" />

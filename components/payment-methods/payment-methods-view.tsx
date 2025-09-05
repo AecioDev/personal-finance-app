@@ -60,7 +60,7 @@ export function PaymentMethodsView() {
     <PageViewLayout title="Formas de Pagamento">
       <div>
         <Button
-          className="w-full my-2 text-base font-semibold"
+          className="w-full my-2 text-base font-semibold bg-status-complete text-status-complete-foreground"
           size="sm"
           onClick={handleAddClick}
         >
@@ -73,7 +73,7 @@ export function PaymentMethodsView() {
         {paymentMethods.map((item) => (
           <div
             key={item.id}
-            className="flex items-center justify-between p-3 rounded-xl bg-background hover:bg-muted/50 transition-colors border-l-4 border-b-4 border-primary "
+            className="flex items-center justify-between p-3 rounded-xl bg-background hover:bg-muted/50 transition-colors border-l-4 border-b-2 border-status-complete "
           >
             <div>
               <h3 className="text-lg font-semibold">{item.name}</h3>

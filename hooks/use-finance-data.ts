@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useRef } from "react";
 import {
   Firestore,
   collection,
@@ -52,7 +52,17 @@ export const useFinanceData = ({
   setLoading,
 }: UseFinanceDataProps) => {
   const initialFetchCounter = useRef(0);
-  const totalListeners = 7;
+
+  const collections = [
+    "setAccounts",
+    "setCategories",
+    "setTransactions",
+    "setDebts",
+    "setDebtInstallments",
+    "setPaymentMethods",
+  ] as const;
+
+  const totalListeners = collections.length;
 
   useEffect(() => {
     if (!user || !db || !projectId) {
@@ -70,17 +80,6 @@ export const useFinanceData = ({
     initialFetchCounter.current = 0;
 
     const listenersUnsubscribed: (() => void)[] = [];
-    const collections: (keyof Omit<
-      UseFinanceDataProps,
-      "db" | "user" | "projectId" | "setLoading"
-    >)[] = [
-      "setAccounts",
-      "setCategories",
-      "setTransactions",
-      "setDebts",
-      "setDebtInstallments",
-      "setPaymentMethods",
-    ];
 
     const setters: { [key: string]: Function } = {
       setAccounts,
@@ -117,20 +116,18 @@ export const useFinanceData = ({
           `artifacts/${projectId}/users/${user.uid}/${collectionName}`
         )
       );
+
       const unsubscribe = onSnapshot(
         q,
         (snapshot) => {
-          const isInitialLoad =
-            snapshot.metadata.fromCache === false &&
-            initialFetchCounter.current < totalListeners;
-
           const data = snapshot.docs.map((doc) => ({
             id: doc.id,
             ...convertTimestampsToDates(doc.data()),
           }));
           setter(data);
 
-          if (isInitialLoad) {
+          // contamos a primeira vez que cada listener dispara
+          if (initialFetchCounter.current < totalListeners) {
             handleInitialFetch();
           }
         },
@@ -139,6 +136,7 @@ export const useFinanceData = ({
           handleInitialFetch();
         }
       );
+
       listenersUnsubscribed.push(unsubscribe);
     });
 

@@ -189,323 +189,243 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({
   });
 
   useEffect(() => {
-    // Roda apenas se:
-    // 1. O carregamento inicial dos dados terminou
-    // 2. O usuário está logado
-    // 3. A verificação ainda NÃO foi feita nesta sessão
     if (!loadingFinanceData && user && projectId && !hasCheckedData.current) {
+      hasCheckedData.current = true;
+
       const runDataCheck = async () => {
-        console.log("-------------------------------------------");
-        console.log("LOG 1: Iniciando runDataCheck...");
-        hasCheckedData.current = true;
-
-        // --- Funções Helper para a Migração ---
-
-        const normalizeString = (str: string) =>
-          str
-            .normalize("NFD")
-            .replace(/[\u0300-\u036f]/g, "")
-            .toLowerCase()
-            .trim();
-
-        /**
-         * Função de busca inteligente para encontrar correspondências
-         * entre os dados padrão e os dados que o usuário já criou.
-         */
-        const findUserCreatedMatch = (
-          userCreatedItems: any[],
-          defaultItem: any
-        ) => {
-          return userCreatedItems.find((userItem) => {
-            // Ignora itens que já foram migrados
-            if (userItem.defaultId) return false;
-
-            const normalizedUserItemName = normalizeString(userItem.name);
-            const normalizedDefaultItemName = normalizeString(defaultItem.name);
-
-            // 1. Verifica se o nome principal bate
-            if (normalizedUserItemName === normalizedDefaultItemName) {
-              return true;
-            }
-
-            // 2. Verifica se o nome do usuário bate com algum dos "apelidos" do item padrão
-            //    É aqui que "Cartão de Crédito" (do usuário) vai dar match com "Crédito" (padrão)
-            if (defaultItem.aliases) {
-              return defaultItem.aliases.some(
-                (alias: string) =>
-                  normalizeString(alias) === normalizedUserItemName
-              );
-            }
-
-            return false;
-          });
-        };
-
+        console.log(
+          "[FinanceProvider] Iniciando verificação de dados padrão..."
+        );
         try {
-          console.log("LOG 2: Entrando no bloco try/catch.");
           const db = getFirestore();
-          const batch = writeBatch(db);
 
-          const getUserCollectionRef = (collectionName: string) =>
-            collection(
-              db,
-              `artifacts/${projectId}/users/${user.uid}/${collectionName}`
-            );
+          // Helpers -------------------------
+          const normalizeString = (str: string) =>
+            str
+              .normalize("NFD")
+              .replace(/[\u0300-\u036f]/g, "")
+              .toLowerCase()
+              .trim();
 
-          // Buscamos os dados existentes do usuário
-          console.log("LOG 3: Buscando 'accounts' no Firestore...");
-          const accountsSnap = await getDocs(getUserCollectionRef("accounts"));
-          console.log(
-            `LOG 4: Busca de 'accounts' concluída. Encontrados ${accountsSnap.docs.length} documentos.`
-          );
+          const findUserCreatedMatch = (
+            userCreatedItems: any[],
+            defaultItem: any
+          ) =>
+            userCreatedItems.find((item) => {
+              if (item.defaultId) return false; // já migrado
+              const normalizedUser = normalizeString(item.name);
+              const normalizedDefault = normalizeString(defaultItem.name);
+              if (normalizedUser === normalizedDefault) return true;
+              if (defaultItem.aliases) {
+                return defaultItem.aliases.some(
+                  (alias: string) => normalizeString(alias) === normalizedUser
+                );
+              }
+              return false;
+            });
 
-          console.log("LOG 5: Buscando 'categories' no Firestore...");
-          const categoriesSnap = await getDocs(
-            getUserCollectionRef("categories")
-          );
-          console.log(
-            `LOG 6: Busca de 'categories' concluída. Encontrados ${categoriesSnap.docs.length} documentos.`
-          );
+          const getUserCollectionRef = (col: string) =>
+            collection(db, `artifacts/${projectId}/users/${user.uid}/${col}`);
 
-          console.log("LOG 7: Buscando 'paymentMethods' no Firestore...");
-          const paymentMethodsSnap = await getDocs(
-            getUserCollectionRef("paymentMethods")
-          );
-          console.log(
-            `LOG 8: Busca de 'paymentMethods' concluída. Encontrados ${paymentMethodsSnap.docs.length} documentos.`
-          );
+          // ------------------ Busca inicial ------------------
+          const [accountsSnap, categoriesSnap, paymentMethodsSnap] =
+            await Promise.all([
+              getDocs(getUserCollectionRef("accounts")),
+              getDocs(getUserCollectionRef("categories")),
+              getDocs(getUserCollectionRef("paymentMethods")),
+            ]);
 
           const existingAccounts = accountsSnap.docs.map(
-            (doc) => ({ id: doc.id, ...doc.data() } as Account)
+            (d) => ({ id: d.id, ...d.data() } as Account)
           );
           const existingCategories = categoriesSnap.docs.map(
-            (doc) => ({ id: doc.id, ...doc.data() } as Category)
+            (d) => ({ id: d.id, ...d.data() } as Category)
           );
           const existingPaymentMethods = paymentMethodsSnap.docs.map(
-            (doc) => ({ id: doc.id, ...doc.data() } as PaymentMethod)
+            (d) => ({ id: d.id, ...d.data() } as PaymentMethod)
           );
 
+          const batch = writeBatch(db);
           let operationsFound = false;
-          console.log("LOG 9: Iniciando lógica de migração...");
 
-          // --- 1. Lógica da Conta Padrão ---
-          const hasDefaultAccount = existingAccounts.some(
-            (acc) => acc.defaultId === defaultAccount.id
-          );
-          if (!hasDefaultAccount) {
-            const userCreatedMatch = existingAccounts.find(
+          // ------------------ 1. Conta padrão ------------------
+          const ensureDefaultAccount = () => {
+            const hasDefault = existingAccounts.some(
+              (acc) => acc.defaultId === defaultAccount.id
+            );
+            if (hasDefault) return;
+
+            const match = existingAccounts.find(
               (acc) =>
                 !acc.defaultId &&
                 normalizeString(acc.name) ===
                   normalizeString(defaultAccount.name)
             );
 
-            if (userCreatedMatch) {
-              // "Adota" a conta que o usuário criou
-              const accRef = doc(
-                getUserCollectionRef("accounts"),
-                userCreatedMatch.id
-              );
-              batch.update(accRef, { defaultId: defaultAccount.id });
+            if (match) {
+              batch.update(doc(getUserCollectionRef("accounts"), match.id), {
+                defaultId: defaultAccount.id,
+              });
+              console.log(`Conta "${match.name}" adotada como padrão.`);
               operationsFound = true;
-              console.log(
-                `Conta "${userCreatedMatch.name}" adotada como padrão.`
-              );
             } else if (existingAccounts.length === 0) {
-              // Só cria se o usuário não tiver NENHUMA conta
-              const accountRef = doc(getUserCollectionRef("accounts"));
+              const accRef = doc(getUserCollectionRef("accounts"));
               const { id, ...accData } = defaultAccount;
-              batch.set(accountRef, {
+              batch.set(accRef, {
                 ...accData,
                 uid: user.uid,
                 defaultId: id,
                 createdAt: new Date(),
               });
-              operationsFound = true;
               console.log(`Conta padrão "${defaultAccount.name}" criada.`);
+              operationsFound = true;
             }
-          }
+          };
 
-          // --- 2. Lógica das Formas de Pagamento (Refatorada) ---
-          defaultPaymentMethods.forEach((defaultPM) => {
-            const alreadyExists = existingPaymentMethods.some(
-              (pm) => pm.defaultId === defaultPM.id
-            );
-            if (alreadyExists) return;
+          // ------------------ 2. PaymentMethods padrão ------------------
+          const ensureDefaultPaymentMethods = () => {
+            defaultPaymentMethods.forEach((pm) => {
+              // Se o item padrão já existe, não fazemos nada.
+              if (existingPaymentMethods.some((e) => e.defaultId === pm.id)) {
+                return;
+              }
 
-            const userCreatedMatch = findUserCreatedMatch(
-              existingPaymentMethods,
-              defaultPM
-            );
+              const match = findUserCreatedMatch(existingPaymentMethods, pm);
+              if (match) {
+                const dataToUpdate: {
+                  defaultId: string;
+                  description?: string;
+                } = {
+                  defaultId: pm.id,
+                };
 
-            if (userCreatedMatch) {
-              const pmRef = doc(
-                getUserCollectionRef("paymentMethods"),
-                userCreatedMatch.id
-              );
-              batch.update(pmRef, { defaultId: defaultPM.id });
-              operationsFound = true;
-              console.log(
-                `Forma de Pag. "${userCreatedMatch.name}" adotada como "${defaultPM.name}".`
-              );
-            } else {
-              const pmRef = doc(getUserCollectionRef("paymentMethods"));
-              const { id, aliases, ...pmData } = defaultPM;
-              batch.set(pmRef, {
-                ...pmData,
-                uid: user.uid,
-                isActive: true,
-                defaultId: id,
-                createdAt: new Date(),
-              });
-              operationsFound = true;
-              console.log(`Forma de Pag. padrão "${defaultPM.name}" criada.`);
-            }
-          });
+                if (!match.description && pm.description) {
+                  dataToUpdate.description = pm.description;
+                }
 
-          // --- 3. Lógica das Categorias (Refatorada) ---
-          defaultCategories.forEach((defaultCat) => {
-            const alreadyExists = existingCategories.some(
-              (cat) => cat.defaultId === defaultCat.id
-            );
-            if (alreadyExists) return;
+                batch.update(
+                  doc(getUserCollectionRef("paymentMethods"), match.id),
+                  dataToUpdate
+                );
 
-            const userCreatedMatch = findUserCreatedMatch(
-              existingCategories,
-              defaultCat
-            );
+                console.log(
+                  `Forma de Pag. "${match.name}" adotada como "${pm.name}".`
+                );
+                operationsFound = true;
+              } else {
+                const pmRef = doc(getUserCollectionRef("paymentMethods"));
+                const { id, aliases, ...pmData } = pm;
 
-            if (userCreatedMatch) {
-              const catRef = doc(
-                getUserCollectionRef("categories"),
-                userCreatedMatch.id
-              );
-              batch.update(catRef, { defaultId: defaultCat.id });
-              operationsFound = true;
-              console.log(
-                `Categoria "${userCreatedMatch.name}" adotada como "${defaultCat.name}".`
-              );
-            } else {
-              const catRef = doc(getUserCollectionRef("categories"));
-              // CORREÇÃO: Pegamos explicitamente apenas os campos que sabemos que existem.
-              const { id, name, icon } = defaultCat;
-              const catData = { name, icon }; // Criamos o objeto de dados para o Firestore.
+                console.log(`Dados para '${pm.name}':`, pmData);
 
-              batch.set(catRef, {
-                ...catData,
-                uid: user.uid,
-                defaultId: id, // Usamos o 'id' do objeto padrão
-                createdAt: new Date(),
-              });
-              operationsFound = true;
-              console.log(`Categoria padrão "${defaultCat.name}" criada.`);
-            }
-          });
+                batch.set(pmRef, {
+                  ...pmData,
+                  uid: user.uid,
+                  isActive: true,
+                  defaultId: id,
+                  createdAt: new Date(),
+                });
+                console.log(`Forma de Pag. padrão "${pm.name}" criada.`);
+                operationsFound = true;
+              }
+            });
+          };
+
+          // ------------------ 3. Categorias padrão ------------------
+          const ensureDefaultCategories = () => {
+            defaultCategories.forEach((cat) => {
+              // Se o item padrão já existe, não fazemos nada.
+              if (existingCategories.some((c) => c.defaultId === cat.id)) {
+                return;
+              }
+
+              const match = findUserCreatedMatch(existingCategories, cat);
+              if (match) {
+                batch.update(
+                  doc(getUserCollectionRef("categories"), match.id),
+                  {
+                    defaultId: cat.id,
+                  }
+                );
+                console.log(
+                  `Categoria "${match.name}" adotada como "${cat.name}".`
+                );
+                operationsFound = true;
+              } else {
+                const catRef = doc(getUserCollectionRef("categories"));
+                const { id, ...catData } = cat;
+                batch.set(catRef, {
+                  ...catData,
+                  uid: user.uid,
+                  defaultId: id,
+                  createdAt: new Date(),
+                });
+                console.log(`Categoria padrão "${cat.name}" criada.`);
+                operationsFound = true;
+              }
+            });
+          };
+
+          ensureDefaultAccount();
+          ensureDefaultPaymentMethods();
+          ensureDefaultCategories();
 
           if (operationsFound) {
-            console.log(
-              "LOG 10: Operações de migração encontradas. Enviando para o Firestore..."
-            );
             await batch.commit();
-            console.log("LOG 11: Batch commit concluído com sucesso.");
+            console.log(
+              "[FinanceProvider] Dados padrão migrados/criados com sucesso."
+            );
           } else {
-            console.log("LOG 10.1: Nenhuma operação de migração necessária.");
+            console.log("[FinanceProvider] Nenhuma migração necessária.");
+          }
+
+          // ------------------ 4. Dívidas sem categoria ------------------
+          const debtsToUpdate = debts.filter((d) => !d.categoryId);
+          if (debtsToUpdate.length > 0) {
+            const updatedCategoriesSnap = await getDocs(
+              getUserCollectionRef("categories")
+            );
+            const allCategories = updatedCategoriesSnap.docs.map(
+              (d) => ({ id: d.id, ...d.data() } as Category)
+            );
+            const genericCategory = allCategories.find(
+              (c) => c.defaultId === "default-outras-despesas"
+            );
+
+            if (genericCategory) {
+              const debtBatch = writeBatch(db);
+              debtsToUpdate.forEach((debt) => {
+                debtBatch.update(
+                  doc(
+                    db,
+                    `artifacts/${projectId}/users/${user.uid}/debts`,
+                    debt.id
+                  ),
+                  { categoryId: genericCategory.id }
+                );
+              });
+              await debtBatch.commit();
+              console.log(
+                `[FinanceProvider] ${debtsToUpdate.length} dívidas atualizadas com categoria padrão.`
+              );
+            }
           }
         } catch (err) {
-          console.error("ERRO FATAL DENTRO DO runDataCheck:", err);
+          console.error("[FinanceProvider] Erro na verificação/migração:", err);
           toast({
             title: "Erro de Sincronização",
             description: "Não foi possível verificar os dados padrão.",
             variant: "destructive",
           });
         } finally {
-          // ESTE BLOCO SEMPRE EXECUTA, COM OU SEM ERRO.
-          console.log(
-            "LOG FINAL: runDataCheck finalizado. Sinalizando conclusão."
-          );
-          setDataSeedCheckCompleted(true); // <-- O SINAL VERDE!
+          console.log("[FinanceProvider] Verificação finalizada.");
+          setDataSeedCheckCompleted(true);
         }
       };
 
       runDataCheck();
     }
-    // ATENÇÃO: AQUI ESTÁ A CORREÇÃO PRINCIPAL PARA O LOOP
-  }, [loadingFinanceData, user, projectId]);
-
-  useEffect(() => {
-    // Roda apenas se:
-    // 1. O carregamento principal terminou.
-    // 2. O usuário está logado.
-    // 3. O array de dívidas (debts) não está vazio.
-    if (!loadingFinanceData && user && projectId && debts.length > 0) {
-      const updateDebtsWithoutCategory = async () => {
-        // Pegamos apenas as dívidas que realmente não têm categoria.
-        const debtsToUpdate = debts.filter((debt) => !debt.categoryId);
-
-        if (debtsToUpdate.length === 0) {
-          // Se não há nada para atualizar, não fazemos nada.
-          return;
-        }
-
-        console.log(
-          `Encontradas ${debtsToUpdate.length} dívidas sem categoria. Procurando categoria padrão...`
-        );
-
-        try {
-          const db = getFirestore();
-          const userCollection = `artifacts/${projectId}/users/${user.uid}`;
-
-          // Busca a categoria "Outras Despesas" pelo seu ID padrão.
-          const categoriesRef = collection(db, `${userCollection}/categories`);
-          const q = query(
-            categoriesRef,
-            where("defaultId", "==", "default-outras-despesas")
-          );
-          const querySnapshot = await getDocs(q);
-
-          if (querySnapshot.empty) {
-            console.warn(
-              "A categoria padrão 'Outras Despesas' não foi encontrada. As dívidas não serão atualizadas."
-            );
-            return;
-          }
-
-          const genericCategory = querySnapshot.docs[0];
-          const genericCategoryId = genericCategory.id;
-
-          console.log(
-            `Categoria padrão encontrada (ID: ${genericCategoryId}). Iniciando atualização...`
-          );
-
-          // Cria um batch para atualizar todas as dívidas de uma vez.
-          const batch = writeBatch(db);
-          debtsToUpdate.forEach((debt) => {
-            const debtRef = doc(db, `${userCollection}/debts`, debt.id);
-            batch.update(debtRef, { categoryId: genericCategoryId });
-          });
-
-          await batch.commit();
-          console.log(
-            `${debtsToUpdate.length} dívidas foram atualizadas com a categoria padrão com sucesso.`
-          );
-        } catch (error) {
-          console.error(
-            "Erro ao tentar atualizar dívidas sem categoria:",
-            error
-          );
-          toast({
-            title: "Erro de Sincronização",
-            description:
-              "Não foi possível categorizar algumas dívidas antigas.",
-            variant: "destructive",
-          });
-        }
-      };
-
-      updateDebtsWithoutCategory();
-    }
-    // Este useEffect depende diretamente do array 'debts'.
-  }, [debts, loadingFinanceData, user, projectId, toast]);
+  }, [loadingFinanceData, user, projectId, debts, toast]);
 
   const updateAccountBalance = async (
     accountId: string,

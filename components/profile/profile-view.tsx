@@ -23,7 +23,7 @@ export function ProfileView() {
   return (
     <PageViewLayout title="Meu Perfil">
       <div className="space-y-6">
-        <Card>
+        <Card className="rounded-[2rem] shadow-md bg-primary text-primary-foreground">
           <CardHeader>
             <CardTitle>Informações Pessoais</CardTitle>
           </CardHeader>
@@ -49,7 +49,6 @@ export function ProfileView() {
             <CardTitle>Aparência</CardTitle>
           </CardHeader>
           <CardContent>
-            {/* E aqui está a mágica! Só chamar o componente! */}
             <ThemeToggle />
           </CardContent>
         </Card>

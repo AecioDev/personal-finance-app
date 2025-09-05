@@ -150,7 +150,11 @@ export function CategoryManagerDialog({
             <Button type="button" variant="ghost" onClick={handleClose}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={isFormDisabled}>
+            <Button
+              className="bg-status-complete text-status-complete-foreground"
+              type="submit"
+              disabled={isFormDisabled}
+            >
               <Icon
                 icon={categoryToEdit ? "fa6-solid:check" : "fa6-solid:plus"}
                 className="mr-2 h-5 w-5"

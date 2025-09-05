@@ -54,7 +54,7 @@ export function AccountsView() {
     <PageViewLayout title="Minhas Contas">
       <div>
         <Button
-          className="w-full my-2 text-base font-semibold"
+          className="w-full my-2 text-base font-semibold bg-status-complete text-status-complete-foreground"
           size="sm"
           onClick={handleAddClick}
           disabled={loadingFinanceData}
@@ -71,13 +71,13 @@ export function AccountsView() {
           {accounts.map((item) => (
             <div
               key={item.id}
-              className="flex items-center justify-between p-3 rounded-xl bg-background hover:bg-muted/50 transition-colors border-l-4 border-b-4 border-primary"
+              className="flex items-center justify-between p-3 rounded-xl bg-background hover:bg-muted/50 transition-colors border-l-4 border-b-2 border-status-complete"
             >
               <div className="flex items-center gap-4 min-w-0">
                 <div className="flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center bg-primary/10">
                   <Icon
                     icon={item.icon || "fa6-solid:piggy-bank"}
-                    className="w-8 h-8 text-primary"
+                    className="w-8 h-8 text-status-complete"
                   />
                 </div>
                 <div className="flex flex-col min-w-0">

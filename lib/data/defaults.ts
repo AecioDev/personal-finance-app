@@ -80,22 +80,35 @@ export const defaultPaymentMethods = [
   {
     id: "default-dinheiro",
     name: "Dinheiro",
+    description: "Pagamento em Dinheiro",
     icon: "fa6-solid:money-bill-wave",
   },
-  { id: "default-pix", name: "PIX", icon: "fa6-brands:pix" },
+  {
+    id: "default-pix",
+    name: "PIX",
+    description: "Pagamento em PIX",
+    icon: "fa6-brands:pix",
+  },
   {
     id: "default-cartao-credito-pm",
     name: "Crédito",
+    description: "Pagamento com Cartão de Crédito",
     icon: "fa6-solid:credit-card",
     aliases: ["Cartão de Crédito"],
   },
   {
     id: "default-cartao-debito",
     name: "Débito",
+    description: "Pagamento com Cartão de Débito",
     icon: "fa6-solid:id-card",
     aliases: ["Cartão de Débito"],
   },
-  { id: "default-boleto", name: "Boleto", icon: "fa6-solid:barcode" },
+  {
+    id: "default-boleto",
+    name: "Boleto",
+    description: "Pagamento de Boleto",
+    icon: "fa6-solid:barcode",
+  },
 ];
 
 // Conta Padrão

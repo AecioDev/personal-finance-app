@@ -66,14 +66,20 @@ export const usePaymentMethodsCrud = ({
       return;
     }
     try {
-      await updateDoc(
-        doc(
-          db,
-          `artifacts/${projectId}/users/${user.uid}/paymentMethods`,
-          methodId
-        ),
-        data
+      const docRef = doc(
+        db,
+        `artifacts/${projectId}/users/${user.uid}/paymentMethods`,
+        methodId
       );
+
+      const cleanData = { ...data };
+
+      if (cleanData.description === undefined) {
+        cleanData.description = "";
+      }
+
+      await updateDoc(docRef, cleanData);
+
       console.log(
         "usePaymentMethodsCrud: Forma de pagamento atualizada com sucesso."
       );
