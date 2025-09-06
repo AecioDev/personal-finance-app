@@ -36,6 +36,7 @@ export function DashboardView() {
     loadingFinanceData,
     dataSeedCheckCompleted,
     errorFinanceData,
+    refreshData,
   } = useFinance();
 
   const isLoadingContent = loadingFinanceData || !dataSeedCheckCompleted;
@@ -337,12 +338,22 @@ export function DashboardView() {
 
       <DebtInstallmentModal
         isOpen={isInstallmentModalOpen}
-        onOpenChange={setIsInstallmentModalOpen}
+        onOpenChange={(isOpen) => {
+          setIsInstallmentModalOpen(isOpen);
+          if (!isOpen) {
+            refreshData();
+          }
+        }}
         editingInstallment={editingInstallment}
       />
       <TransactionDetailsModal
         isOpen={isTransactionModalOpen}
-        onOpenChange={setIsTransactionModalOpen}
+        onOpenChange={(isOpen) => {
+          setIsTransactionModalOpen(isOpen);
+          if (!isOpen) {
+            refreshData();
+          }
+        }}
         transaction={selectedTransaction}
       />
     </>

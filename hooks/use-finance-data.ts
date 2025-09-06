@@ -20,6 +20,7 @@ interface UseFinanceDataProps {
   db: Firestore | null;
   user: FirebaseUser | null;
   projectId: string | null;
+  refreshTrigger: number;
   setAccounts: React.Dispatch<React.SetStateAction<Account[]>>;
   setCategories: React.Dispatch<React.SetStateAction<Category[]>>;
   setTransactions: React.Dispatch<React.SetStateAction<Transaction[]>>;
@@ -50,6 +51,7 @@ export const useFinanceData = ({
   setDebtInstallments,
   setPaymentMethods,
   setLoading,
+  refreshTrigger,
 }: UseFinanceDataProps) => {
   const initialFetchCounter = useRef(0);
 
@@ -143,5 +145,5 @@ export const useFinanceData = ({
     return () => {
       listenersUnsubscribed.forEach((unsubscribe) => unsubscribe());
     };
-  }, [db, user, projectId]);
+  }, [db, user, projectId, refreshTrigger]);
 };

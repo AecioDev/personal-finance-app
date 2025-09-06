@@ -3,7 +3,7 @@
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress"; // 1. Importar o Progress
+import { Progress } from "@/components/ui/progress";
 import { Icon } from "@iconify/react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";

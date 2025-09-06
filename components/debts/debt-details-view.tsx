@@ -22,6 +22,7 @@ import { PageViewLayout } from "@/components/layout/page-view-layout";
 import { SimpleDebtEditModal } from "./simple-debt-edit-modal";
 import { isPast, isToday } from "date-fns";
 import { AnimatedTabs } from "../ui/animated-tabs";
+import { useTheme } from "next-themes";
 
 interface DebtDetailsViewProps {
   debtId: string;
@@ -38,6 +39,7 @@ export function DebtDetailsView({ debtId }: DebtDetailsViewProps) {
     errorFinanceData,
   } = useFinance();
   const { toast } = useToast();
+  const { resolvedTheme } = useTheme();
 
   const [activeMainTab, setActiveMainTab] = useState("installments");
   const [isInstallmentModalOpen, setIsInstallmentModalOpen] = useState(false);
@@ -187,7 +189,7 @@ export function DebtDetailsView({ debtId }: DebtDetailsViewProps) {
           <div>
             <Progress
               value={debtProgress}
-              className="h-4 bg-warning [&>div]:bg-primary-foreground"
+              className="h-4 bg-background [&>div]:bg-foreground"
             />
             <div className="mt-2 flex justify-between text-sm text-muted-foreground">
               <span>{debtProgress.toFixed(0)}% pago</span>
@@ -233,7 +235,14 @@ export function DebtDetailsView({ debtId }: DebtDetailsViewProps) {
             </div>
             <div className="flex flex-col items-center">
               <span className="text-sm text-muted-foreground">Falta</span>
-              <span className="text-lg font-bold text-warning">
+              <span
+                className={cn(
+                  "font-bold text-lg",
+                  resolvedTheme === "dark"
+                    ? "text-destructive"
+                    : "text-background"
+                )}
+              >
                 {(currentDebt.currentOutstandingBalance ?? 0).toLocaleString(
                   "pt-BR",
                   {

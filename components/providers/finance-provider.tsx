@@ -130,6 +130,7 @@ interface FinanceContextType {
 
   getAccountById: (id: string) => Account | undefined;
 
+  refreshData: () => void;
   loadingFinanceData: boolean;
   dataSeedCheckCompleted: boolean;
   errorFinanceData: string | null;
@@ -150,6 +151,8 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({
 }) => {
   const { user, loading: authLoading, projectId } = useAuth();
   const { toast } = useToast();
+
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -179,6 +182,7 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({
     db: dbRef.current,
     user,
     projectId,
+    refreshTrigger,
     setAccounts,
     setCategories,
     setTransactions,
@@ -378,38 +382,6 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({
           } else {
             console.log("[FinanceProvider] Nenhuma migração necessária.");
           }
-
-          // ------------------ 4. Dívidas sem categoria ------------------
-          const debtsToUpdate = debts.filter((d) => !d.categoryId);
-          if (debtsToUpdate.length > 0) {
-            const updatedCategoriesSnap = await getDocs(
-              getUserCollectionRef("categories")
-            );
-            const allCategories = updatedCategoriesSnap.docs.map(
-              (d) => ({ id: d.id, ...d.data() } as Category)
-            );
-            const genericCategory = allCategories.find(
-              (c) => c.defaultId === "default-outras-despesas"
-            );
-
-            if (genericCategory) {
-              const debtBatch = writeBatch(db);
-              debtsToUpdate.forEach((debt) => {
-                debtBatch.update(
-                  doc(
-                    db,
-                    `artifacts/${projectId}/users/${user.uid}/debts`,
-                    debt.id
-                  ),
-                  { categoryId: genericCategory.id }
-                );
-              });
-              await debtBatch.commit();
-              console.log(
-                `[FinanceProvider] ${debtsToUpdate.length} dívidas atualizadas com categoria padrão.`
-              );
-            }
-          }
         } catch (err) {
           console.error("[FinanceProvider] Erro na verificação/migração:", err);
           toast({
@@ -512,6 +484,11 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({
 
   const getAccountById = (id: string) => accounts.find((acc) => acc.id === id);
 
+  const refreshData = () => {
+    console.log("[FinanceProvider] Forçando a revalidação dos dados...");
+    setRefreshTrigger((prev) => prev + 1);
+  };
+
   return (
     <FinanceContext.Provider
       value={{
@@ -547,6 +524,7 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({
         processInstallmentPayment,
         revertInstallmentPayment,
         addGenericTransaction,
+        refreshData,
       }}
     >
       {children}
