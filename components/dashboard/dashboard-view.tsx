@@ -68,6 +68,23 @@ export function DashboardView() {
     useMemo(() => {
       const selectedMonth = getMonth(displayDate);
       const selectedYear = getYear(displayDate);
+
+      const currentMonthTransactions = transactions.filter((transaction) => {
+        const transactionDate = new Date(transaction.date);
+        return (
+          getMonth(transactionDate) === selectedMonth &&
+          getYear(transactionDate) === selectedYear
+        );
+      });
+
+      const totalDespesas = currentMonthTransactions
+        .filter((t) => t.type === "expense")
+        .reduce((acc, t) => acc + t.amount, 0);
+
+      const totalReceitas = currentMonthTransactions
+        .filter((t) => t.type === "income")
+        .reduce((acc, t) => acc + t.amount, 0);
+
       const allInstallmentsForMonth = debtInstallments.filter((inst) => {
         const dueDate = new Date(inst.expectedDueDate);
         return (
@@ -75,6 +92,7 @@ export function DashboardView() {
           getYear(dueDate) === selectedYear
         );
       });
+
       let filteredInstallments;
       if (debtFilter === "paid") {
         filteredInstallments = allInstallmentsForMonth.filter(
@@ -92,6 +110,7 @@ export function DashboardView() {
           new Date(a.expectedDueDate).getTime() -
           new Date(b.expectedDueDate).getTime()
       );
+
       const totalPrevisto = allInstallmentsForMonth.reduce(
         (acc, inst) => acc + inst.expectedAmount,
         0
@@ -104,25 +123,20 @@ export function DashboardView() {
         if (inst.status === "paid") return acc;
         return acc + (inst.remainingAmount ?? inst.expectedAmount);
       }, 0);
+
       const summary = {
         totalPrevisto,
         totalPago,
         faltaPagar: faltaPagar > 0 ? faltaPagar : 0,
+        totalDespesas,
+        totalReceitas,
       };
-      const filteredTransactions = transactions
-        .filter((transaction) => {
-          const transactionDate = new Date(transaction.date);
-          return (
-            getMonth(transactionDate) === selectedMonth &&
-            getYear(transactionDate) === selectedYear
-          );
-        })
-        .sort(
-          (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-        );
+
       return {
         monthlySummary: summary,
-        transactionsForMonth: filteredTransactions,
+        transactionsForMonth: currentMonthTransactions.sort(
+          (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+        ),
         filteredDebtsForMonth: filteredInstallments,
       };
     }, [debtInstallments, transactions, displayDate, debtFilter]);
@@ -199,7 +213,7 @@ export function DashboardView() {
     <>
       <div className="bg-primary">
         <div className="text-primary-foreground p-6 pt-8">
-          <div className="flex justify-between items-center mb-6">
+          <div className="flex justify-between items-start mb-4">
             <div>
               <h1 className="text-2xl font-bold">
                 Olá, {user?.displayName?.split(" ")[0] || "Usuário"}!
@@ -214,44 +228,47 @@ export function DashboardView() {
               />
             </Link>
           </div>
+
           {nextDebtToPay && nextDebtToPayInstallment ? (
-            <div>
-              <p className="text-sm opacity-80 mb-1">
-                {isOverdue ? "Parcela Vencida!" : "Próxima Parcela"}
-              </p>
-              <p className="text-xl font-bold tracking-tight mb-1">
-                {nextDebtToPay.description} -{" "}
-                {nextDebtToPayInstallment.installmentNumber}/
-                {nextDebtToPay.totalInstallments}
-              </p>
-              <p
-                className={cn(
-                  "text-4xl font-extrabold mb-3",
-                  isOverdue ? "text-fault" : "text-white"
-                )}
-              >
-                R$
-                {nextDebtToPayInstallment.expectedAmount
-                  .toFixed(2)
-                  .replace(".", ",")}
-              </p>
-              <div className="grid grid-cols-2 gap-2">
-                <Button
-                  size="lg"
-                  className="text-base bg-accent text-accent-foreground hover:bg-accent/80"
-                  onClick={handleGoToPayment}
-                >
-                  <Icon icon="fa6-solid:dollar-sign" className="h-4 w-4" />
-                  Pagar
-                </Button>
-                <Button
-                  size="lg"
-                  variant="outline"
-                  onClick={handleCriticalDebtsClick}
-                  className="bg-primary/50 border-primary-foreground/50 text-base text-primary-foreground hover:bg-primary/70"
-                >
-                  Dívidas Críticas
-                </Button>
+            <div className="mt-6">
+              <div className="flex justify-between items-center">
+                <div>
+                  <p className="text-sm opacity-80 mb-1">
+                    {isOverdue ? "Parcela Vencida!" : "Próxima Parcela"}
+                  </p>
+                  <p className="text-lg font-bold tracking-tight">
+                    {nextDebtToPay.description}
+                  </p>
+                  <p
+                    className={cn(
+                      "text-3xl font-extrabold mt-1",
+                      isOverdue ? "text-fault" : "text-white"
+                    )}
+                  >
+                    {nextDebtToPayInstallment.expectedAmount.toLocaleString(
+                      "pt-BR",
+                      { style: "currency", currency: "BRL" }
+                    )}
+                  </p>
+                </div>
+                <div className="flex flex-col gap-2">
+                  <Button
+                    size="sm"
+                    className="text-base bg-accent text-accent-foreground hover:bg-accent/80 w-36"
+                    onClick={handleGoToPayment}
+                  >
+                    <Icon icon="fa6-solid:dollar-sign" className="h-4 w-4" />
+                    Pagar
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleCriticalDebtsClick}
+                    className="bg-primary/50 border-primary-foreground/50 text-base text-primary-foreground hover:bg-primary/70 w-36"
+                  >
+                    Dívidas Críticas
+                  </Button>
+                </div>
               </div>
             </div>
           ) : (
@@ -265,6 +282,51 @@ export function DashboardView() {
         </div>
 
         <div className="bg-background rounded-t-[2.5rem] p-4 space-y-4">
+          <div className="grid grid-cols-2 items-center my-4 py-2">
+            <div className="border-r border-gray-500">
+              <p className="text-sm text-foreground/80 font-medium flex items-center justify-center gap-1.5 mb-1">
+                <Icon icon="fa6-solid:arrow-trend-up" className="h-4 w-4" />
+                Total de Receitas
+              </p>
+              {/* AJUSTE DE TAMANHO CONDICIONAL APLICADO AQUI */}
+              <p
+                className={cn(
+                  "text-center font-bold tracking-tight text-accent",
+                  monthlySummary.totalReceitas > 10000 ||
+                    monthlySummary.totalDespesas > 10000
+                    ? "text-2xl"
+                    : "text-4xl"
+                )}
+              >
+                {monthlySummary.totalReceitas.toLocaleString("pt-BR", {
+                  style: "currency",
+                  currency: "BRL",
+                })}
+              </p>
+            </div>
+            <div className="border-l border-gray-500 px-2">
+              <p className="text-sm text-foreground/80 font-medium flex items-center justify-center gap-1.5 mb-1">
+                <Icon icon="fa6-solid:arrow-trend-down" className="h-4 w-4" />
+                Total de Despesas
+              </p>
+              {/* AJUSTE DE TAMANHO CONDICIONAL APLICADO AQUI */}
+              <p
+                className={cn(
+                  "text-center font-bold tracking-tight text-destructive/90",
+                  monthlySummary.totalReceitas > 10000 ||
+                    monthlySummary.totalDespesas > 10000
+                    ? "text-2xl"
+                    : "text-4xl"
+                )}
+              >
+                {monthlySummary.totalDespesas.toLocaleString("pt-BR", {
+                  style: "currency",
+                  currency: "BRL",
+                })}
+              </p>
+            </div>
+          </div>
+
           <MonthlySummaryCard
             summary={monthlySummary}
             displayDate={displayDate}

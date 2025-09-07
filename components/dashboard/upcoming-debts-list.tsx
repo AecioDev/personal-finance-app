@@ -66,21 +66,24 @@ export function UpcomingDebtsList({
             isPast(dueDate) &&
             differenceInDays(new Date(), dueDate) > 0;
 
-          const statusColor = isPaid
-            ? "bg-green-500"
-            : isOverdue
-            ? "bg-destructive"
-            : "bg-accent";
           const textColor = isPaid
             ? "text-green-500"
             : isOverdue
             ? "text-destructive"
             : "text-foreground";
+          const statusColor = isPaid
+            ? "bg-green-500"
+            : isOverdue
+            ? "bg-destructive"
+            : "bg-status-in-progress";
           const borderColor = isPaid
             ? "border-green-500"
             : isOverdue
             ? "border-destructive"
-            : "border-accent";
+            : "border-status-in-progress";
+          const iconColor = isOverdue
+            ? "text-destructive"
+            : "text-status-in-progress";
 
           const categoryIcon = getDebtCategoryIcon(debt);
 
@@ -102,12 +105,10 @@ export function UpcomingDebtsList({
                 >
                   <Icon icon={categoryIcon} className="w-6 h-6 text-white" />
                 </div>
-                {/* INFORMAÇÕES AGRUPADAS AQUI */}
                 <div className="flex flex-col min-w-0">
                   <p className="font-bold text-base text-foreground truncate">
                     {debt.description}
                   </p>
-                  {/* VALOR MOVIDO PARA CÁ */}
                   <p
                     className={cn(
                       "font-bold text-base font-numeric",
@@ -137,9 +138,9 @@ export function UpcomingDebtsList({
               <div className="pl-2">
                 {!isPaid && (
                   <Button
-                    variant="ghost"
+                    variant="outline"
                     size="icon"
-                    className="rounded-full h-9 w-9 flex-shrink-0"
+                    className="rounded-full h-9 w-9 flex-shrink-0 border-0"
                     onClick={(e) => {
                       e.stopPropagation();
                       handleViewDetails(debt, installment);
@@ -147,7 +148,7 @@ export function UpcomingDebtsList({
                   >
                     <Icon
                       icon="fa6-solid:chevron-right"
-                      className="h-4 w-4 text-muted-foreground"
+                      className={cn("h-4 w-4", iconColor)}
                     />
                   </Button>
                 )}

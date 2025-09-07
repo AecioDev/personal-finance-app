@@ -20,6 +20,7 @@ import { getDDMMYYYY } from "@/lib/dates";
 import { differenceInDays, isPast } from "date-fns";
 import { useFinance } from "../providers/finance-provider";
 import { Icon } from "@iconify/react";
+import { cn } from "@/lib/utils";
 
 interface DebtInstallmentDetailsModalProps {
   isOpen: boolean;
@@ -173,23 +174,44 @@ export function DebtInstallmentDetailsModal({
           </div>
         )}
 
-        <DialogFooter className="flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2 gap-2 mt-4">
-          {!isPaid && (
+        <DialogFooter
+          className={cn(
+            "mt-4 gap-2",
+            // Se não estiver pago, teremos 2 botões.
+            !isPaid
+              ? "grid grid-cols-2 sm:flex sm:justify-end"
+              : // Se estiver pago, teremos 1 botão.
+                "grid grid-cols-1 sm:flex sm:justify-end"
+          )}
+        >
+          {!isPaid ? (
+            // FRAGMENT para agrupar os dois botões
+            <>
+              <Button
+                variant="outline"
+                onClick={handleGoToPayment} // <-- Sua função de editar handleEdit
+              >
+                <Icon icon="mdi:pencil" className="mr-2 h-4 w-4" />
+                Editar
+              </Button>
+              <Button
+                className="bg-accent text-accent-foreground"
+                onClick={handleGoToPayment}
+              >
+                <Icon icon="fa6-solid:dollar-sign" className="mr-2 h-4 w-4" />
+                Pagar
+              </Button>
+            </>
+          ) : (
+            // Botão único de Extornar
             <Button
-              className="w-full sm:w-auto bg-accent text-accent-foreground"
-              onClick={handleGoToPayment}
+              variant="destructive"
+              onClick={handleGoToPayment} // <-- Sua função de extornar handleRevertPayment
             >
-              <Icon icon="fa6-solid:dollar-sign" className="mr-2 h-4 w-4" />
-              Pagar
+              <Icon icon="mdi:cash-refund" className="mr-2 h-4 w-4" />
+              Extornar
             </Button>
           )}
-          <Button
-            variant="outline"
-            className="w-full sm:w-auto"
-            onClick={() => onOpenChange(false)}
-          >
-            Fechar
-          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
