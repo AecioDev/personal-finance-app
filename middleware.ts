@@ -1,12 +1,11 @@
-// middleware.ts
-
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 export function middleware(request: NextRequest) {
-  const maintenanceMode = process.env.MAINTENANCE_MODE === "true";
+  // Lê a variável de ambiente (agora com NEXT_PUBLIC_)
+  const maintenanceMode = process.env.NEXT_PUBLIC_MAINTENANCE_MODE === "true";
 
-  // Se o modo manutenção estiver desativado no .env, não faz nada
+  // Se o modo manutenção estiver desativado, não faz nada
   if (!maintenanceMode) {
     return NextResponse.next();
   }
