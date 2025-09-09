@@ -1,4 +1,4 @@
-// in: components/modals/new-expense-modal.tsx
+// in: components/modals/new-income-modal.tsx
 
 "use client";
 
@@ -11,27 +11,24 @@ import {
 } from "@/components/ui/dialog";
 import { FinancialEntryForm } from "../financial-entries/financial-entry-form";
 
-interface NewExpenseModalProps {
+interface NewIncomeModalProps {
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
 }
 
-export function NewExpenseModal({
-  isOpen,
-  onOpenChange,
-}: NewExpenseModalProps) {
+export function NewIncomeModal({ isOpen, onOpenChange }: NewIncomeModalProps) {
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[480px]">
         <DialogHeader>
-          <DialogTitle>Nova Despesa</DialogTitle>
+          <DialogTitle>Nova Receita</DialogTitle>
           <DialogDescription>
-            Registre uma nova conta ou despesa. Para compras parceladas, use a
-            opção "Parcelado".
+            Registre um novo salário, freela ou qualquer outra entrada de
+            dinheiro.
           </DialogDescription>
         </DialogHeader>
         <FinancialEntryForm
-          entryType="expense"
+          entryType="income"
           onFinished={() => onOpenChange(false)}
         />
       </DialogContent>

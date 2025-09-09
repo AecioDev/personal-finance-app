@@ -1,3 +1,5 @@
+// in: components/ui/animated-tabs.tsx
+
 "use client";
 
 import { useState } from "react";
@@ -15,6 +17,7 @@ interface AnimatedTabsProps {
   defaultValue: string;
   className?: string;
   tabClassName?: string;
+  activeTabClassName?: string;
   layoutId: string;
 }
 
@@ -24,6 +27,7 @@ export function AnimatedTabs({
   defaultValue,
   className,
   tabClassName,
+  activeTabClassName,
   layoutId,
 }: AnimatedTabsProps) {
   const [activeTab, setActiveTab] = useState(defaultValue);
@@ -34,7 +38,7 @@ export function AnimatedTabs({
   };
 
   const tabWidthPercent = 100 / tabs.length;
-  const padding = 10; // 8px de respiro, 4px de cada lado
+  const padding = 10;
 
   return (
     <div
@@ -46,13 +50,14 @@ export function AnimatedTabs({
       {tabs.map((tab) => (
         <button
           key={tab.value}
+          // A CORREÇÃO ESTÁ AQUI:
+          type="button" // <<<<<<<<<<<<<<<<<<<<<<<<
           onClick={() => handleTabClick(tab.value)}
           className={cn(
-            // 1. Padding vertical reduzido para deixar o botão mais compacto
             "relative z-10 flex-1 rounded-full py-1.5 text-sm font-medium transition-colors duration-300",
             activeTab === tab.value
               ? "text-primary-foreground"
-              : "text-primary-foreground hover:text-primary",
+              : "text-muted-foreground hover:text-foreground",
             tabClassName
           )}
         >
@@ -61,7 +66,10 @@ export function AnimatedTabs({
       ))}
       <motion.div
         layoutId={layoutId}
-        className="absolute inset-y-1 z-0 rounded-full bg-primary"
+        className={cn(
+          "absolute inset-y-1 z-0 rounded-full bg-primary",
+          activeTabClassName
+        )}
         style={{
           left: `calc(${
             tabWidthPercent * tabs.findIndex((t) => t.value === activeTab)

@@ -1,3 +1,5 @@
+// in: components/providers/finance-provider.tsx
+
 "use client";
 
 import React, {
@@ -12,171 +14,104 @@ import { getApp } from "firebase/app";
 import {
   getFirestore,
   Firestore,
-  doc,
-  updateDoc,
-  writeBatch,
   collection,
   getDocs,
-  query,
-  where,
+  writeBatch,
+  doc,
 } from "firebase/firestore";
 
-import {
-  Account,
-  Category,
-  Transaction,
-  TransactionType,
-  Debt,
-  DebtInstallment,
-  PaymentMethod,
-} from "@/interfaces/finance";
+import { Account, Category, PaymentMethod } from "@/interfaces/finance";
+import { FinancialEntry } from "@/interfaces/financial-entry";
 import { useAuth } from "./auth-provider";
-import {
-  defaultCategories,
-  defaultPaymentMethods,
-  defaultAccount,
-} from "@/lib/data/defaults";
-
 import { useFinanceData } from "@/hooks/use-finance-data";
 import { useAccountsCrud } from "@/hooks/use-accounts-crud";
-import { useTransactionsCrud } from "@/hooks/use-transactions-crud";
-import { useDebtsCrud } from "@/hooks/use-debts-crud";
-import { useDebtInstallmentsCrud } from "@/hooks/use-debt-installments-crud";
 import { usePaymentMethodsCrud } from "@/hooks/use-payment-methods-crud";
 import { useCategoriesCrud } from "@/hooks/use-categories-crud";
-import { DebtFormData } from "@/schemas/debt-schema";
-import { SimpleDebtFormData } from "@/schemas/simple-debt-schema";
-import { useToast } from "../ui/use-toast";
+import { useFinancialEntriesCrud } from "@/hooks/use-financial-entries-crud";
+import { useToast } from "@/components/ui/use-toast";
+import {
+  defaultAccount,
+  defaultCategories,
+  defaultPaymentMethods,
+} from "@/lib/data/defaults";
 
 interface FinanceContextType {
+  // Estados
   accounts: Account[];
   categories: Category[];
-  transactions: Transaction[];
-  debts: Debt[];
-  debtInstallments: DebtInstallment[];
   paymentMethods: PaymentMethod[];
-
-  processInstallmentPayment: (
-    installmentId: string,
-    paymentData: {
-      amount: number;
-      accountId: string;
-      paymentMethodId: string;
-      date: Date;
-      interestPaid?: number | null;
-      discountReceived?: number | null;
-    }
-  ) => Promise<boolean>;
-
-  revertInstallmentPayment: (installmentId: string) => Promise<boolean>;
-
-  addGenericTransaction: (
-    transaction: Omit<Transaction, "id" | "uid" | "createdAt">
-  ) => Promise<string | undefined>;
-  addAccount: (account: Omit<Account, "id" | "uid">) => Promise<void>;
-  updateAccount: (
-    accountId: string,
-    data: Partial<Omit<Account, "id" | "uid">>
-  ) => Promise<void>;
-  deleteAccount: (accountId: string) => Promise<void>;
-  deleteTransaction: (transactionId: string) => Promise<void>;
-
-  addDebt: (debtData: DebtFormData) => Promise<void>;
-  updateDebt: (debtId: string, data: Partial<Debt>) => Promise<void>;
-  deleteDebt: (debtId: string) => Promise<boolean>;
-  addDebtAndPay: (data: SimpleDebtFormData) => Promise<void>;
-  updateSimpleDebt: (debtId: string, data: Partial<Debt>) => Promise<void>;
-
-  addDebtInstallment: (
-    installment: Omit<
-      DebtInstallment,
-      | "id"
-      | "uid"
-      | "createdAt"
-      | "paidAmount"
-      | "remainingAmount"
-      | "discountAmount"
-      | "status"
-      | "paymentDate"
-      | "transactionIds"
-    >
-  ) => Promise<void>;
-  updateDebtInstallment: (
-    installmentId: string,
-    data: Partial<Omit<DebtInstallment, "id" | "uid">>
-  ) => Promise<void>;
-  deleteDebtInstallment: (installmentId: string) => Promise<boolean>;
-  updateInstallmentValue: (
-    debtId: string,
-    installmentId: string,
-    newAmount: number
-  ) => Promise<void>;
-
-  addPaymentMethod: (
-    method: Omit<PaymentMethod, "id" | "uid" | "createdAt" | "isActive">
-  ) => Promise<void>;
-  updatePaymentMethod: (
-    methodId: string,
-    data: Partial<Omit<PaymentMethod, "id" | "uid">>
-  ) => Promise<void>;
-  deletePaymentMethod: (methodId: string) => Promise<void>;
-
-  addCategory: (data: { name: string; icon: string }) => Promise<string | null>;
-  updateCategory: (
-    id: string,
-    data: { name: string; icon: string }
-  ) => Promise<void>;
-  deleteCategory: (id: string) => Promise<void>;
-
-  getAccountById: (id: string) => Account | undefined;
-
-  refreshData: () => void;
+  financialEntries: FinancialEntry[];
   loadingFinanceData: boolean;
   dataSeedCheckCompleted: boolean;
   errorFinanceData: string | null;
+
+  // Funções CRUD
+  addAccount: ReturnType<typeof useAccountsCrud>["addAccount"];
+  updateAccount: ReturnType<typeof useAccountsCrud>["updateAccount"];
+  deleteAccount: ReturnType<typeof useAccountsCrud>["deleteAccount"];
+  addCategory: ReturnType<typeof useCategoriesCrud>["addCategory"];
+  updateCategory: ReturnType<typeof useCategoriesCrud>["updateCategory"];
+  deleteCategory: ReturnType<typeof useCategoriesCrud>["deleteCategory"];
+  addPaymentMethod: ReturnType<
+    typeof usePaymentMethodsCrud
+  >["addPaymentMethod"];
+  updatePaymentMethod: ReturnType<
+    typeof usePaymentMethodsCrud
+  >["updatePaymentMethod"];
+  deletePaymentMethod: ReturnType<
+    typeof usePaymentMethodsCrud
+  >["deletePaymentMethod"];
+  getAccountById: (id: string) => Account | undefined;
+  refreshData: () => void;
+
+  // Funções CRUD de Lançamentos Financeiros ATUALIZADAS
+  addFinancialEntry: ReturnType<
+    typeof useFinancialEntriesCrud
+  >["addFinancialEntry"];
+  addInstallmentEntry: ReturnType<
+    typeof useFinancialEntriesCrud
+  >["addInstallmentEntry"];
+  addMonthlyRecurringEntries: ReturnType<
+    typeof useFinancialEntriesCrud
+  >["addMonthlyRecurringEntries"];
+  updateFinancialEntry: ReturnType<
+    typeof useFinancialEntriesCrud
+  >["updateFinancialEntry"];
+  deleteFinancialEntry: ReturnType<
+    typeof useFinancialEntriesCrud
+  >["deleteFinancialEntry"];
 }
 
 const FinanceContext = createContext<FinanceContextType | undefined>(undefined);
 
-export const useFinance = () => {
-  const context = useContext(FinanceContext);
-  if (!context) {
-    throw new Error("useFinance deve ser usado dentro de um FinanceProvider");
-  }
-  return context;
-};
-
-export const FinanceProvider: React.FC<{ children: ReactNode }> = ({
-  children,
-}) => {
+export const FinanceProvider = ({ children }: { children: ReactNode }) => {
   const { user, loading: authLoading, projectId } = useAuth();
-  const { toast } = useToast();
-
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
-  const [accounts, setAccounts] = useState<Account[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [debts, setDebts] = useState<Debt[]>([]);
-  const [debtInstallments, setDebtInstallments] = useState<DebtInstallment[]>(
-    []
-  );
-  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
-  const [loadingFinanceData, setLoadingFinanceData] = useState(true);
-  const [dataSeedCheckCompleted, setDataSeedCheckCompleted] = useState(false);
-  const [errorFinanceData, setErrorFinanceData] = useState<string | null>(null);
   const dbRef = useRef<Firestore | null>(null);
   const hasCheckedData = useRef(false);
+  const { toast } = useToast();
+
+  // Estados
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
+  const [financialEntries, setFinancialEntries] = useState<FinancialEntry[]>(
+    []
+  );
+  const [loadingFinanceData, setLoadingFinanceData] = useState(true);
+  const [errorFinanceData, setErrorFinanceData] = useState<string | null>(null);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [dataSeedCheckCompleted, setDataSeedCheckCompleted] = useState(false);
 
   useEffect(() => {
-    if (!authLoading && projectId && user) {
+    if (!authLoading && user && projectId) {
       try {
         const app = getApp();
         dbRef.current = getFirestore(app);
-      } catch (error: any) {
+      } catch (error) {
         console.error("FinanceProvider: Erro ao inicializar Firestore:", error);
       }
     }
-  }, [authLoading, projectId, user]);
+  }, [authLoading, user, projectId]);
 
   useFinanceData({
     db: dbRef.current,
@@ -185,17 +120,14 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({
     refreshTrigger,
     setAccounts,
     setCategories,
-    setTransactions,
-    setDebts,
-    setDebtInstallments,
     setPaymentMethods,
+    setFinancialEntries,
     setLoading: setLoadingFinanceData,
   });
 
   useEffect(() => {
-    if (!loadingFinanceData && user && projectId && !hasCheckedData.current) {
+    if (user && projectId && !hasCheckedData.current) {
       hasCheckedData.current = true;
-
       const runDataCheck = async () => {
         console.log(
           "[FinanceProvider] Iniciando verificação de dados padrão..."
@@ -203,7 +135,6 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({
         try {
           const db = getFirestore();
 
-          // Helpers -------------------------
           const normalizeString = (str: string) =>
             str
               .normalize("NFD")
@@ -216,7 +147,7 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({
             defaultItem: any
           ) =>
             userCreatedItems.find((item) => {
-              if (item.defaultId) return false; // já migrado
+              if (item.defaultId) return false;
               const normalizedUser = normalizeString(item.name);
               const normalizedDefault = normalizeString(defaultItem.name);
               if (normalizedUser === normalizedDefault) return true;
@@ -231,7 +162,6 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({
           const getUserCollectionRef = (col: string) =>
             collection(db, `artifacts/${projectId}/users/${user.uid}/${col}`);
 
-          // ------------------ Busca inicial ------------------
           const [accountsSnap, categoriesSnap, paymentMethodsSnap] =
             await Promise.all([
               getDocs(getUserCollectionRef("accounts")),
@@ -252,7 +182,6 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({
           const batch = writeBatch(db);
           let operationsFound = false;
 
-          // ------------------ 1. Conta padrão ------------------
           const ensureDefaultAccount = () => {
             const hasDefault = existingAccounts.some(
               (acc) => acc.defaultId === defaultAccount.id
@@ -286,10 +215,8 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({
             }
           };
 
-          // ------------------ 2. PaymentMethods padrão ------------------
           const ensureDefaultPaymentMethods = () => {
             defaultPaymentMethods.forEach((pm) => {
-              // Se o item padrão já existe, não fazemos nada.
               if (existingPaymentMethods.some((e) => e.defaultId === pm.id)) {
                 return;
               }
@@ -319,9 +246,6 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({
               } else {
                 const pmRef = doc(getUserCollectionRef("paymentMethods"));
                 const { id, aliases, ...pmData } = pm;
-
-                console.log(`Dados para '${pm.name}':`, pmData);
-
                 batch.set(pmRef, {
                   ...pmData,
                   uid: user.uid,
@@ -335,10 +259,8 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({
             });
           };
 
-          // ------------------ 3. Categorias padrão ------------------
           const ensureDefaultCategories = () => {
             defaultCategories.forEach((cat) => {
-              // Se o item padrão já existe, não fazemos nada.
               if (existingCategories.some((c) => c.defaultId === cat.id)) {
                 return;
               }
@@ -394,73 +316,23 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({
           setDataSeedCheckCompleted(true);
         }
       };
-
       runDataCheck();
     }
-  }, [loadingFinanceData, user, projectId, debts, toast]);
+  }, [user, projectId, toast]);
 
-  const updateAccountBalance = async (
-    accountId: string,
-    amount: number,
-    type: TransactionType
-  ) => {
-    if (!dbRef.current || !user?.uid || !projectId) return;
-    const accountRef = doc(
-      dbRef.current,
-      `artifacts/${projectId}/users/${user.uid}/accounts`,
-      accountId
-    );
-    try {
-      const currentAccount = accounts.find((acc) => acc.id === accountId);
-      if (currentAccount && typeof currentAccount.balance === "number") {
-        const newBalance =
-          type === "income"
-            ? currentAccount.balance + amount
-            : currentAccount.balance - amount;
-        await updateDoc(accountRef, { balance: newBalance });
-      }
-    } catch (error: any) {
-      console.error(
-        "FinanceProvider: Erro ao atualizar saldo da conta:",
-        error
-      );
-    }
-  };
-
+  // Hooks CRUD
   const { addAccount, updateAccount, deleteAccount } = useAccountsCrud({
     db: dbRef.current,
     user,
     projectId,
     setErrorFinanceData,
   });
-
   const { addCategory, updateCategory, deleteCategory } = useCategoriesCrud({
     db: dbRef.current,
     user,
     projectId,
     setErrorFinanceData,
   });
-
-  const { addDebt, updateDebt, deleteDebt, addDebtAndPay, updateSimpleDebt } =
-    useDebtsCrud({
-      db: dbRef.current,
-      user,
-      projectId,
-      setErrorFinanceData,
-    });
-
-  const {
-    addDebtInstallment,
-    updateDebtInstallment,
-    updateInstallmentValue,
-    deleteDebtInstallment,
-  } = useDebtInstallmentsCrud({
-    db: dbRef.current,
-    user,
-    projectId,
-    setErrorFinanceData,
-  });
-
   const { addPaymentMethod, updatePaymentMethod, deletePaymentMethod } =
     usePaymentMethodsCrud({
       db: dbRef.current,
@@ -469,23 +341,23 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({
       setErrorFinanceData,
     });
 
+  // Hook de Lançamentos Financeiros ATUALIZADO
   const {
-    processInstallmentPayment,
-    revertInstallmentPayment,
-    addGenericTransaction,
-    deleteTransaction,
-  } = useTransactionsCrud({
+    addFinancialEntry,
+    addInstallmentEntry,
+    addMonthlyRecurringEntries,
+    updateFinancialEntry,
+    deleteFinancialEntry,
+  } = useFinancialEntriesCrud({
     db: dbRef.current,
     user,
     projectId,
     setErrorFinanceData,
-    updateAccountBalance,
   });
 
   const getAccountById = (id: string) => accounts.find((acc) => acc.id === id);
 
   const refreshData = () => {
-    console.log("[FinanceProvider] Forçando a revalidação dos dados...");
     setRefreshTrigger((prev) => prev + 1);
   };
 
@@ -494,10 +366,8 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({
       value={{
         accounts,
         categories,
-        transactions,
-        debts,
-        debtInstallments,
         paymentMethods,
+        financialEntries,
         loadingFinanceData,
         dataSeedCheckCompleted,
         errorFinanceData,
@@ -507,27 +377,28 @@ export const FinanceProvider: React.FC<{ children: ReactNode }> = ({
         addCategory,
         updateCategory,
         deleteCategory,
-        deleteTransaction,
-        addDebt,
-        updateDebt,
-        deleteDebt,
-        addDebtAndPay,
-        updateSimpleDebt,
-        addDebtInstallment,
-        updateDebtInstallment,
-        updateInstallmentValue,
-        deleteDebtInstallment,
         addPaymentMethod,
         updatePaymentMethod,
         deletePaymentMethod,
         getAccountById,
-        processInstallmentPayment,
-        revertInstallmentPayment,
-        addGenericTransaction,
         refreshData,
+        // Funções de Lançamentos Financeiros ATUALIZADAS
+        addFinancialEntry,
+        addInstallmentEntry,
+        addMonthlyRecurringEntries,
+        updateFinancialEntry,
+        deleteFinancialEntry,
       }}
     >
       {children}
     </FinanceContext.Provider>
   );
+};
+
+export const useFinance = () => {
+  const context = useContext(FinanceContext);
+  if (context === undefined) {
+    throw new Error("useFinance must be used within a FinanceProvider");
+  }
+  return context;
 };

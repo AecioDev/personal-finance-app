@@ -1,4 +1,4 @@
-// in: components/modals/new-expense-modal.tsx
+// in: components/modals/new-financial-entry-modal.tsx
 
 "use client";
 
@@ -11,28 +11,29 @@ import {
 } from "@/components/ui/dialog";
 import { FinancialEntryForm } from "../financial-entries/financial-entry-form";
 
-interface NewExpenseModalProps {
+// 1. Definimos as props que o componente vai receber
+interface NewFinancialEntryModalProps {
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
 }
 
-export function NewExpenseModal({
+export function NewFinancialEntryModal({
   isOpen,
   onOpenChange,
-}: NewExpenseModalProps) {
+}: NewFinancialEntryModalProps) {
+  // 2. Removemos o useState e o DialogTrigger. O controle agora é externo.
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[480px]">
         <DialogHeader>
-          <DialogTitle>Nova Despesa</DialogTitle>
+          <DialogTitle>Novo Lançamento</DialogTitle>
           <DialogDescription>
-            Registre uma nova conta ou despesa. Para compras parceladas, use a
-            opção "Parcelado".
+            Adicione uma nova receita ou despesa. Para compras parceladas, não
+            se esqueça de marcar como recorrente.
           </DialogDescription>
         </DialogHeader>
         <FinancialEntryForm
-          entryType="expense"
-          onFinished={() => onOpenChange(false)}
+          onFinished={() => onOpenChange(false)} // Passamos a função para fechar o modal
         />
       </DialogContent>
     </Dialog>

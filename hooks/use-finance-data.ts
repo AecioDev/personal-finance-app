@@ -1,3 +1,5 @@
+// in: hooks/use-finance-data.ts
+
 import { useEffect, useRef } from "react";
 import {
   Firestore,
@@ -6,14 +8,8 @@ import {
   onSnapshot,
   Timestamp,
 } from "firebase/firestore";
-import {
-  Account,
-  Category,
-  Transaction,
-  Debt,
-  DebtInstallment,
-  PaymentMethod,
-} from "@/interfaces/finance";
+import { Account, Category, PaymentMethod } from "@/interfaces/finance"; // Removido Debt, etc.
+import { FinancialEntry } from "@/interfaces/financial-entry";
 import { User as FirebaseUser } from "firebase/auth";
 
 interface UseFinanceDataProps {
@@ -23,10 +19,8 @@ interface UseFinanceDataProps {
   refreshTrigger: number;
   setAccounts: React.Dispatch<React.SetStateAction<Account[]>>;
   setCategories: React.Dispatch<React.SetStateAction<Category[]>>;
-  setTransactions: React.Dispatch<React.SetStateAction<Transaction[]>>;
-  setDebts: React.Dispatch<React.SetStateAction<Debt[]>>;
-  setDebtInstallments: React.Dispatch<React.SetStateAction<DebtInstallment[]>>;
   setPaymentMethods: React.Dispatch<React.SetStateAction<PaymentMethod[]>>;
+  setFinancialEntries: React.Dispatch<React.SetStateAction<FinancialEntry[]>>;
   setLoading: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
@@ -44,61 +38,38 @@ export const useFinanceData = ({
   db,
   user,
   projectId,
+  refreshTrigger,
   setAccounts,
   setCategories,
-  setTransactions,
-  setDebts,
-  setDebtInstallments,
   setPaymentMethods,
+  setFinancialEntries,
   setLoading,
-  refreshTrigger,
 }: UseFinanceDataProps) => {
   const initialFetchCounter = useRef(0);
 
-  const collections = [
-    "setAccounts",
-    "setCategories",
-    "setTransactions",
-    "setDebts",
-    "setDebtInstallments",
-    "setPaymentMethods",
-  ] as const;
-
-  const totalListeners = collections.length;
-
   useEffect(() => {
-    if (!user || !db || !projectId) {
-      setLoading(false);
-      setAccounts([]);
-      setCategories([]);
-      setTransactions([]);
-      setDebts([]);
-      setDebtInstallments([]);
-      setPaymentMethods([]);
-      return;
-    }
+    if (!db || !user || !projectId) return;
 
     setLoading(true);
     initialFetchCounter.current = 0;
 
     const listenersUnsubscribed: (() => void)[] = [];
 
-    const setters: { [key: string]: Function } = {
+    const setters: { [key: string]: (data: any) => void } = {
       setAccounts,
       setCategories,
-      setTransactions,
-      setDebts,
-      setDebtInstallments,
       setPaymentMethods,
+      setFinancialEntries,
     };
+
+    const collections = Object.keys(setters) as (keyof typeof setters)[];
+    const totalListeners = collections.length;
 
     const collectionNames: { [key: string]: string } = {
       setAccounts: "accounts",
       setCategories: "categories",
-      setTransactions: "transactions",
-      setDebts: "debts",
-      setDebtInstallments: "debtInstallments",
       setPaymentMethods: "paymentMethods",
+      setFinancialEntries: "financial-entries",
     };
 
     const handleInitialFetch = () => {
@@ -128,7 +99,6 @@ export const useFinanceData = ({
           }));
           setter(data);
 
-          // contamos a primeira vez que cada listener dispara
           if (initialFetchCounter.current < totalListeners) {
             handleInitialFetch();
           }
@@ -145,5 +115,15 @@ export const useFinanceData = ({
     return () => {
       listenersUnsubscribed.forEach((unsubscribe) => unsubscribe());
     };
-  }, [db, user, projectId, refreshTrigger]);
+  }, [
+    db,
+    user,
+    projectId,
+    refreshTrigger,
+    setAccounts,
+    setCategories,
+    setPaymentMethods,
+    setFinancialEntries,
+    setLoading,
+  ]);
 };

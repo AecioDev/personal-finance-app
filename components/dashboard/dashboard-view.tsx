@@ -1,58 +1,44 @@
-// src/components/dashboard/dashboard-view.tsx
+// in: components/dashboard/dashboard-view.tsx
+
 "use client";
 
 import React, { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useFinance } from "@/components/providers/finance-provider";
 import { useAuth } from "@/components/providers/auth-provider";
 import { useToast } from "@/components/ui/use-toast";
-import {
-  DebtInstallment,
-  Transaction,
-  TransactionType,
-} from "@/interfaces/finance";
-import { Button } from "@/components/ui/button";
+import { FinancialEntry, EntryType } from "@/interfaces/financial-entry"; // NOVO: Importando FinancialEntry
 import { AnimatedTabs } from "@/components/ui/animated-tabs";
-import { DebtInstallmentModal } from "../debts/debt-installment-modal";
-import { getMonth, getYear, addMonths, subMonths, isPast } from "date-fns";
+import { getMonth, getYear, addMonths, subMonths } from "date-fns";
 import { MonthlySummaryCard } from "./monthly-summary-card";
-import { UpcomingDebtsList } from "./upcoming-debts-list";
-import { TransactionList } from "./transaction-list";
-import { TransactionDetailsModal } from "./transaction-details-modal";
+import { UpcomingDebtsList } from "./upcoming-debts-list"; // Este componente também precisará ser adaptado
+import { TransactionList } from "./transaction-list"; // E este também
 import { cn } from "@/lib/utils";
 import { Icon } from "@iconify/react/dist/iconify.js";
+import { NewFinancialEntryModal } from "../modals/new-financial-entry-modal"; // Usaremos o novo modal
 
 export function DashboardView() {
   const { toast } = useToast();
   const { user } = useAuth();
-  const router = useRouter();
   const {
-    debts,
-    debtInstallments,
-    transactions,
+    financialEntries,
     accounts,
     categories,
     loadingFinanceData,
     dataSeedCheckCompleted,
     errorFinanceData,
-    refreshData,
   } = useFinance();
 
   const isLoadingContent = loadingFinanceData || !dataSeedCheckCompleted;
 
   const [activeMainTab, setActiveMainTab] = useState("debts");
-  const [debtFilter, setDebtFilter] = useState<"open" | "paid" | "all">("open");
-  const [transactionFilter, setTransactionFilter] = useState<
-    TransactionType | "all"
-  >("all");
+  const [debtFilter, setDebtFilter] = useState<"pending" | "paid" | "all">(
+    "pending"
+  );
+  const [transactionFilter, setTransactionFilter] = useState<EntryType | "all">(
+    "all"
+  );
   const [displayDate, setDisplayDate] = useState(new Date());
-  const [isInstallmentModalOpen, setIsInstallmentModalOpen] = useState(false);
-  const [editingInstallment, setEditingInstallment] =
-    useState<DebtInstallment | null>(null);
-  const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
-  const [selectedTransaction, setSelectedTransaction] =
-    useState<Transaction | null>(null);
 
   useEffect(() => {
     if (errorFinanceData) {
@@ -64,150 +50,80 @@ export function DashboardView() {
     }
   }, [errorFinanceData, toast]);
 
-  const { monthlySummary, transactionsForMonth, filteredDebtsForMonth } =
-    useMemo(() => {
-      const selectedMonth = getMonth(displayDate);
-      const selectedYear = getYear(displayDate);
+  // Refatorado para usar financialEntries
+  const { monthlySummary, entriesForMonth } = useMemo(() => {
+    const selectedMonth = getMonth(displayDate);
+    const selectedYear = getYear(displayDate);
 
-      const currentMonthTransactions = transactions.filter((transaction) => {
-        const transactionDate = new Date(transaction.date);
-        return (
-          getMonth(transactionDate) === selectedMonth &&
-          getYear(transactionDate) === selectedYear
-        );
-      });
-
-      const totalDespesas = currentMonthTransactions
-        .filter((t) => t.type === "expense")
-        .reduce((acc, t) => acc + t.amount, 0);
-
-      const totalReceitas = currentMonthTransactions
-        .filter((t) => t.type === "income")
-        .reduce((acc, t) => acc + t.amount, 0);
-
-      const allInstallmentsForMonth = debtInstallments.filter((inst) => {
-        const dueDate = new Date(inst.expectedDueDate);
-        return (
-          getMonth(dueDate) === selectedMonth &&
-          getYear(dueDate) === selectedYear
-        );
-      });
-
-      let filteredInstallments;
-      if (debtFilter === "paid") {
-        filteredInstallments = allInstallmentsForMonth.filter(
-          (inst) => inst.status === "paid"
-        );
-      } else if (debtFilter === "open") {
-        filteredInstallments = allInstallmentsForMonth.filter(
-          (inst) => inst.status !== "paid"
-        );
-      } else {
-        filteredInstallments = allInstallmentsForMonth;
-      }
-      filteredInstallments.sort(
-        (a, b) =>
-          new Date(a.expectedDueDate).getTime() -
-          new Date(b.expectedDueDate).getTime()
+    const currentMonthEntries = financialEntries.filter((entry) => {
+      const entryDate = new Date(entry.dueDate); // Usando dueDate para o filtro mensal
+      return (
+        getMonth(entryDate) === selectedMonth &&
+        getYear(entryDate) === selectedYear
       );
+    });
 
-      const totalPrevisto = allInstallmentsForMonth.reduce(
-        (acc, inst) => acc + inst.expectedAmount,
-        0
-      );
-      const totalPago = allInstallmentsForMonth.reduce(
-        (acc, inst) => acc + (inst.paidAmount || 0),
-        0
-      );
-      const faltaPagar = allInstallmentsForMonth.reduce((acc, inst) => {
-        if (inst.status === "paid") return acc;
-        return acc + (inst.remainingAmount ?? inst.expectedAmount);
-      }, 0);
+    const totalReceitas = currentMonthEntries
+      .filter((e) => e.type === "income" && e.status === "paid")
+      .reduce((acc, e) => acc + (e.paidAmount || 0), 0);
 
-      const summary = {
-        totalPrevisto,
-        totalPago,
-        faltaPagar: faltaPagar > 0 ? faltaPagar : 0,
-        totalDespesas,
-        totalReceitas,
-      };
+    const totalDespesas = currentMonthEntries
+      .filter((e) => e.type === "expense" && e.status === "paid")
+      .reduce((acc, e) => acc + (e.paidAmount || 0), 0);
 
-      return {
-        monthlySummary: summary,
-        transactionsForMonth: currentMonthTransactions.sort(
-          (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-        ),
-        filteredDebtsForMonth: filteredInstallments,
-      };
-    }, [debtInstallments, transactions, displayDate, debtFilter]);
+    const totalPrevisto = currentMonthEntries
+      .filter((e) => e.type === "expense")
+      .reduce((acc, e) => acc + e.expectedAmount, 0);
 
+    const totalPago = currentMonthEntries
+      .filter((e) => e.type === "expense" && e.status === "paid")
+      .reduce((acc, e) => acc + (e.paidAmount || 0), 0);
+
+    const faltaPagar = totalPrevisto - totalPago;
+
+    const summary = {
+      totalPrevisto,
+      totalPago,
+      faltaPagar,
+      totalDespesas,
+      totalReceitas,
+    };
+
+    return {
+      monthlySummary: summary,
+      entriesForMonth: currentMonthEntries.sort(
+        (a, b) => new Date(b.dueDate).getTime() - new Date(a.dueDate).getTime()
+      ),
+    };
+  }, [financialEntries, displayDate]);
+
+  // Refatorado para filtrar as "Contas" (financialEntries de despesa)
+  const filteredDebts = useMemo(() => {
+    const debts = entriesForMonth.filter((e) => e.type === "expense");
+    if (debtFilter === "all") return debts;
+    return debts.filter((d) => d.status === debtFilter);
+  }, [entriesForMonth, debtFilter]);
+
+  // Refatorado para filtrar os "Lançamentos" (todos os financialEntries)
   const filteredTransactions = useMemo(() => {
-    if (transactionFilter === "all") {
-      return transactionsForMonth;
-    }
-    return transactionsForMonth.filter((t) => t.type === transactionFilter);
-  }, [transactionsForMonth, transactionFilter]);
-
-  const nextDebtToPayInstallment = useMemo(() => {
-    return (
-      debtInstallments
-        .filter((inst) => inst.status !== "paid")
-        .sort(
-          (a, b) =>
-            new Date(a.expectedDueDate).getTime() -
-            new Date(b.expectedDueDate).getTime()
-        )[0] || null
-    );
-  }, [debtInstallments]);
-
-  const nextDebtToPay = useMemo(() => {
-    return nextDebtToPayInstallment
-      ? debts.find((d) => d.id === nextDebtToPayInstallment.debtId)
-      : null;
-  }, [nextDebtToPayInstallment, debts]);
+    if (transactionFilter === "all") return entriesForMonth;
+    return entriesForMonth.filter((e) => e.type === transactionFilter);
+  }, [entriesForMonth, transactionFilter]);
 
   const handlePreviousMonth = () =>
     setDisplayDate((current) => subMonths(current, 1));
   const handleNextMonth = () =>
     setDisplayDate((current) => addMonths(current, 1));
 
-  const handleCriticalDebtsClick = () => {
-    toast({
-      title: "Em breve!",
-      description: "A página de dívidas críticas será implementada.",
-    });
-  };
-
-  const handleViewTransaction = (transaction: Transaction) => {
-    setSelectedTransaction(transaction);
-    setIsTransactionModalOpen(true);
-  };
-
   if (isLoadingContent) {
     return (
       <div className="flex justify-center items-center h-screen bg-background">
         <div className="text-center space-y-2">
           <p className="text-muted-foreground">Carregando seus dados...</p>
-          {!dataSeedCheckCompleted && (
-            <p className="text-xs text-muted-foreground animate-pulse">
-              Finalizando verificação inicial...
-            </p>
-          )}
         </div>
       </div>
     );
   }
-
-  const handleGoToPayment = () => {
-    if (!nextDebtToPay || !nextDebtToPayInstallment) return;
-    router.push(
-      `/debts/${nextDebtToPay.id}/installments/${nextDebtToPayInstallment.id}`
-    );
-  };
-
-  const isOverdue = nextDebtToPayInstallment
-    ? isPast(new Date(nextDebtToPayInstallment.expectedDueDate))
-    : false;
 
   return (
     <>
@@ -228,105 +144,9 @@ export function DashboardView() {
               />
             </Link>
           </div>
-
-          {nextDebtToPay && nextDebtToPayInstallment ? (
-            <div className="mt-6">
-              <div className="flex justify-between items-center">
-                <div>
-                  <p className="text-sm opacity-80 mb-1">
-                    {isOverdue ? "Parcela Vencida!" : "Próxima Parcela"}
-                  </p>
-                  <p className="text-lg font-bold tracking-tight">
-                    {nextDebtToPay.description}
-                  </p>
-                  <p
-                    className={cn(
-                      "text-3xl font-extrabold mt-1",
-                      isOverdue ? "text-fault" : "text-white"
-                    )}
-                  >
-                    {nextDebtToPayInstallment.expectedAmount.toLocaleString(
-                      "pt-BR",
-                      { style: "currency", currency: "BRL" }
-                    )}
-                  </p>
-                </div>
-                <div className="flex flex-col gap-2">
-                  <Button
-                    size="sm"
-                    className="text-base bg-accent text-accent-foreground hover:bg-accent/80 w-36"
-                    onClick={handleGoToPayment}
-                  >
-                    <Icon icon="fa6-solid:dollar-sign" className="h-4 w-4" />
-                    Pagar
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={handleCriticalDebtsClick}
-                    className="bg-primary/50 border-primary-foreground/50 text-base text-primary-foreground hover:bg-primary/70 w-36"
-                  >
-                    Dívidas Críticas
-                  </Button>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="text-center py-8">
-              <p className="font-bold text-lg">Tudo em dia por aqui!</p>
-              <p className="text-sm opacity-80">
-                Nenhuma conta próxima do vencimento.
-              </p>
-            </div>
-          )}
         </div>
 
         <div className="bg-background rounded-t-[2.5rem] p-4 space-y-4">
-          <div className="grid grid-cols-2 items-center my-4 py-2">
-            <div className="border-r border-gray-500">
-              <p className="text-sm text-foreground/80 font-medium flex items-center justify-center gap-1.5 mb-1">
-                <Icon icon="fa6-solid:arrow-trend-up" className="h-4 w-4" />
-                Total de Receitas
-              </p>
-              {/* AJUSTE DE TAMANHO CONDICIONAL APLICADO AQUI */}
-              <p
-                className={cn(
-                  "text-center font-bold tracking-tight text-accent",
-                  monthlySummary.totalReceitas > 10000 ||
-                    monthlySummary.totalDespesas > 10000
-                    ? "text-2xl"
-                    : "text-4xl"
-                )}
-              >
-                {monthlySummary.totalReceitas.toLocaleString("pt-BR", {
-                  style: "currency",
-                  currency: "BRL",
-                })}
-              </p>
-            </div>
-            <div className="border-l border-gray-500 px-2">
-              <p className="text-sm text-foreground/80 font-medium flex items-center justify-center gap-1.5 mb-1">
-                <Icon icon="fa6-solid:arrow-trend-down" className="h-4 w-4" />
-                Total de Despesas
-              </p>
-              {/* AJUSTE DE TAMANHO CONDICIONAL APLICADO AQUI */}
-              <p
-                className={cn(
-                  "text-center font-bold tracking-tight text-destructive/90",
-                  monthlySummary.totalReceitas > 10000 ||
-                    monthlySummary.totalDespesas > 10000
-                    ? "text-2xl"
-                    : "text-4xl"
-                )}
-              >
-                {monthlySummary.totalDespesas.toLocaleString("pt-BR", {
-                  style: "currency",
-                  currency: "BRL",
-                })}
-              </p>
-            </div>
-          </div>
-
           <MonthlySummaryCard
             summary={monthlySummary}
             displayDate={displayDate}
@@ -352,7 +172,7 @@ export function DashboardView() {
                     defaultValue={debtFilter}
                     onValueChange={(value) => setDebtFilter(value as any)}
                     tabs={[
-                      { label: "Abertas", value: "open" },
+                      { label: "Abertas", value: "pending" },
                       { label: "Pagas", value: "paid" },
                       { label: "Todas", value: "all" },
                     ]}
@@ -360,11 +180,11 @@ export function DashboardView() {
                     layoutId="debt-filter-tabs"
                   />
                   <div className="mt-4">
-                    <UpcomingDebtsList
-                      installments={filteredDebtsForMonth}
-                      debts={debts}
-                      categories={categories}
-                    />
+                    {/* // TODO: Adaptar o UpcomingDebtsList para receber FinancialEntry[] */}
+                    <p className="text-center p-4 text-muted-foreground">
+                      Componente de lista de contas a ser adaptado.
+                    </p>
+                    {/* <UpcomingDebtsList entries={filteredDebts} /> */}
                   </div>
                 </div>
               )}
@@ -384,12 +204,11 @@ export function DashboardView() {
                     layoutId="transaction-filter-tabs"
                   />
                   <div className="mt-4">
-                    <TransactionList
-                      transactions={filteredTransactions}
-                      accounts={accounts}
-                      categories={categories}
-                      onViewTransaction={handleViewTransaction}
-                    />
+                    {/* // TODO: Adaptar o TransactionList para receber FinancialEntry[] */}
+                    <p className="text-center p-4 text-muted-foreground">
+                      Componente de lista de lançamentos a ser adaptado.
+                    </p>
+                    {/* <TransactionList entries={filteredTransactions} /> */}
                   </div>
                 </div>
               )}
@@ -398,26 +217,7 @@ export function DashboardView() {
         </div>
       </div>
 
-      <DebtInstallmentModal
-        isOpen={isInstallmentModalOpen}
-        onOpenChange={(isOpen) => {
-          setIsInstallmentModalOpen(isOpen);
-          if (!isOpen) {
-            refreshData();
-          }
-        }}
-        editingInstallment={editingInstallment}
-      />
-      <TransactionDetailsModal
-        isOpen={isTransactionModalOpen}
-        onOpenChange={(isOpen) => {
-          setIsTransactionModalOpen(isOpen);
-          if (!isOpen) {
-            refreshData();
-          }
-        }}
-        transaction={selectedTransaction}
-      />
+      {/* Os modais antigos foram removidos, o novo será chamado pela BottomNavBar */}
     </>
   );
 }

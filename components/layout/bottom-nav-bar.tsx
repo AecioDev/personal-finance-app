@@ -41,8 +41,8 @@ export function BottomNavBar() {
   const pathname = usePathname();
   // Pegando as ações padrão e as customizadas do nosso provider
   const {
-    openNewExpense,
-    openNewTransaction,
+    openNewExpenseModal,
+    openNewIncomeModal,
     openCategoryManager,
     customActions,
   } = useModal();
@@ -84,7 +84,7 @@ export function BottomNavBar() {
                       // Se não, mostra as ações padrão
                       <>
                         <DropdownMenuItem
-                          onClick={openNewExpense}
+                          onClick={openNewExpenseModal}
                           className="py-3 px-4 text-base"
                         >
                           <Icon
@@ -94,11 +94,11 @@ export function BottomNavBar() {
                           <span>Nova Despesa</span>
                         </DropdownMenuItem>
                         <DropdownMenuItem
-                          onClick={openNewTransaction}
+                          onClick={openNewIncomeModal}
                           className="py-3 px-4 text-base"
                         >
                           <Icon icon="mdi:cash-plus" className="mr-3 h-5 w-5" />
-                          <span>Novo Lançamento</span>
+                          <span>Novo Receita</span>
                         </DropdownMenuItem>
                       </>
                     )}

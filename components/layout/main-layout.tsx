@@ -1,19 +1,22 @@
+// in: components/layout/main-layout.tsx
+
 "use client";
 
 import React from "react";
 import { BottomNavBar } from "./bottom-nav-bar";
 import { useModal } from "../providers/modal-provider";
-import { NewExpenseModal } from "../modals/new-expense-modal";
-import { NewTransactionModal } from "../modals/new-transaction-modal";
 import { CategoryManagerDialog } from "../categories/category-manager-dialog";
 import { useFinance } from "../providers/finance-provider";
+import { NewExpenseModal } from "../modals/new-expense-modal";
+import { NewIncomeModal } from "../modals/new-income-modal";
 
 export function MainLayout({ children }: { children: React.ReactNode }) {
   const {
-    isNewExpenseOpen,
-    closeNewExpense,
-    isNewTransactionOpen,
-    closeNewTransaction,
+    // 2. Pegando os estados corretos do provider
+    isNewExpenseModalOpen,
+    closeNewExpenseModal,
+    isNewIncomeModalOpen,
+    closeNewIncomeModal,
     isCategoryManagerOpen,
     closeCategoryManager,
   } = useModal();
@@ -24,7 +27,7 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
     return (isOpen: boolean) => {
       if (!isOpen) {
         closeFn();
-        refreshData();
+        // Não precisamos mais do refreshData aqui, pois o onSnapshot já faz isso.
       }
     };
   };
@@ -34,14 +37,17 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
       <main className="flex-1 pb-24">{children}</main>
       <BottomNavBar />
 
+      {/* 3. Renderizando os dois modais separados */}
       <NewExpenseModal
-        isOpen={isNewExpenseOpen}
-        onOpenChange={handleCloseAndUpdate(closeNewExpense)}
+        isOpen={isNewExpenseModalOpen}
+        onOpenChange={handleCloseAndUpdate(closeNewExpenseModal)}
       />
-      <NewTransactionModal
-        isOpen={isNewTransactionOpen}
-        onOpenChange={handleCloseAndUpdate(closeNewTransaction)}
+
+      <NewIncomeModal
+        isOpen={isNewIncomeModalOpen}
+        onOpenChange={handleCloseAndUpdate(closeNewIncomeModal)}
       />
+
       <CategoryManagerDialog
         isOpen={isCategoryManagerOpen}
         onOpenChange={handleCloseAndUpdate(closeCategoryManager)}

@@ -1,48 +1,50 @@
-// components/providers/modal-provider.tsx
+// in: components/providers/modal-provider.tsx
 
 "use client";
 
 import React, { createContext, useContext, useState, ReactNode } from "react";
 
-// Definindo o formato de uma ação customizada
 type CustomAction = {
   label: string;
   icon: string;
   action: () => void;
 };
 
-// Define o que o nosso contexto vai fornecer
+// A interface agora reflete as duas novas ações
 interface ModalContextType {
-  isNewExpenseOpen: boolean;
-  openNewExpense: () => void;
-  closeNewExpense: () => void;
-  isNewTransactionOpen: boolean;
-  openNewTransaction: () => void;
-  closeNewTransaction: () => void;
+  isNewExpenseModalOpen: boolean;
+  openNewExpenseModal: () => void;
+  closeNewExpenseModal: () => void;
+
+  isNewIncomeModalOpen: boolean;
+  openNewIncomeModal: () => void;
+  closeNewIncomeModal: () => void;
+
   isCategoryManagerOpen: boolean;
   openCategoryManager: () => void;
   closeCategoryManager: () => void;
+
   customActions: CustomAction[];
   setCustomActions: (actions: CustomAction[]) => void;
 }
 
-// Cria o contexto com um valor padrão
 const ModalContext = createContext<ModalContextType | undefined>(undefined);
 
-// Cria o componente Provedor
 export function ModalProvider({ children }: { children: ReactNode }) {
-  const [isNewExpenseOpen, setIsNewExpenseOpen] = useState(false);
-  const [isNewTransactionOpen, setIsNewTransactionOpen] = useState(false);
+  const [isNewExpenseModalOpen, setIsNewExpenseModalOpen] = useState(false);
+  const [isNewIncomeModalOpen, setIsNewIncomeModalOpen] = useState(false);
   const [isCategoryManagerOpen, setIsCategoryManagerOpen] = useState(false);
   const [customActions, setCustomActions] = useState<CustomAction[]>([]);
 
   const value = {
-    isNewExpenseOpen,
-    openNewExpense: () => setIsNewExpenseOpen(true),
-    closeNewExpense: () => setIsNewExpenseOpen(false),
-    isNewTransactionOpen,
-    openNewTransaction: () => setIsNewTransactionOpen(true),
-    closeNewTransaction: () => setIsNewTransactionOpen(false),
+    isNewExpenseModalOpen,
+    openNewExpenseModal: () => setIsNewExpenseModalOpen(true),
+    closeNewExpenseModal: () => setIsNewExpenseModalOpen(false),
+
+    isNewIncomeModalOpen,
+    openNewIncomeModal: () => setIsNewIncomeModalOpen(true),
+    closeNewIncomeModal: () => setIsNewIncomeModalOpen(false),
+
     isCategoryManagerOpen,
     openCategoryManager: () => setIsCategoryManagerOpen(true),
     closeCategoryManager: () => setIsCategoryManagerOpen(false),
@@ -55,7 +57,6 @@ export function ModalProvider({ children }: { children: ReactNode }) {
   );
 }
 
-// Cria um hook customizado para facilitar o uso do contexto
 export function useModal() {
   const context = useContext(ModalContext);
   if (!context) {
