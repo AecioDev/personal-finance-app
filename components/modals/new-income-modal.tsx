@@ -19,7 +19,12 @@ interface NewIncomeModalProps {
 export function NewIncomeModal({ isOpen, onOpenChange }: NewIncomeModalProps) {
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[480px]">
+      <DialogContent
+        onInteractOutside={(e) => {
+          e.preventDefault();
+        }}
+        className="sm:max-w-[480px]"
+      >
         <DialogHeader>
           <DialogTitle>Nova Receita</DialogTitle>
           <DialogDescription>

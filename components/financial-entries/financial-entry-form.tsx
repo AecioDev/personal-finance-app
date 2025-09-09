@@ -110,6 +110,7 @@ export function FinancialEntryForm({
           status: data.payNow ? ("paid" as const) : ("pending" as const),
           paidAmount: data.payNow ? data.expectedAmount : null,
           paymentDate: data.payNow ? new Date() : null,
+          totalInstallments: 0,
         };
         await addFinancialEntry(finalData);
         toast({ title: "Sucesso!", description: "Seu lançamento foi salvo." });
@@ -136,7 +137,6 @@ export function FinancialEntryForm({
   return (
     <>
       <Form {...form}>
-        {/* 3. O seletor de TIPO FOI REMOVIDO DAQUI */}
         <form id="financial-entry-form" className="space-y-4 pt-4">
           <FormField
             control={form.control}
@@ -215,7 +215,7 @@ export function FinancialEntryForm({
               name="dueDate"
               render={({ field }) => (
                 <FormItem className="flex flex-col pt-2">
-                  <FormLabel>Data</FormLabel>
+                  <FormLabel>Data / Vencimento</FormLabel>
                   <DatePicker value={field.value} onChange={field.onChange} />
                   <FormMessage />
                 </FormItem>

@@ -22,7 +22,12 @@ export function NewExpenseModal({
 }: NewExpenseModalProps) {
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[480px]">
+      <DialogContent
+        onInteractOutside={(e) => {
+          e.preventDefault();
+        }}
+        className="sm:max-w-[480px]"
+      >
         <DialogHeader>
           <DialogTitle>Nova Despesa</DialogTitle>
           <DialogDescription>
