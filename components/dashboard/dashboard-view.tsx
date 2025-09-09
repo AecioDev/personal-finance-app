@@ -23,6 +23,13 @@ import { TransactionDetailsModal } from "./transaction-details-modal";
 import { cn } from "@/lib/utils";
 import { Icon } from "@iconify/react/dist/iconify.js";
 
+// para migração
+import { getFirestore } from "firebase/firestore";
+import {
+  exportOldDataAsFinancialEntries,
+  downloadAsJson,
+} from "@/lib/migration";
+
 export function DashboardView() {
   const { toast } = useToast();
   const { user } = useAuth();
@@ -40,6 +47,7 @@ export function DashboardView() {
   } = useFinance();
 
   const isLoadingContent = loadingFinanceData || !dataSeedCheckCompleted;
+  const [isExporting, setIsExporting] = useState(false);
 
   const [activeMainTab, setActiveMainTab] = useState("debts");
   const [debtFilter, setDebtFilter] = useState<"open" | "paid" | "all">("open");
@@ -183,6 +191,47 @@ export function DashboardView() {
     setIsTransactionModalOpen(true);
   };
 
+  const handleExport = async () => {
+    if (!user) {
+      toast({
+        title: "Erro",
+        description: "Usuário não autenticado.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsExporting(true);
+    toast({
+      title: "Iniciando exportação...",
+      description: "Isso pode levar alguns segundos.",
+    });
+
+    try {
+      // Nota: Estamos pegando a instância do DB aqui para não precisar
+      // refatorar o FinanceProvider. Para uma feature temporária, é uma boa solução.
+      const db = getFirestore();
+      const financialEntries = await exportOldDataAsFinancialEntries(
+        db,
+        user.uid
+      );
+      downloadAsJson(financialEntries, `backup-dados-antigos.json`);
+      toast({
+        title: "Exportação Concluída!",
+        description: "O download do seu arquivo JSON foi iniciado.",
+      });
+    } catch (error) {
+      console.error("Erro na exportação:", error);
+      toast({
+        title: "Falha na Exportação",
+        description: "Ocorreu um erro. Verifique o console para detalhes.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   if (isLoadingContent) {
     return (
       <div className="flex justify-center items-center h-screen bg-background">
@@ -263,10 +312,11 @@ export function DashboardView() {
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={handleCriticalDebtsClick}
                     className="bg-primary/50 border-primary-foreground/50 text-base text-primary-foreground hover:bg-primary/70 w-36"
+                    onClick={handleExport}
+                    disabled={isExporting}
                   >
-                    Dívidas Críticas
+                    {isExporting ? "Exportando..." : "Exportar"}
                   </Button>
                 </div>
               </div>
