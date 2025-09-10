@@ -26,6 +26,7 @@ export function DashboardView() {
   } = useFinance();
 
   const isLoadingContent = loadingFinanceData || !dataSeedCheckCompleted;
+  const [isExporting, setIsExporting] = useState(false);
 
   const [activeMainTab, setActiveMainTab] = useState<EntryType>("expense");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
