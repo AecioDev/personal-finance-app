@@ -316,7 +316,7 @@ export function DashboardView() {
                     onClick={handleExport}
                     disabled={isExporting}
                   >
-                    {isExporting ? "Exportando..." : "Exportar"}
+                    {isExporting ? "Exportando..." : "Exportar 1"}
                   </Button>
                 </div>
               </div>
