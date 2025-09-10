@@ -25,10 +25,7 @@ import { Icon } from "@iconify/react/dist/iconify.js";
 
 // para migração
 import { getFirestore } from "firebase/firestore";
-import {
-  exportOldDataAsFinancialEntries,
-  downloadAsJson,
-} from "@/lib/migration";
+import { exportFullUserData, downloadAsJson } from "@/lib/migration";
 
 export function DashboardView() {
   const { toast } = useToast();
@@ -211,11 +208,10 @@ export function DashboardView() {
       // Nota: Estamos pegando a instância do DB aqui para não precisar
       // refatorar o FinanceProvider. Para uma feature temporária, é uma boa solução.
       const db = getFirestore();
-      const financialEntries = await exportOldDataAsFinancialEntries(
-        db,
-        user.uid
-      );
-      downloadAsJson(financialEntries, `backup-dados-antigos.json`);
+      const fullBackup = await exportFullUserData(db, user.uid);
+
+      // Passe o objeto completo para o download
+      downloadAsJson(fullBackup, `backup-completo-dados.json`);
       toast({
         title: "Exportação Concluída!",
         description: "O download do seu arquivo JSON foi iniciado.",
@@ -316,7 +312,7 @@ export function DashboardView() {
                     onClick={handleExport}
                     disabled={isExporting}
                   >
-                    {isExporting ? "Exportando..." : "Exportar 1"}
+                    {isExporting ? "Exportando..." : "Exportar 2"}
                   </Button>
                 </div>
               </div>

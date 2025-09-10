@@ -1,53 +1,94 @@
-// in: src/utils/migration.ts (VERSÃO CORRIGIDA)
+// in: src/utils/migration.ts (VERSÃO FINAL E COMPLETA)
 
 import { collection, getDocs, query, type Firestore } from "firebase/firestore";
-import type { Debt, DebtInstallment } from "@/interfaces/finance"; // Ajuste o caminho se necessário
-import type { FinancialEntry } from "@/interfaces/financial-entry"; // Ajuste o caminho se necessário
+import type {
+  Account,
+  Category,
+  Debt,
+  DebtInstallment,
+  PaymentMethod,
+  Transaction,
+} from "@/interfaces/finance"; // Ajuste o caminho
+import type { FinancialEntry } from "@/interfaces/financial-entry"; // Ajuste o caminho
 
-export const exportOldDataAsFinancialEntries = async (
+// Nova interface para o nosso arquivo de backup completo
+export interface FullBackup {
+  financialEntries: FinancialEntry[];
+  accounts: Account[];
+  categories: Category[];
+  paymentMethods: PaymentMethod[];
+}
+
+/**
+ * Lê todos os dados antigos de um usuário (Dívidas, Parcelas, Transações, Contas, etc.)
+ * e os transforma em um único objeto de backup com a nova estrutura.
+ *
+ * @param db A instância do Firestore.
+ * @param uid O ID do usuário cujos dados serão exportados.
+ * @returns Uma promessa que resolve para um objeto FullBackup.
+ */
+export const exportFullUserData = async (
   db: Firestore,
   uid: string
-): Promise<FinancialEntry[]> => {
-  console.log("Iniciando exportação de dados antigos (v2)...");
-
-  // O caminho base para as coleções do usuário
+): Promise<FullBackup> => {
+  console.log("Iniciando exportação completa de dados (v3)...");
   const userBasePath = `artifacts/personal-finance-88fe2/users/${uid}`;
 
-  // 1. Buscar todas as dívidas (Debts) e colocar num Map para acesso rápido.
-  // Isso evita que a gente precise consultar o banco para cada parcela.
-  const debtsRef = collection(db, `${userBasePath}/debts`);
-  const debtsSnapshot = await getDocs(debtsRef);
+  // 1. Buscar todas as coleções em paralelo para máxima eficiência
+  const [
+    debtsSnap,
+    installmentsSnap,
+    transactionsSnap,
+    accountsSnap,
+    categoriesSnap,
+    paymentMethodsSnap,
+  ] = await Promise.all([
+    getDocs(collection(db, `${userBasePath}/debts`)),
+    getDocs(collection(db, `${userBasePath}/debtInstallments`)),
+    getDocs(collection(db, `${userBasePath}/transactions`)),
+    getDocs(collection(db, `${userBasePath}/accounts`)),
+    getDocs(collection(db, `${userBasePath}/categories`)),
+    getDocs(collection(db, `${userBasePath}/paymentMethods`)),
+  ]);
+
+  // 2. Mapear tudo para acesso rápido
   const debtsMap = new Map<string, Debt>();
-  debtsSnapshot.docs.forEach((doc) => {
-    debtsMap.set(doc.id, { id: doc.id, ...doc.data() } as Debt);
-  });
-  console.log(`Encontradas ${debtsMap.size} dívidas no Map.`);
+  debtsSnap.docs.forEach((doc) =>
+    debtsMap.set(doc.id, { id: doc.id, ...doc.data() } as Debt)
+  );
 
-  // 2. Buscar TODAS as parcelas (DebtInstallments) do usuário de uma vez só.
-  // Note que agora estamos buscando na coleção principal "debtInstallments".
-  const installmentsRef = collection(db, `${userBasePath}/debtInstallments`);
-  const installmentsSnapshot = await getDocs(installmentsRef);
-  const allInstallments = installmentsSnapshot.docs.map((doc) => ({
-    id: doc.id,
-    ...doc.data(),
-  })) as DebtInstallment[];
-  console.log(`Encontradas ${allInstallments.length} parcelas no total.`);
+  const transactionsMap = new Map<string, Transaction>();
+  transactionsSnap.docs.forEach((doc) =>
+    transactionsMap.set(doc.id, { id: doc.id, ...doc.data() } as Transaction)
+  );
 
-  const allFinancialEntries: FinancialEntry[] = [];
+  const allInstallments = installmentsSnap.docs.map(
+    (doc) => ({ id: doc.id, ...doc.data() } as DebtInstallment)
+  );
 
-  // 3. Mapear as parcelas, buscando a dívida "mãe" no Map.
+  console.log(
+    `Dados carregados: ${debtsMap.size} dívidas, ${transactionsMap.size} transações, ${allInstallments.length} parcelas.`
+  );
+
+  // 3. Processar e "costurar" os dados para criar os Financial Entries
+  const financialEntries: FinancialEntry[] = [];
   for (const installment of allInstallments) {
     const parentDebt = debtsMap.get(installment.debtId);
+    if (!parentDebt) continue;
 
-    // Se a parcela não tiver uma dívida mãe correspondente, pulamos ela.
-    if (!parentDebt) {
-      console.warn(
-        `Parcela ${installment.id} sem dívida mãe correspondente (debtId: ${installment.debtId}). Pulando.`
-      );
-      continue;
+    let accountId: string | undefined = undefined;
+    let paymentMethodId: string | undefined | null = undefined;
+
+    // Se a parcela tem transações, busca a primeira para pegar os IDs
+    if (installment.transactionIds && installment.transactionIds.length > 0) {
+      const firstTransactionId = installment.transactionIds[0];
+      const linkedTransaction = transactionsMap.get(firstTransactionId);
+      if (linkedTransaction) {
+        accountId = linkedTransaction.accountId;
+        paymentMethodId = linkedTransaction.paymentMethodId;
+      }
     }
 
-    // Lógica de mapeamento (o "de-para") - continua a mesma
     const financialEntry: FinancialEntry = {
       id: installment.id,
       uid: installment.uid,
@@ -73,19 +114,35 @@ export const exportOldDataAsFinancialEntries = async (
       createdAt: installment.createdAt
         ? (installment.createdAt as any).toDate()
         : new Date(),
+      // Dados "enriquecidos" a partir da transação!
+      accountId: accountId,
+      paymentMethodId: paymentMethodId,
     };
-
-    allFinancialEntries.push(financialEntry);
+    financialEntries.push(financialEntry);
   }
 
+  // 4. Preparar o objeto final do backup
+  const fullBackup: FullBackup = {
+    financialEntries: financialEntries,
+    accounts: accountsSnap.docs.map(
+      (doc) => ({ id: doc.id, ...doc.data() } as Account)
+    ),
+    categories: categoriesSnap.docs.map(
+      (doc) => ({ id: doc.id, ...doc.data() } as Category)
+    ),
+    paymentMethods: paymentMethodsSnap.docs.map(
+      (doc) => ({ id: doc.id, ...doc.data() } as PaymentMethod)
+    ),
+  };
+
   console.log(
-    `Exportação finalizada. Total de ${allFinancialEntries.length} lançamentos financeiros gerados.`
+    `Exportação finalizada. Backup contém ${financialEntries.length} lançamentos, ${fullBackup.accounts.length} contas, ${fullBackup.categories.length} categorias, e ${fullBackup.paymentMethods.length} formas de pagamento.`
   );
-  return allFinancialEntries;
+  return fullBackup;
 };
 
 // A função downloadAsJson continua a mesma, não precisa alterar.
-export const downloadAsJson = (data: any[], filename: string) => {
+export const downloadAsJson = (data: any, filename: string) => {
   const jsonStr = JSON.stringify(data, null, 2);
   const blob = new Blob([jsonStr], { type: "application/json" });
   const url = URL.createObjectURL(blob);
