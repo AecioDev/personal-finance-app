@@ -1,111 +1,81 @@
-// in: src/utils/migration.ts
+// in: src/utils/migration.ts (VERSÃO CORRIGIDA)
 
-import {
-  collection,
-  doc,
-  getDocs,
-  query,
-  where,
-  type Firestore,
-} from "firebase/firestore";
+import { collection, getDocs, query, type Firestore } from "firebase/firestore";
 import type { Debt, DebtInstallment } from "@/interfaces/finance"; // Ajuste o caminho se necessário
 import type { FinancialEntry } from "@/interfaces/financial-entry"; // Ajuste o caminho se necessário
 
-/**
- * Lê todos os dados antigos de Dívidas e Parcelas de um usuário
- * e os transforma em uma lista de Lançamentos Financeiros (FinancialEntry).
- *
- * @param db A instância do Firestore.
- * @param uid O ID do usuário cujos dados serão exportados.
- * @returns Uma promessa que resolve para um array de FinancialEntry.
- */
 export const exportOldDataAsFinancialEntries = async (
   db: Firestore,
   uid: string
 ): Promise<FinancialEntry[]> => {
-  console.log("Iniciando exportação de dados antigos...");
+  console.log("Iniciando exportação de dados antigos (v2)...");
 
-  // 1. Buscar todas as dívidas (Debts) do usuário.
-  const debtsRef = collection(
-    db,
-    "artifacts",
-    "personal-finance-88fe2",
-    "users",
-    uid,
-    "debts"
-  );
-  const debtsQuery = query(debtsRef);
-  const debtsSnapshot = await getDocs(debtsQuery);
-  const debts = debtsSnapshot.docs.map((doc) => ({
+  // O caminho base para as coleções do usuário
+  const userBasePath = `artifacts/personal-finance-88fe2/users/${uid}`;
+
+  // 1. Buscar todas as dívidas (Debts) e colocar num Map para acesso rápido.
+  // Isso evita que a gente precise consultar o banco para cada parcela.
+  const debtsRef = collection(db, `${userBasePath}/debts`);
+  const debtsSnapshot = await getDocs(debtsRef);
+  const debtsMap = new Map<string, Debt>();
+  debtsSnapshot.docs.forEach((doc) => {
+    debtsMap.set(doc.id, { id: doc.id, ...doc.data() } as Debt);
+  });
+  console.log(`Encontradas ${debtsMap.size} dívidas no Map.`);
+
+  // 2. Buscar TODAS as parcelas (DebtInstallments) do usuário de uma vez só.
+  // Note que agora estamos buscando na coleção principal "debtInstallments".
+  const installmentsRef = collection(db, `${userBasePath}/debtInstallments`);
+  const installmentsSnapshot = await getDocs(installmentsRef);
+  const allInstallments = installmentsSnapshot.docs.map((doc) => ({
     id: doc.id,
     ...doc.data(),
-  })) as Debt[];
+  })) as DebtInstallment[];
+  console.log(`Encontradas ${allInstallments.length} parcelas no total.`);
 
   const allFinancialEntries: FinancialEntry[] = [];
-  console.log(`Encontradas ${debts.length} dívidas. Processando parcelas...`);
 
-  // 2. Para cada dívida, buscar suas parcelas (DebtInstallments).
-  for (const debt of debts) {
-    const installmentsRef = collection(
-      db,
-      "artifacts",
-      "personal-finance-88fe2",
-      "users",
-      uid,
-      "debts",
-      debt.id,
-      "debt-installments"
-    );
-    const installmentsSnapshot = await getDocs(installmentsRef);
-    const installments = installmentsSnapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    })) as DebtInstallment[];
+  // 3. Mapear as parcelas, buscando a dívida "mãe" no Map.
+  for (const installment of allInstallments) {
+    const parentDebt = debtsMap.get(installment.debtId);
 
-    // 3. Mapear cada Parcela para um Lançamento Financeiro.
-    for (const installment of installments) {
-      // Lógica de mapeamento (o "de-para")
-      const financialEntry: FinancialEntry = {
-        id: installment.id, // Mantemos o ID original da parcela para rastreabilidade
-        uid: installment.uid,
-        description: `${debt.description} (${installment.installmentNumber}/${debt.totalInstallments})`,
-        notes: "Dado migrado da estrutura antiga.",
-        type: "expense", // Dívidas são sempre despesas
-
-        // Mapeamento de Status
-        status:
-          installment.status === "paid"
-            ? "paid"
-            : installment.status === "overdue"
-            ? "overdue"
-            : "pending",
-
-        expectedAmount: installment.expectedAmount,
-        dueDate: (installment.expectedDueDate as any).toDate(), // Convertendo Timestamp para Date
-
-        paidAmount: installment.paidAmount > 0 ? installment.paidAmount : null,
-        paymentDate: installment.paymentDate
-          ? (installment.paymentDate as any).toDate()
-          : null,
-
-        categoryId: debt.categoryId,
-
-        // Campos de recorrência
-        recurrenceId: installment.debtId,
-        installmentNumber: installment.installmentNumber,
-        totalInstallments: debt.totalInstallments || 0,
-
-        createdAt: installment.createdAt
-          ? (installment.createdAt as any).toDate()
-          : new Date(),
-      };
-
-      // ATENÇÃO: accountId e paymentMethodId não estão no modelo antigo.
-      // Eles teriam que ser buscados na coleção 'transactions',
-      // o que tornaria o script mais complexo. Por enquanto, ficam de fora.
-
-      allFinancialEntries.push(financialEntry);
+    // Se a parcela não tiver uma dívida mãe correspondente, pulamos ela.
+    if (!parentDebt) {
+      console.warn(
+        `Parcela ${installment.id} sem dívida mãe correspondente (debtId: ${installment.debtId}). Pulando.`
+      );
+      continue;
     }
+
+    // Lógica de mapeamento (o "de-para") - continua a mesma
+    const financialEntry: FinancialEntry = {
+      id: installment.id,
+      uid: installment.uid,
+      description: `${parentDebt.description} (${installment.installmentNumber}/${parentDebt.totalInstallments})`,
+      notes: "Dado migrado da estrutura antiga.",
+      type: "expense",
+      status:
+        installment.status === "paid"
+          ? "paid"
+          : installment.status === "overdue"
+          ? "overdue"
+          : "pending",
+      expectedAmount: installment.expectedAmount,
+      dueDate: (installment.expectedDueDate as any).toDate(),
+      paidAmount: installment.paidAmount > 0 ? installment.paidAmount : null,
+      paymentDate: installment.paymentDate
+        ? (installment.paymentDate as any).toDate()
+        : null,
+      categoryId: parentDebt.categoryId,
+      recurrenceId: installment.debtId,
+      installmentNumber: installment.installmentNumber,
+      totalInstallments: parentDebt.totalInstallments || 0,
+      createdAt: installment.createdAt
+        ? (installment.createdAt as any).toDate()
+        : new Date(),
+    };
+
+    allFinancialEntries.push(financialEntry);
   }
 
   console.log(
@@ -114,13 +84,9 @@ export const exportOldDataAsFinancialEntries = async (
   return allFinancialEntries;
 };
 
-/**
- * Pega um array de dados e dispara o download de um arquivo JSON.
- * @param data O array de dados a ser salvo.
- * @param filename O nome do arquivo JSON.
- */
+// A função downloadAsJson continua a mesma, não precisa alterar.
 export const downloadAsJson = (data: any[], filename: string) => {
-  const jsonStr = JSON.stringify(data, null, 2); // O '2' formata o JSON para ficar legível
+  const jsonStr = JSON.stringify(data, null, 2);
   const blob = new Blob([jsonStr], { type: "application/json" });
   const url = URL.createObjectURL(blob);
 
