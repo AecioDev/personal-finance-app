@@ -7,8 +7,8 @@ import { BottomNavBar } from "./bottom-nav-bar";
 import { useModal } from "../providers/modal-provider";
 import { CategoryManagerDialog } from "../categories/category-manager-dialog";
 import { useFinance } from "../providers/finance-provider";
-import { NewExpenseModal } from "../modals/new-expense-modal";
-import { NewIncomeModal } from "../modals/new-income-modal";
+import { NewExpenseModal } from "../financial-entries/modals/new-expense-modal";
+import { NewIncomeModal } from "../financial-entries/modals/new-income-modal";
 
 export function MainLayout({ children }: { children: React.ReactNode }) {
   const {

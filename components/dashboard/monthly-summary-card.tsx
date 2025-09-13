@@ -38,7 +38,12 @@ export function MonthlySummaryCard({
       : 0;
 
   return (
-    <Card className="rounded-[2rem] shadow-md bg-primary text-primary-foreground">
+    <Card
+      className={cn(
+        "rounded-[2rem] shadow-md bg-muted text-muted-foreground border",
+        resolvedTheme === "dark" ? "border-primary border-2" : "border-primary"
+      )}
+    >
       <CardContent className="p-4 space-y-4 font-medium">
         <div className="flex justify-between items-center text-primary-foreground">
           <Button variant="light" size="icon" onClick={onPreviousMonth}>
@@ -52,10 +57,7 @@ export function MonthlySummaryCard({
           </Button>
         </div>
         <div>
-          <Progress
-            value={progressValue}
-            className="h-4 bg-background [&>div]:bg-foreground"
-          />
+          <Progress value={progressValue} className="h-4 bg-background" />
           <div className="flex justify-between text-sm text-muted-foreground mt-1">
             <span>{progressValue.toFixed(0)}% pago</span>
             <span>
@@ -91,14 +93,7 @@ export function MonthlySummaryCard({
           </div>
           <div>
             <p className="text-sm text-muted-foreground">Falta</p>
-            <p
-              className={cn(
-                "font-bold text-lg",
-                resolvedTheme === "dark"
-                  ? "text-destructive"
-                  : "text-background"
-              )}
-            >
+            <p className="font-bold text-lg text-destructive">
               {summary.faltaPagar.toLocaleString("pt-BR", {
                 style: "currency",
                 currency: "BRL",

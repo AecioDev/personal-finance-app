@@ -1,4 +1,4 @@
-// in: components/providers/finance-provider.tsx
+// in: components/providers/finance-provider.tsx (VERSÃO ATUALIZADA)
 
 "use client";
 
@@ -34,6 +34,8 @@ import {
   defaultCategories,
   defaultPaymentMethods,
 } from "@/lib/data/defaults";
+import { FullBackup } from "@/hooks/use-financial-entries-crud";
+import { PaymentFormData } from "@/schemas/payment-schema"; // IMPORTAR O TIPO DO FORM
 
 interface FinanceContextType {
   // Estados
@@ -64,7 +66,7 @@ interface FinanceContextType {
   getAccountById: (id: string) => Account | undefined;
   refreshData: () => void;
 
-  // Funções CRUD de Lançamentos Financeiros ATUALIZADAS
+  // Funções CRUD de Lançamentos Financeiros
   addFinancialEntry: ReturnType<
     typeof useFinancialEntriesCrud
   >["addFinancialEntry"];
@@ -80,6 +82,18 @@ interface FinanceContextType {
   deleteFinancialEntry: ReturnType<
     typeof useFinancialEntriesCrud
   >["deleteFinancialEntry"];
+
+  // NOVA FUNÇÃO DE PAGAMENTO ADICIONADA AQUI
+  processFinancialEntryPayment: (
+    entryId: string,
+    paymentData: PaymentFormData
+  ) => Promise<boolean>;
+
+  exportUserData: () => Promise<FullBackup>;
+  importUserData: (
+    backupData: FullBackup,
+    onProgress: (message: string) => void
+  ) => Promise<void>;
 }
 
 const FinanceContext = createContext<FinanceContextType | undefined>(undefined);
@@ -90,7 +104,6 @@ export const FinanceProvider = ({ children }: { children: ReactNode }) => {
   const hasCheckedData = useRef(false);
   const { toast } = useToast();
 
-  // Estados
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
@@ -126,6 +139,7 @@ export const FinanceProvider = ({ children }: { children: ReactNode }) => {
   });
 
   useEffect(() => {
+    // ... (lógica de verificação de dados padrão, sem alteração)
     if (user && projectId && !hasCheckedData.current) {
       hasCheckedData.current = true;
       const runDataCheck = async () => {
@@ -320,7 +334,6 @@ export const FinanceProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [user, projectId, toast]);
 
-  // Hooks CRUD
   const { addAccount, updateAccount, deleteAccount } = useAccountsCrud({
     db: dbRef.current,
     user,
@@ -341,13 +354,15 @@ export const FinanceProvider = ({ children }: { children: ReactNode }) => {
       setErrorFinanceData,
     });
 
-  // Hook de Lançamentos Financeiros ATUALIZADO
   const {
     addFinancialEntry,
     addInstallmentEntry,
     addMonthlyRecurringEntries,
     updateFinancialEntry,
     deleteFinancialEntry,
+    processFinancialEntryPayment, // <-- PEGANDO A NOVA FUNÇÃO DO HOOK
+    exportUserData,
+    importUserData,
   } = useFinancialEntriesCrud({
     db: dbRef.current,
     user,
@@ -382,12 +397,14 @@ export const FinanceProvider = ({ children }: { children: ReactNode }) => {
         deletePaymentMethod,
         getAccountById,
         refreshData,
-        // Funções de Lançamentos Financeiros ATUALIZADAS
         addFinancialEntry,
         addInstallmentEntry,
         addMonthlyRecurringEntries,
         updateFinancialEntry,
         deleteFinancialEntry,
+        processFinancialEntryPayment, // <-- DISPONIBILIZANDO A FUNÇÃO NO CONTEXTO
+        exportUserData,
+        importUserData,
       }}
     >
       {children}

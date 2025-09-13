@@ -1,6 +1,13 @@
 // in: src/utils/migration.ts (VERSÃO FINAL E COMPLETA)
 
-import { collection, getDocs, query, type Firestore } from "firebase/firestore";
+import {
+  collection,
+  doc,
+  getDocs,
+  query,
+  writeBatch,
+  type Firestore,
+} from "firebase/firestore";
 import type {
   Account,
   Category,
@@ -139,6 +146,86 @@ export const exportFullUserData = async (
     `Exportação finalizada. Backup contém ${financialEntries.length} lançamentos, ${fullBackup.accounts.length} contas, ${fullBackup.categories.length} categorias, e ${fullBackup.paymentMethods.length} formas de pagamento.`
   );
   return fullBackup;
+};
+
+/**
+ * ATENÇÃO: AÇÃO DESTRUTIVA.
+ * Apaga todas as coleções de dados financeiros de um usuário.
+ * Usado para limpar o ambiente antes de uma importação.
+ * @param db Instância do Firestore.
+ * @param uid ID do usuário a ser limpo.
+ */
+export const wipeUserData = async (
+  db: Firestore,
+  uid: string,
+  onProgress: (message: string) => void
+) => {
+  onProgress("Iniciando limpeza de dados antigos...");
+  const collectionsToWipe = [
+    "financialEntries",
+    "accounts",
+    "categories",
+    "paymentMethods",
+  ];
+  const userBasePath = `artifacts/personal-finance-dev-11223/users/${uid}`;
+
+  for (const coll of collectionsToWipe) {
+    onProgress(`Limpando ${coll}...`);
+    const collRef = collection(db, `${userBasePath}/${coll}`);
+    const snapshot = await getDocs(collRef);
+    if (snapshot.empty) continue;
+
+    const batch = writeBatch(db);
+    snapshot.docs.forEach((doc) => batch.delete(doc.ref));
+    await batch.commit();
+    console.log(
+      `Coleção "${coll}" limpa. ${snapshot.size} documentos removidos.`
+    );
+  }
+  onProgress("Limpeza de dados concluída.");
+};
+
+/**
+ * Importa dados de um objeto de backup para o Firestore,
+ * substituindo o UID antigo pelo UID do novo usuário.
+ * @param db Instância do Firestore.
+ * @param uid ID do usuário que receberá os dados.
+ * @param backupData Objeto contendo os dados do backup.
+ */
+export const importFullUserData = async (
+  db: Firestore,
+  uid: string,
+  backupData: FullBackup,
+  onProgress: (message: string) => void
+) => {
+  onProgress("Iniciando importação dos novos dados...");
+  const userBasePath = `artifacts/personal-finance-dev-11223/users/${uid}`;
+  const batch = writeBatch(db);
+
+  const processCollection = (
+    collectionName: keyof FullBackup,
+    collectionPath: string
+  ) => {
+    const items = backupData[collectionName] as any[];
+    if (items && items.length > 0) {
+      onProgress(`Importando ${items.length} ${collectionName}...`);
+      items.forEach((item) => {
+        const docRef = doc(collection(db, `${userBasePath}/${collectionPath}`));
+        const newItemData = { ...item, uid };
+        delete newItemData.id;
+        batch.set(docRef, newItemData);
+      });
+    }
+  };
+
+  processCollection("accounts", "accounts");
+  processCollection("categories", "categories");
+  processCollection("paymentMethods", "paymentMethods");
+  processCollection("financialEntries", "financialEntries");
+
+  onProgress("Salvando tudo no banco de dados...");
+  await batch.commit();
+  onProgress("Importação concluída com sucesso!");
 };
 
 // A função downloadAsJson continua a mesma, não precisa alterar.

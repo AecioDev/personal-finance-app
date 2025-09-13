@@ -9,7 +9,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { FinancialEntryForm } from "../financial-entries/financial-entry-form";
+import { FinancialEntryForm } from "../forms/financial-entry-form";
 
 interface NewExpenseModalProps {
   isOpen: boolean;

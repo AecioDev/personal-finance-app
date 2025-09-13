@@ -1,33 +1,40 @@
-// in: components/dashboard/financial-entry-list.tsx
-
+// src/components/dashboard/financial-entry-list.tsx
 "use client";
 
 import { useState } from "react";
 import { FinancialEntry } from "@/interfaces/financial-entry";
 import { useFinance } from "@/components/providers/finance-provider";
 import { cn } from "@/lib/utils";
-import { format } from "date-fns";
+import { format, isPast, isToday } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Icon } from "@iconify/react";
-import { Button } from "../ui/button";
-// Futuramente, criaremos um modal de detalhes para o FinancialEntry
-// import { FinancialEntryDetailsModal } from "./financial-entry-details-modal";
+import { Category } from "@/interfaces/finance";
+import { FinancialEntryDetailsModal } from "../financial-entries/modals/financial-entry-details-modal";
+import { FinancialEntryPaymentModal } from "../financial-entries/modals/financial-entry-payment-modal";
 
 interface FinancialEntryListProps {
   entries: FinancialEntry[];
+  categories: Category[];
 }
 
-export function FinancialEntryList({ entries }: FinancialEntryListProps) {
-  const { categories } = useFinance();
-  // Estado para o futuro modal de detalhes
+export function FinancialEntryList({
+  entries,
+  categories,
+}: FinancialEntryListProps) {
   const [selectedEntry, setSelectedEntry] = useState<FinancialEntry | null>(
     null
   );
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
 
   const handleViewDetails = (entry: FinancialEntry) => {
     setSelectedEntry(entry);
-    // setIsModalOpen(true); // Ativaremos isso quando o modal for criado
+    setIsDetailsModalOpen(true);
+  };
+
+  const handleOpenPaymentModal = (entry: FinancialEntry) => {
+    setSelectedEntry(entry);
+    setIsPaymentModalOpen(true);
   };
 
   const getCategoryIcon = (categoryId?: string) => {
@@ -55,19 +62,19 @@ export function FinancialEntryList({ entries }: FinancialEntryListProps) {
     <>
       <div className="space-y-3">
         {entries.map((entry) => {
+          const dueDate = new Date(entry.dueDate);
           const isIncome = entry.type === "income";
           const isPaid = entry.status === "paid";
-          const isOverdue = entry.status === "overdue";
 
-          // --- Lógica de Estilização Unificada ---
+          const isOverdue = !isPaid && isPast(dueDate) && !isToday(dueDate);
+
           const statusColor = isPaid
             ? "bg-status-complete"
             : isOverdue
             ? "bg-destructive"
             : isIncome
-            ? "bg-green-500" // Cor para receitas pendentes
-            : "bg-status-in-progress"; // Cor para despesas pendentes
-
+            ? "bg-green-500"
+            : "bg-status-in-progress";
           const borderColor = isPaid
             ? "border-status-complete"
             : isOverdue
@@ -75,7 +82,6 @@ export function FinancialEntryList({ entries }: FinancialEntryListProps) {
             : isIncome
             ? "border-green-500"
             : "border-status-in-progress";
-
           const textColor = isPaid
             ? "text-status-complete"
             : isOverdue
@@ -83,7 +89,6 @@ export function FinancialEntryList({ entries }: FinancialEntryListProps) {
             : isIncome
             ? "text-green-600"
             : "text-foreground";
-
           const categoryIcon = getCategoryIcon(entry.categoryId);
 
           return (
@@ -116,10 +121,7 @@ export function FinancialEntryList({ entries }: FinancialEntryListProps) {
                   >
                     {(entry.paidAmount ?? entry.expectedAmount).toLocaleString(
                       "pt-BR",
-                      {
-                        style: "currency",
-                        currency: "BRL",
-                      }
+                      { style: "currency", currency: "BRL" }
                     )}
                   </p>
                   <p className="text-sm text-muted-foreground">
@@ -129,44 +131,39 @@ export function FinancialEntryList({ entries }: FinancialEntryListProps) {
                           "dd 'de' MMM, yyyy",
                           { locale: ptBR }
                         )}`
-                      : `Vence em: ${format(
-                          new Date(entry.dueDate),
-                          "dd 'de' MMM, yyyy",
-                          {
-                            locale: ptBR,
-                          }
-                        )}`}
+                      : isOverdue
+                      ? `Venceu em: ${format(dueDate, "dd 'de' MMM, yyyy", {
+                          locale: ptBR,
+                        })}`
+                      : `Vence em: ${format(dueDate, "dd 'de' MMM, yyyy", {
+                          locale: ptBR,
+                        })}`}
                   </p>
                 </div>
               </div>
-
               <div className="pl-2">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="rounded-full h-9 w-9 flex-shrink-0"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleViewDetails(entry);
-                  }}
-                >
-                  <Icon
-                    icon="fa6-solid:chevron-right"
-                    className={cn("h-4 w-4 text-muted-foreground")}
-                  />
-                </Button>
+                <Icon
+                  icon="fa6-solid:chevron-right"
+                  className={cn("h-4 w-4 text-muted-foreground")}
+                />
               </div>
             </div>
           );
         })}
       </div>
 
-      {/* <FinancialEntryDetailsModal
-        isOpen={isModalOpen}
-        onOpenChange={setIsModalOpen}
+      <FinancialEntryDetailsModal
+        isOpen={isDetailsModalOpen}
+        onOpenChange={setIsDetailsModalOpen}
         entry={selectedEntry}
-      /> 
-      */}
+        onPayNow={handleOpenPaymentModal}
+      />
+
+      <FinancialEntryPaymentModal
+        isOpen={isPaymentModalOpen}
+        onOpenChange={setIsPaymentModalOpen}
+        entry={selectedEntry}
+      />
     </>
   );
 }

@@ -2,43 +2,65 @@
 
 import React from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { Icon } from "@iconify/react";
+import { cn } from "@/lib/utils";
 
-// A interface define que o componente precisa de um título e do conteúdo (children)
 interface PageViewLayoutProps {
   title: string;
   children: React.ReactNode;
+  bgImage?: string;
+  subtitle?: string;
 }
 
-/**
- * Um template de layout padrão para páginas internas, seguindo o design do Figma.
- * @param title O título a ser exibido no cabeçalho.
- * @param children O conteúdo da página que será renderizado dentro do container branco.
- */
-export function PageViewLayout({ title, children }: PageViewLayoutProps) {
+export function PageViewLayout({
+  title,
+  children,
+  bgImage,
+  subtitle,
+}: PageViewLayoutProps) {
   const router = useRouter();
+
+  const handleGoBack = () => {
+    if (window.history.length <= 2) {
+      router.push("/dashboard");
+    } else {
+      router.back();
+    }
+  };
 
   return (
     <div className="bg-primary">
-      {/* Cabeçalho Verde Padrão */}
-      <div className="flex h-56 flex-col text-primary-foreground">
-        {/* Linha superior apenas com o botão de voltar */}
-        <div className="relative z-10 flex-shrink-0 p-4">
+      <div className="relative flex h-56 flex-col text-primary-foreground overflow-hidden">
+        {bgImage && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <Image
+              src={bgImage}
+              alt=""
+              width={144}
+              height={144}
+              style={{ opacity: 0.5 }}
+            />
+          </div>
+        )}
+
+        {/* Botão de Voltar com z-index maior */}
+        <div className="relative z-20 flex-shrink-0 p-4">
           <Icon
             icon="mdi:arrow-left"
-            onClick={() => router.back()}
+            onClick={handleGoBack}
             className="h-6 w-6 cursor-pointer transition-opacity hover:opacity-80"
           />
         </div>
-        {/* Container do título para centralização perfeita */}
-        <div className="flex flex-grow items-center justify-center -mt-14">
+
+        {/* Título e Subtítulo */}
+        <div className="relative z-10 flex flex-grow flex-col items-center justify-center -mt-14 text-center">
           <h1 className="text-3xl font-semibold">{title}</h1>
+          {subtitle && <p className="text-sm opacity-80 mt-1">{subtitle}</p>}
         </div>
       </div>
 
-      {/* Container Branco Curvado com margem negativa para sobrepor */}
       <div className="space-y-4 rounded-t-[2.5rem] bg-background p-4">
-        {/* O conteúdo da sua página será renderizado aqui dentro */}
         {children}
       </div>
     </div>

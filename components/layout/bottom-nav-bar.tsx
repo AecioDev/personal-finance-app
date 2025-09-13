@@ -1,7 +1,9 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useTheme } from "next-themes"; // 1. IMPORTAMOS O HOOK DE TEMA
 import { Icon } from "@iconify/react";
 import { cn } from "@/lib/utils";
 import { useModal } from "@/components/providers/modal-provider";
@@ -23,23 +25,17 @@ const navItems = [
   },
   {
     type: "link",
-    href: "/debts",
-    icon: "mdi:credit-card-off",
-    label: "Dívidas",
+    href: "/extrato",
+    icon: "mdi:format-list-bulleted-square",
+    label: "Extrato",
   },
   { type: "action" },
-  {
-    type: "link",
-    href: "/reports",
-    icon: "mdi:chart-bar",
-    label: "Relatórios",
-  },
+  { type: "theme-toggle" }, // 2. SUBSTITUÍMOS O ITEM VAZIO
   { type: "menu", icon: "mdi:cog-outline", label: "Cadastros" },
 ];
 
 export function BottomNavBar() {
   const pathname = usePathname();
-  // Pegando as ações padrão e as customizadas do nosso provider
   const {
     openNewExpenseModal,
     openNewIncomeModal,
@@ -47,11 +43,23 @@ export function BottomNavBar() {
     customActions,
   } = useModal();
 
+  // 3. INICIALIZAMOS O HOOK DE TEMA
+  const { theme, setTheme } = useTheme();
+
+  // Controle para evitar erro de hidratação (comum com `next-themes`)
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
+  const toggleTheme = () => {
+    setTheme(theme === "light" ? "dark" : "light");
+  };
+
   return (
     <div className="fixed bottom-0 left-0 right-0 h-20 bg-muted border-t rounded-2xl z-50">
       <nav className="grid grid-cols-5 items-center h-full">
         {navItems.map((item, index) => {
           if (item.type === "action") {
+            // ... (código do botão de ação, sem alteração)
             return (
               <div key="actions-button" className="-mt-8 flex justify-center">
                 <DropdownMenu>
@@ -69,7 +77,6 @@ export function BottomNavBar() {
                     className="mb-2 bg-surface"
                   >
                     {customActions.length > 0 ? (
-                      // Se existem ações customizadas, mostra elas
                       customActions.map((action) => (
                         <DropdownMenuItem
                           key={action.label}
@@ -81,7 +88,6 @@ export function BottomNavBar() {
                         </DropdownMenuItem>
                       ))
                     ) : (
-                      // Se não, mostra as ações padrão
                       <>
                         <DropdownMenuItem
                           onClick={openNewExpenseModal}
@@ -109,6 +115,7 @@ export function BottomNavBar() {
           }
 
           if (item.type === "menu") {
+            // ... (código do menu de cadastros, sem alteração)
             return (
               <DropdownMenu key={item.label}>
                 <DropdownMenuTrigger asChild>
@@ -155,6 +162,30 @@ export function BottomNavBar() {
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
+            );
+          }
+
+          // 4. ADICIONAMOS A LÓGICA PARA RENDERIZAR NOSSO NOVO BOTÃO
+          if (item.type === "theme-toggle") {
+            // Se o componente ainda não montou, renderiza um placeholder para evitar piscar
+            if (!mounted) return <div key="theme-toggle-placeholder" />;
+
+            return (
+              <button
+                key="theme-toggle"
+                onClick={toggleTheme}
+                className="flex flex-col items-center justify-center gap-1 text-muted-foreground transition-colors"
+              >
+                <Icon
+                  icon={
+                    theme === "light"
+                      ? "mdi:weather-sunny"
+                      : "mdi:weather-night"
+                  }
+                  className="h-6 w-6"
+                />
+                <span className="text-xs capitalize">{theme}</span>
+              </button>
             );
           }
 

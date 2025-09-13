@@ -15,7 +15,17 @@ import {
   signOut,
   onAuthStateChanged,
   User as FirebaseUser,
+  deleteUser,
 } from "firebase/auth";
+import {
+  getFirestore,
+  collection,
+  getDocs,
+  writeBatch,
+  doc,
+  setDoc,
+  getDoc,
+} from "firebase/firestore";
 
 interface AuthContextType {
   user: FirebaseUser | null;
@@ -23,6 +33,8 @@ interface AuthContextType {
   logout: () => Promise<void>;
   loading: boolean;
   projectId: string | null;
+  deleteUserAccount: () => Promise<void>;
+  completeOnboarding: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -43,120 +55,158 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
 
   const authRef = React.useRef<any>(null);
+  const appRef = React.useRef<any>(null);
 
   useEffect(() => {
-    console.log(
-      "AuthProvider: Iniciando useEffect de inicialização do Firebase..."
-    );
     try {
-      // NOVO: Lê a configuração do Firebase das variáveis de ambiente
       const firebaseConfig = JSON.parse(
         process.env.NEXT_PUBLIC_FIREBASE_CONFIG || "{}"
       );
-      console.log(
-        "AuthProvider: Firebase Config (variáveis de ambiente carregadas):"
-      );
-
-      if (
-        !firebaseConfig ||
-        Object.keys(firebaseConfig).length === 0 ||
-        !firebaseConfig.apiKey
-      ) {
-        console.error(
-          "AuthProvider: Firebase config está faltando ou vazio. Por favor, configure NEXT_PUBLIC_FIREBASE_CONFIG nas variáveis de ambiente."
-        );
+      if (!firebaseConfig || !firebaseConfig.apiKey) {
+        console.error("AuthProvider: Firebase config está faltando.");
         setLoading(false);
         return;
       }
 
-      let app;
       if (getApps().length === 0) {
-        app = initializeApp(firebaseConfig);
-        console.log(
-          "AuthProvider: Firebase App inicializado pela primeira vez."
-        );
+        appRef.current = initializeApp(firebaseConfig);
       } else {
-        app = getApp();
-        console.log("AuthProvider: Usando Firebase App existente.");
+        appRef.current = getApp();
       }
 
-      setCurrentProjectId(app.options.projectId || null);
-
-      authRef.current = getAuth(app);
-      console.log("AuthProvider: Firebase Auth inicializado.");
+      setCurrentProjectId(appRef.current.options.projectId || null);
+      authRef.current = getAuth(appRef.current);
 
       const unsubscribe = onAuthStateChanged(
         authRef.current,
         (firebaseUser) => {
-          if (firebaseUser) {
-            console.log(
-              "AuthProvider: onAuthStateChanged - Usuário logado:",
-              firebaseUser.email
-            );
-            setUser(firebaseUser);
-          } else {
-            console.log(
-              "AuthProvider: onAuthStateChanged - Nenhum usuário logado."
-            );
-            setUser(null);
-          }
+          setUser(firebaseUser);
           setLoading(false);
-          console.log("AuthProvider: Loading set to false.");
         }
       );
 
-      return () => {
-        unsubscribe();
-        console.log("AuthProvider: Limpeza do listener onAuthStateChanged.");
-      };
-    } catch (error: any) {
-      console.error(
-        "AuthProvider: Falha ao inicializar Firebase ou analisar configuração:",
-        error
-      );
+      return () => unsubscribe();
+    } catch (error) {
+      console.error("AuthProvider: Falha ao inicializar Firebase:", error);
       setLoading(false);
     }
   }, []);
 
   const login = async () => {
-    console.log("AuthProvider: Tentando login com Google...");
     try {
-      if (!authRef.current) {
-        console.error(
-          "AuthProvider: Firebase Auth não inicializado para login."
-        );
-        return;
-      }
       const provider = new GoogleAuthProvider();
       await signInWithPopup(authRef.current, provider);
-      console.log("AuthProvider: signInWithPopup concluído.");
     } catch (error: any) {
-      console.error(
-        "AuthProvider: Erro durante o login com Google:",
-        error.message
-      );
+      console.error("AuthProvider: Erro durante o login:", error.message);
     }
   };
 
   const logout = async () => {
-    console.log("AuthProvider: Tentando logout...");
     try {
-      if (!authRef.current) {
-        console.error(
-          "AuthProvider: Firebase Auth não inicializado para logout."
-        );
-        return;
-      }
       await signOut(authRef.current);
-      console.log("AuthProvider: signOut concluído.");
     } catch (error: any) {
       console.error("AuthProvider: Erro durante o logout:", error.message);
     }
   };
 
+  const deleteUserAccount = async () => {
+    const currentUser = authRef.current?.currentUser;
+    if (!currentUser || !appRef.current || !currentProjectId) {
+      throw new Error("Usuário não autenticado ou app não inicializado.");
+    }
+
+    try {
+      console.log("Iniciando exclusão de dados do Firestore...");
+      const db = getFirestore(appRef.current);
+      const collectionsToWipe = [
+        "accounts",
+        "categories",
+        "paymentMethods",
+        "financial-entries",
+      ];
+
+      for (const coll of collectionsToWipe) {
+        console.log(`Limpando coleção: ${coll}`);
+        const userColPath = `artifacts/${currentProjectId}/users/${currentUser.uid}/${coll}`;
+        const userColRef = collection(db, userColPath);
+        const snapshot = await getDocs(userColRef);
+
+        if (!snapshot.empty) {
+          const batch = writeBatch(db);
+          snapshot.docs.forEach((doc) => batch.delete(doc.ref));
+          await batch.commit();
+          console.log(`Coleção ${coll} limpa com sucesso.`);
+        }
+      }
+
+      console.log("Limpando dados de perfil...");
+      const profileSettingsRef = doc(
+        db,
+        `artifacts/${currentProjectId}/users/${currentUser.uid}/profile`,
+        "settings"
+      );
+
+      const settingsSnap = await getDoc(profileSettingsRef);
+      if (settingsSnap.exists()) {
+        const batch = writeBatch(db);
+        batch.delete(profileSettingsRef);
+        await batch.commit();
+        console.log("Documento de settings do perfil removido.");
+      }
+
+      console.log("Dados do Firestore excluídos. Excluindo usuário do Auth...");
+      await deleteUser(currentUser);
+
+      console.log("Usuário excluído do Firebase Authentication com sucesso.");
+      setUser(null);
+    } catch (error: any) {
+      console.error("Erro ao deletar a conta do usuário:", error);
+      if (error.code === "auth/requires-recent-login") {
+        throw new Error(
+          "Esta operação é sensível e requer autenticação recente. Por favor, faça login novamente e tente de novo."
+        );
+      }
+      throw new Error("Não foi possível remover a conta. Tente novamente.");
+    }
+  };
+
+  const completeOnboarding = async () => {
+    const currentUser = authRef.current?.currentUser;
+    if (!currentUser || !appRef.current || !currentProjectId) {
+      throw new Error("Usuário não autenticado ou app não inicializado.");
+    }
+    try {
+      const db = getFirestore(appRef.current);
+      const settingsRef = doc(
+        db,
+        `artifacts/${currentProjectId}/users/${currentUser.uid}/profile`,
+        "settings"
+      );
+
+      await setDoc(settingsRef, {
+        onboardingCompleted: true,
+        createdAt: new Date(),
+      });
+      console.log(
+        "Onboarding finalizado e salvo para o usuário no caminho correto."
+      );
+    } catch (error) {
+      console.error("Erro ao salvar status do onboarding:", error);
+      throw new Error("Não foi possível salvar suas configurações.");
+    }
+  };
+
   return (
     <AuthContext.Provider
-      value={{ user, login, logout, loading, projectId: currentProjectId }}
+      value={{
+        user,
+        login,
+        logout,
+        loading,
+        projectId: currentProjectId,
+        deleteUserAccount,
+        completeOnboarding,
+      }}
     >
       {children}
     </AuthContext.Provider>

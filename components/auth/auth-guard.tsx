@@ -1,58 +1,100 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/components/providers/auth-provider";
 import { LoginScreen } from "./login-screen";
+import { getFirestore, doc, getDoc } from "firebase/firestore";
 
 interface AuthGuardProps {
   children: React.ReactNode;
 }
 
+const LoadingScreen = ({ text }: { text: string }) => (
+  <div className="min-h-screen flex items-center justify-center bg-background p-4">
+    <p className="text-lg text-muted-foreground animate-pulse">{text}</p>
+  </div>
+);
+
 export function AuthGuard({ children }: AuthGuardProps) {
-  const { user, loading } = useAuth();
+  const { user, loading: authLoading, projectId } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
 
+  // Um único estado para saber se já temos a resposta final sobre o perfil
+  const [isProfileChecked, setIsProfileChecked] = useState(false);
+
   useEffect(() => {
-    // Se ainda estiver carregando a autenticação, não faz nada e espera
-    if (loading) {
-      console.log("AuthGuard: Autenticação ainda carregando...");
+    // Se a autenticação do Firebase ainda está rolando, a gente espera.
+    if (authLoading) {
       return;
     }
 
-    // Se não estiver carregando E não houver usuário,
-    // a LoginScreen será renderizada por este componente.
-    // Não precisamos de router.push aqui.
+    // Se não tem usuário, não há perfil para checar. Fim da verificação.
     if (!user) {
-      console.log("AuthGuard: Usuário não autenticado. Exibindo LoginScreen.");
-    } else {
-      console.log("AuthGuard: Usuário autenticado:", user.email);
-      // Se o usuário estiver logado e a rota atual for /login, redireciona para o dashboard
-      // Isso é para evitar que o usuário logado veja a tela de login se tentar acessá-la diretamente
-      if (pathname === "/login") {
-        // Verifique se router.pathname existe e é a forma correta de pegar a rota atual
-        router.push("/dashboard");
-      }
+      setIsProfileChecked(true);
+      return;
     }
-  }, [user, loading, router]);
 
-  // Se estiver carregando, mostra uma mensagem de carregamento
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/10 to-secondary p-4">
-        <p className="text-lg text-gray-700 dark:text-gray-300">
-          Verificando autenticação...
-        </p>
-      </div>
-    );
+    // Se chegamos aqui, TEMOS um usuário. Vamos checar seu status de onboarding.
+    const checkOnboardingStatus = async () => {
+      if (!projectId || !user.uid) {
+        setIsProfileChecked(true);
+        return;
+      }
+
+      try {
+        const db = getFirestore();
+        const settingsRef = doc(
+          db,
+          `artifacts/${projectId}/users/${user.uid}/profile`,
+          "settings"
+        );
+        const docSnap = await getDoc(settingsRef);
+
+        const hasCompletedOnboarding =
+          docSnap.exists() && docSnap.data().onboardingCompleted;
+
+        if (hasCompletedOnboarding) {
+          if (pathname === "/welcome") {
+            router.push("/");
+          }
+        } else {
+          if (pathname !== "/welcome") {
+            router.push("/welcome");
+          }
+        }
+      } catch (error) {
+        console.error(
+          "AuthGuard: Erro ao buscar perfil. Redirecionando para onboarding por segurança.",
+          error
+        );
+        if (pathname !== "/welcome") {
+          router.push("/welcome");
+        }
+      } finally {
+        setIsProfileChecked(true);
+      }
+    };
+
+    checkOnboardingStatus();
+  }, [user, authLoading, projectId, pathname, router]);
+
+  // --- Lógica de Renderização ---
+
+  // Enquanto a autenticação OU a checagem do nosso perfil estiverem rolando,
+  // mostramos um loader.
+  if (authLoading || !isProfileChecked) {
+    return <LoadingScreen text="Verificando seus dados..." />;
   }
 
-  // Se não estiver carregando E houver um usuário, renderiza o conteúdo protegido
+  // Se, após todas as checagens, existir um usuário,
+  // a lógica do useEffect já decidiu se ele deve ser redirecionado ou não.
+  // Então, é seguro renderizar o conteúdo.
   if (user) {
     return <>{children}</>;
   }
 
-  // Se não estiver carregando E não houver usuário, renderiza a LoginScreen
+  // Se, após todas as checagens, não houver usuário, mostramos a tela de login.
   return <LoginScreen />;
 }

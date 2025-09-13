@@ -49,6 +49,9 @@
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 70% 98%;
 
+    --destructive-light: 24 95% 65%; /* Laranja vibrante, "cor de fogo" */
+    --destructive-light-foreground: 24 95% 25%; /* Marrom escuro/avermelhado para o texto */
+
     --status-complete: 162 100% 41%; /* Caribbean Green #00D09E */
     --status-complete-foreground: 184 65% 8%;
 
@@ -115,6 +118,9 @@
 
     --destructive: 0 72% 61%;
     --destructive-foreground: 0 70% 98%;
+
+    --destructive-light: 0 40% 20%; /* Um vermelho bem escuro e sutil */
+    --destructive-light-foreground: 0 80% 90%; /* Um texto avermelhado claro */
 
     --status-complete: 162 100% 41%; /* Caribbean Green #00D09E */
     --status-complete-foreground: 184 65% 8%;

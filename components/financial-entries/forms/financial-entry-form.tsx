@@ -10,7 +10,6 @@ import {
   FinancialEntryFormData,
   FinancialEntrySchema,
 } from "@/schemas/financial-entry-schema";
-import { useFinance } from "../providers/finance-provider";
 import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
 import {
@@ -29,13 +28,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { DatePicker } from "../ui/date-picker";
-import { Checkbox } from "../ui/checkbox";
-import { Textarea } from "../ui/textarea";
-import { CurrencyInput } from "../ui/currency-input";
-import { CategoryManagerDialog } from "../categories/category-manager-dialog";
 import { AnimatePresence, motion } from "framer-motion";
 import { EntryType } from "@/interfaces/financial-entry";
+import { useFinance } from "@/components/providers/finance-provider";
+import { CurrencyInput } from "@/components/ui/currency-input";
+import { DatePicker } from "@/components/ui/date-picker";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Textarea } from "@/components/ui/textarea";
+import { CategoryManagerDialog } from "@/components/categories/category-manager-dialog";
 
 // 1. A prop 'entryType' foi adicionada
 interface FinancialEntryFormProps {
