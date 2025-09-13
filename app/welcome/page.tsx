@@ -41,7 +41,6 @@ export default function WelcomePage() {
 
   const router = useRouter();
   const { toast } = useToast();
-  // @ts-ignore
   const { completeOnboarding } = useAuth();
 
   const updateCurrentStep = useCallback(() => {
@@ -70,7 +69,7 @@ export default function WelcomePage() {
         });
         router.push("/");
       } catch (error) {
-        // ...error handling
+        console.error("Erro: ", error);
       }
     }
   };

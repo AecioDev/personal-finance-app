@@ -21,8 +21,6 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
     closeCategoryManager,
   } = useModal();
 
-  const { refreshData } = useFinance();
-
   const handleCloseAndUpdate = (closeFn: () => void) => {
     return (isOpen: boolean) => {
       if (!isOpen) {

@@ -4,7 +4,7 @@ import {
   collection,
   doc,
   getDocs,
-  query,
+  Timestamp,
   writeBatch,
   type Firestore,
 } from "firebase/firestore";
@@ -25,6 +25,13 @@ export interface FullBackup {
   categories: Category[];
   paymentMethods: PaymentMethod[];
 }
+
+const convertTimestampToDate = (field: unknown): Date | null => {
+  if (field instanceof Timestamp) {
+    return field.toDate();
+  }
+  return null; // Retorna nulo se não for um Timestamp
+};
 
 /**
  * Lê todos os dados antigos de um usuário (Dívidas, Parcelas, Transações, Contas, etc.)
@@ -109,7 +116,8 @@ export const exportFullUserData = async (
           ? "overdue"
           : "pending",
       expectedAmount: installment.expectedAmount,
-      dueDate: (installment.expectedDueDate as any).toDate(),
+      dueDate:
+        convertTimestampToDate(installment.expectedDueDate) || new Date(),
       paidAmount: installment.paidAmount > 0 ? installment.paidAmount : null,
       paymentDate: installment.paymentDate
         ? (installment.paymentDate as any).toDate()
@@ -118,9 +126,7 @@ export const exportFullUserData = async (
       recurrenceId: installment.debtId,
       installmentNumber: installment.installmentNumber,
       totalInstallments: parentDebt.totalInstallments || 0,
-      createdAt: installment.createdAt
-        ? (installment.createdAt as any).toDate()
-        : new Date(),
+      createdAt: convertTimestampToDate(installment.createdAt) || new Date(),
       // Dados "enriquecidos" a partir da transação!
       accountId: accountId,
       paymentMethodId: paymentMethodId,
@@ -192,6 +198,13 @@ export const wipeUserData = async (
  * @param uid ID do usuário que receberá os dados.
  * @param backupData Objeto contendo os dados do backup.
  */
+
+interface BackupItem {
+  id: string;
+  uid: string;
+  [key: string]: any;
+}
+
 export const importFullUserData = async (
   db: Firestore,
   uid: string,
@@ -206,13 +219,13 @@ export const importFullUserData = async (
     collectionName: keyof FullBackup,
     collectionPath: string
   ) => {
-    const items = backupData[collectionName] as any[];
+    const items = backupData[collectionName] as BackupItem[];
     if (items && items.length > 0) {
       onProgress(`Importando ${items.length} ${collectionName}...`);
       items.forEach((item) => {
         const docRef = doc(collection(db, `${userBasePath}/${collectionPath}`));
-        const newItemData = { ...item, uid };
-        delete newItemData.id;
+        const { id, ...restOfItem } = item;
+        const newItemData = { ...restOfItem, uid };
         batch.set(docRef, newItemData);
       });
     }
@@ -226,20 +239,4 @@ export const importFullUserData = async (
   onProgress("Salvando tudo no banco de dados...");
   await batch.commit();
   onProgress("Importação concluída com sucesso!");
-};
-
-// A função downloadAsJson continua a mesma, não precisa alterar.
-export const downloadAsJson = (data: any, filename: string) => {
-  const jsonStr = JSON.stringify(data, null, 2);
-  const blob = new Blob([jsonStr], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
-  console.log(`Arquivo ${filename} gerado para download.`);
 };

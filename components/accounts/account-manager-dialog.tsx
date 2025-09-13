@@ -93,7 +93,7 @@ export function AccountManagerDialog({
     } catch (error) {
       toast({
         title: "Erro!",
-        description: `Não foi possível salvar a conta.`,
+        description: `Não foi possível salvar a conta: ${error}`,
         variant: "destructive",
       });
     }

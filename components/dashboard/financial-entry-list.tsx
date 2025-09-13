@@ -3,7 +3,6 @@
 
 import { useState } from "react";
 import { FinancialEntry } from "@/interfaces/financial-entry";
-import { useFinance } from "@/components/providers/finance-provider";
 import { cn } from "@/lib/utils";
 import { format, isPast, isToday } from "date-fns";
 import { ptBR } from "date-fns/locale";

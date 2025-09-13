@@ -79,7 +79,7 @@ export function CategoryManagerDialog({
     } catch (error) {
       toast({
         title: "Erro!",
-        description: `Não foi possível salvar a categoria.`,
+        description: `Não foi possível salvar a categoria: ${error}`,
         variant: "destructive",
       });
     }

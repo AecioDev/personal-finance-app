@@ -41,7 +41,7 @@ export function AccountsView() {
     } catch (error) {
       toast({
         title: "Erro!",
-        description: "Não foi possível excluir a conta.",
+        description: `Não foi possível excluir a conta: ${error}`,
         variant: "destructive",
       });
     } finally {

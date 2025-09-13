@@ -149,6 +149,15 @@ export const FinanceProvider = ({ children }: { children: ReactNode }) => {
         try {
           const db = getFirestore();
 
+          interface MatchableItem {
+            id: string;
+            name: string;
+            defaultId?: string;
+          }
+          interface DefaultItem extends MatchableItem {
+            aliases?: string[];
+          }
+
           const normalizeString = (str: string) =>
             str
               .normalize("NFD")
@@ -156,11 +165,11 @@ export const FinanceProvider = ({ children }: { children: ReactNode }) => {
               .toLowerCase()
               .trim();
 
-          const findUserCreatedMatch = (
-            userCreatedItems: any[],
-            defaultItem: any
-          ) =>
-            userCreatedItems.find((item) => {
+          const findUserCreatedMatch = <T extends MatchableItem>(
+            userCreatedItems: T[],
+            defaultItem: DefaultItem
+          ): T | undefined => {
+            return userCreatedItems.find((item) => {
               if (item.defaultId) return false;
               const normalizedUser = normalizeString(item.name);
               const normalizedDefault = normalizeString(defaultItem.name);
@@ -172,6 +181,7 @@ export const FinanceProvider = ({ children }: { children: ReactNode }) => {
               }
               return false;
             });
+          };
 
           const getUserCollectionRef = (col: string) =>
             collection(db, `artifacts/${projectId}/users/${user.uid}/${col}`);

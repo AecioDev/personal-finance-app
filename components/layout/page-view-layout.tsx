@@ -4,7 +4,6 @@ import React from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Icon } from "@iconify/react";
-import { cn } from "@/lib/utils";
 
 interface PageViewLayoutProps {
   title: string;

@@ -46,13 +46,18 @@ export const usePaymentMethodsCrud = ({
       console.log(
         "usePaymentMethodsCrud: Forma de pagamento adicionada com sucesso."
       );
-    } catch (error: any) {
-      setErrorFinanceData(
-        `Erro ao adicionar forma de pagamento: ${error.message}`
-      );
+    } catch (error: unknown) {
       console.error(
         "usePaymentMethodsCrud: Erro ao adicionar forma de pagamento:",
         error
+      );
+      if (typeof error === "object" && error !== null && "message" in error) {
+        setErrorFinanceData(
+          `Erro ao adicionar forma de pagamento: ${error.message}`
+        );
+      }
+      throw new Error(
+        "Não foi possível adicionar a forma de pagamento. Tente novamente."
       );
     }
   };
@@ -83,13 +88,18 @@ export const usePaymentMethodsCrud = ({
       console.log(
         "usePaymentMethodsCrud: Forma de pagamento atualizada com sucesso."
       );
-    } catch (error: any) {
-      setErrorFinanceData(
-        `Erro ao atualizar forma de pagamento: ${error.message}`
-      );
+    } catch (error: unknown) {
       console.error(
         "usePaymentMethodsCrud: Erro ao atualizar forma de pagamento:",
         error
+      );
+      if (typeof error === "object" && error !== null && "message" in error) {
+        setErrorFinanceData(
+          `Erro ao atualizar forma de pagamento: ${error.message}`
+        );
+      }
+      throw new Error(
+        "Não foi possível atualizar a forma de pagamento. Tente novamente."
       );
     }
   };
@@ -110,13 +120,18 @@ export const usePaymentMethodsCrud = ({
       console.log(
         "usePaymentMethodsCrud: Forma de pagamento deletada com sucesso."
       );
-    } catch (error: any) {
-      setErrorFinanceData(
-        `Erro ao deletar forma de pagamento: ${error.message}`
-      );
+    } catch (error: unknown) {
       console.error(
         "usePaymentMethodsCrud: Erro ao deletar forma de pagamento:",
         error
+      );
+      if (typeof error === "object" && error !== null && "message" in error) {
+        setErrorFinanceData(
+          `Erro ao deletar forma de pagamento: ${error.message}`
+        );
+      }
+      throw new Error(
+        "Não foi possível remover a forma de pagamento. Tente novamente."
       );
     }
   };

@@ -36,12 +36,7 @@ const navItems = [
 
 export function BottomNavBar() {
   const pathname = usePathname();
-  const {
-    openNewExpenseModal,
-    openNewIncomeModal,
-    openCategoryManager,
-    customActions,
-  } = useModal();
+  const { openNewExpenseModal, openNewIncomeModal, customActions } = useModal();
 
   // 3. INICIALIZAMOS O HOOK DE TEMA
   const { theme, setTheme } = useTheme();
@@ -57,7 +52,7 @@ export function BottomNavBar() {
   return (
     <div className="fixed bottom-0 left-0 right-0 h-20 bg-muted border-t rounded-2xl z-50">
       <nav className="grid grid-cols-5 items-center h-full">
-        {navItems.map((item, index) => {
+        {navItems.map((item) => {
           if (item.type === "action") {
             // ... (código do botão de ação, sem alteração)
             return (

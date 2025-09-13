@@ -1,5 +1,6 @@
 import { toZonedTime, format } from "date-fns-tz";
-import { addMinutes, parseISO } from "date-fns";
+import { parseISO } from "date-fns";
+import { Timestamp } from "firebase/firestore";
 
 type DateOrStr = Date | string;
 // GÊ: Manter a constante de Timezone é uma ótima prática.
@@ -22,10 +23,31 @@ export const castToDate = (dateOrString: DateOrStr): Date => {
 };
 
 // --- FUNÇÕES DE FORMATAÇÃO PARA EXIBIÇÃO NA UI ---
-// GÊ: O ajuste crucial está aqui. Troquei todos os `getUTC...` por `get...`.
+// O ajuste crucial está aqui. Troquei todos os `getUTC...` por `get...`.
 // Por quê? Porque quando você busca um Timestamp do Firebase e usa `.toDate()`,
 // ele vira um objeto Date na hora LOCAL do navegador. Você quer formatar e mostrar
 // exatamente essa data local, e não a versão UTC dela, que pode ser um dia antes/depois.
+
+/**
+ * Helper para converter os dados do Firestore, que vêm com Timestamps,
+ * para o nosso modelo de domínio, que usa objetos Date.
+ */
+const convertTimestampToDate = <T extends Record<string, any>>(data: T): T => {
+  if (typeof data !== "object" || data === null) {
+    return data;
+  }
+
+  const convertedData: Record<string, any> = { ...data };
+
+  for (const key in convertedData) {
+    const value = convertedData[key];
+    if (value instanceof Timestamp) {
+      convertedData[key] = value.toDate();
+    }
+  }
+
+  return convertedData as T;
+};
 
 /**
  * Formata uma data para o padrão DD/MM/YYYY.

@@ -7,7 +7,7 @@ import {
   deleteDoc,
   serverTimestamp,
 } from "firebase/firestore";
-import { Account, TransactionType } from "@/interfaces/finance";
+import { Account } from "@/interfaces/finance";
 import { User as FirebaseUser } from "firebase/auth";
 
 interface UseAccountsCrudProps {
@@ -38,9 +38,12 @@ export const useAccountsCrud = ({
         }
       );
       console.log("useAccountsCrud: Conta adicionada com sucesso.");
-    } catch (error: any) {
-      setErrorFinanceData(`Erro ao adicionar conta: ${error.message}`);
+    } catch (error: unknown) {
       console.error("useAccountsCrud: Erro ao adicionar conta:", error);
+      if (typeof error === "object" && error !== null && "message" in error) {
+        setErrorFinanceData(`Erro ao adicionar conta: ${error.message}`);
+      }
+      throw new Error("Não foi possível remover a conta. Tente novamente.");
     }
   };
 
@@ -58,9 +61,12 @@ export const useAccountsCrud = ({
         data
       );
       console.log("useAccountsCrud: Conta atualizada com sucesso.");
-    } catch (error: any) {
-      setErrorFinanceData(`Erro ao atualizar conta: ${error.message}`);
+    } catch (error: unknown) {
       console.error("useAccountsCrud: Erro ao atualizar conta:", error);
+      if (typeof error === "object" && error !== null && "message" in error) {
+        setErrorFinanceData(`Erro ao atualizar conta: ${error.message}`);
+      }
+      throw new Error("Não foi possível remover a conta. Tente novamente.");
     }
   };
 
@@ -75,9 +81,12 @@ export const useAccountsCrud = ({
         doc(db, `artifacts/${projectId}/users/${user.uid}/accounts`, accountId)
       );
       console.log("useAccountsCrud: Conta deletada com sucesso.");
-    } catch (error: any) {
-      setErrorFinanceData(`Erro ao deletar conta: ${error.message}`);
+    } catch (error: unknown) {
       console.error("useAccountsCrud: Erro ao deletar conta:", error);
+      if (typeof error === "object" && error !== null && "message" in error) {
+        setErrorFinanceData(`Erro ao deletar conta: ${error.message}`);
+      }
+      throw new Error("Não foi possível remover a conta. Tente novamente.");
     }
   };
 

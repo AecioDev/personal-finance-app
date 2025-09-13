@@ -47,11 +47,11 @@ export function ProfileView() {
         description: "Seu backup foi salvo com sucesso.",
         variant: "success",
       });
-    } catch (error: any) {
+    } catch (error) {
       console.error("Erro na exportação:", error);
       toast({
         title: "Falha na Exportação",
-        description: error.message || "Não foi possível exportar seus dados.",
+        description: `Não foi possível exportar seus dados: ${error}`,
         variant: "destructive",
       });
     } finally {
@@ -111,12 +111,12 @@ export function ProfileView() {
         refreshData();
         router.push("/");
       }, 3000);
-    } catch (error: any) {
+    } catch (error) {
       console.error("Erro na importação:", error);
       toast({
         id: toastId,
         title: "Falha na Importação",
-        description: error.message || "Verifique o console para detalhes.",
+        description: `Verifique o console para detalhes: ${error}`,
         variant: "destructive",
         duration: 5000,
       });
@@ -144,11 +144,11 @@ export function ProfileView() {
         variant: "success",
       });
       router.push("/");
-    } catch (error: any) {
+    } catch (error) {
       console.error("Erro ao remover conta:", error);
       toast({
         title: "Erro ao remover a conta",
-        description: error.message,
+        description: `Erro: ${error}`,
         variant: "destructive",
       });
     } finally {

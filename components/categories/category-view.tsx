@@ -43,7 +43,7 @@ export function CategoryView() {
     } catch (error) {
       toast({
         title: "Erro!",
-        description: "Não foi possível excluir a categoria.",
+        description: `Não foi possível excluir a categoria: ${error}`,
         variant: "destructive",
       });
     } finally {

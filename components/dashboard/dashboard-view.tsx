@@ -29,7 +29,6 @@ type StatusFilter = "pending" | "paid" | "all";
 export function DashboardView() {
   const { toast } = useToast();
   const { user } = useAuth();
-  const router = useRouter();
   const {
     financialEntries,
     categories,

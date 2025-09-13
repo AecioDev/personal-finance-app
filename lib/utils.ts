@@ -34,7 +34,7 @@ export const getCalculatedInstallmentStatus = (
  * @param data O objeto ou array de dados a ser salvo.
  * @param filename O nome do arquivo JSON que será baixado.
  */
-export const downloadAsJson = (data: any, filename: string) => {
+export const downloadAsJson = (data: unknown, filename: string) => {
   // Converte o dado para uma string JSON formatada (com 2 espaços de indentação)
   const jsonStr = JSON.stringify(data, null, 2);
 

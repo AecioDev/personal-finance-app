@@ -9,9 +9,7 @@ import {
   endOfMonth,
   startOfDay,
   endOfDay,
-  format,
 } from "date-fns";
-import { FinancialEntry } from "@/interfaces/financial-entry";
 import { StatementSummaryCard } from "./statement-summary-card";
 import { StatementByDayView } from "./statement-by-day-view";
 import { StatementComparisonView } from "./statement-comparison-view";

@@ -30,10 +30,7 @@ export function NewExpenseModal({
       >
         <DialogHeader>
           <DialogTitle>Nova Despesa</DialogTitle>
-          <DialogDescription>
-            Registre uma nova conta ou despesa. Para compras parceladas, use a
-            opção "Parcelado".
-          </DialogDescription>
+          <DialogDescription>Informe os detalhes da despesa.</DialogDescription>
         </DialogHeader>
         <FinancialEntryForm
           entryType="expense"

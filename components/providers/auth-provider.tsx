@@ -7,7 +7,7 @@ import React, {
   useContext,
   ReactNode,
 } from "react";
-import { initializeApp, getApps, getApp } from "firebase/app";
+import { initializeApp, getApps, getApp, type FirebaseApp } from "firebase/app";
 import {
   getAuth,
   signInWithPopup,
@@ -16,6 +16,7 @@ import {
   onAuthStateChanged,
   User as FirebaseUser,
   deleteUser,
+  type Auth,
 } from "firebase/auth";
 import {
   getFirestore,
@@ -54,8 +55,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   const [loading, setLoading] = useState(true);
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
 
-  const authRef = React.useRef<any>(null);
-  const appRef = React.useRef<any>(null);
+  const authRef = React.useRef<Auth | null>(null);
+  const appRef = React.useRef<FirebaseApp | null>(null);
 
   useEffect(() => {
     try {
@@ -74,8 +75,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
         appRef.current = getApp();
       }
 
-      setCurrentProjectId(appRef.current.options.projectId || null);
-      authRef.current = getAuth(appRef.current);
+      const app = appRef.current;
+      if (app.options && "projectId" in app.options) {
+        setCurrentProjectId(app.options.projectId || null);
+      }
+      authRef.current = getAuth(app);
 
       const unsubscribe = onAuthStateChanged(
         authRef.current,
@@ -94,18 +98,36 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
 
   const login = async () => {
     try {
+      if (!authRef.current)
+        throw new Error("Firebase Auth não foi inicializado.");
       const provider = new GoogleAuthProvider();
       await signInWithPopup(authRef.current, provider);
-    } catch (error: any) {
-      console.error("AuthProvider: Erro durante o login:", error.message);
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        console.error("AuthProvider: Erro durante o login:", error.message);
+      } else {
+        console.error(
+          "AuthProvider: Erro desconhecido durante o login:",
+          error
+        );
+      }
     }
   };
 
   const logout = async () => {
     try {
+      if (!authRef.current)
+        throw new Error("Firebase Auth não foi inicializado.");
       await signOut(authRef.current);
-    } catch (error: any) {
-      console.error("AuthProvider: Erro durante o logout:", error.message);
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        console.error("AuthProvider: Erro durante o logout:", error.message);
+      } else {
+        console.error(
+          "AuthProvider: Erro desconhecido durante o logout:",
+          error
+        );
+      }
     }
   };
 
@@ -159,9 +181,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
 
       console.log("Usuário excluído do Firebase Authentication com sucesso.");
       setUser(null);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Erro ao deletar a conta do usuário:", error);
-      if (error.code === "auth/requires-recent-login") {
+      if (
+        typeof error === "object" &&
+        error !== null &&
+        "code" in error &&
+        (error as { code: unknown }).code === "auth/requires-recent-login"
+      ) {
         throw new Error(
           "Esta operação é sensível e requer autenticação recente. Por favor, faça login novamente e tente de novo."
         );

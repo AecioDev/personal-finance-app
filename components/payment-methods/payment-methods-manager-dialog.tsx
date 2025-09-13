@@ -26,7 +26,6 @@ import {
 } from "@/components/ui/dialog";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { PaymentMethod } from "@/interfaces/finance";
 import { Icon } from "@iconify/react";
@@ -94,7 +93,7 @@ export function PaymentMethodManagerDialog({
     } catch (error) {
       toast({
         title: "Erro!",
-        description: `Não foi possível salvar a forma de pagamento.`,
+        description: `Não foi possível salvar a forma de pagamento: ${error}`,
         variant: "destructive",
       });
     }

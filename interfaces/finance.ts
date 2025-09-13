@@ -1,22 +1,6 @@
-import { Timestamp } from "firebase/firestore";
-
 export type TransactionType = "income" | "expense";
 
 export type DebtInstallmentStatus = "pending" | "paid" | "overdue" | "partial";
-
-/**
- * Helper para converter os dados do Firestore, que vêm com Timestamps,
- * para o nosso modelo de domínio, que usa objetos Date.
- */
-export const convertFirestoreData = <T extends object>(data: T): T => {
-  const convertedData = { ...data };
-  for (const key in convertedData) {
-    if (convertedData[key] instanceof Timestamp) {
-      (convertedData as any)[key] = (convertedData[key] as Timestamp).toDate();
-    }
-  }
-  return convertedData;
-};
 
 export interface Account {
   id: string;

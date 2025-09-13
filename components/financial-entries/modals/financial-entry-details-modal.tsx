@@ -50,7 +50,6 @@ export function FinancialEntryDetailsModal({
   entry,
   onPayNow,
 }: FinancialEntryDetailsModalProps) {
-  const router = useRouter();
   const { toast } = useToast();
   const { accounts, paymentMethods, categories } = useFinance();
 

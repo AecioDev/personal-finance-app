@@ -47,7 +47,7 @@ export function PaymentMethodsView() {
     } catch (error) {
       toast({
         title: "Erro!",
-        description: "Não foi possível excluir a forma de pagamento.",
+        description: `Não foi possível excluir a forma de pagamento: ${error}`,
         variant: "destructive",
       });
     } finally {

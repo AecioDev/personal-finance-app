@@ -24,14 +24,29 @@ interface UseFinanceDataProps {
   setLoading: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
-const convertTimestampsToDates = (data: any) => {
-  const convertedData = { ...data };
+// Este tipo "pega" apenas os setters da interface principal
+type SetterMap = Pick<
+  UseFinanceDataProps,
+  "setAccounts" | "setCategories" | "setPaymentMethods" | "setFinancialEntries"
+>;
+
+const convertTimestampsToDates = <T extends Record<string, any>>(
+  data: T
+): T => {
+  if (typeof data !== "object" || data === null) {
+    return data;
+  }
+
+  const convertedData: Record<string, any> = { ...data };
+
   for (const key in convertedData) {
-    if (convertedData[key] instanceof Timestamp) {
-      convertedData[key] = convertedData[key].toDate();
+    const value = convertedData[key];
+    if (value instanceof Timestamp) {
+      convertedData[key] = value.toDate();
     }
   }
-  return convertedData;
+
+  return convertedData as T;
 };
 
 export const useFinanceData = ({
@@ -55,7 +70,7 @@ export const useFinanceData = ({
 
     const listenersUnsubscribed: (() => void)[] = [];
 
-    const setters: { [key: string]: (data: any) => void } = {
+    const setters: SetterMap = {
       setAccounts,
       setCategories,
       setPaymentMethods,
@@ -97,7 +112,7 @@ export const useFinanceData = ({
             id: doc.id,
             ...convertTimestampsToDates(doc.data()),
           }));
-          setter(data);
+          setter(data as any);
 
           if (initialFetchCounter.current < totalListeners) {
             handleInitialFetch();

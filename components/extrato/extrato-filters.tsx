@@ -163,21 +163,19 @@ export function ExtratoFilters({ onFilterChange }: ExtratoFiltersProps) {
         </div>
 
         {/* Tipo */}
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Tipo</label>
-          <ToggleGroup
-            type="single"
-            value={filters.type}
-            onValueChange={(value: any) =>
-              value && updateFilter({ type: value })
-            }
-            className="w-full grid grid-cols-3 bg-background p-1 rounded-sm"
-          >
-            <ToggleGroupItem value="all">Todos</ToggleGroupItem>
-            <ToggleGroupItem value="expense">Despesas</ToggleGroupItem>
-            <ToggleGroupItem value="income">Receitas</ToggleGroupItem>
-          </ToggleGroup>
-        </div>
+        <ToggleGroup
+          type="single"
+          value={filters.type}
+          // Altere aqui de "any" para "string"
+          onValueChange={(value: string) =>
+            value && updateFilter({ type: value as Filters["type"] })
+          }
+          className="w-full grid grid-cols-3 bg-background p-1 rounded-sm"
+        >
+          <ToggleGroupItem value="all">Todos</ToggleGroupItem>
+          <ToggleGroupItem value="expense">Despesas</ToggleGroupItem>
+          <ToggleGroupItem value="income">Receitas</ToggleGroupItem>
+        </ToggleGroup>
 
         {/* Status */}
         <div className="space-y-2">
@@ -185,8 +183,8 @@ export function ExtratoFilters({ onFilterChange }: ExtratoFiltersProps) {
           <ToggleGroup
             type="single"
             value={filters.status}
-            onValueChange={(value: any) =>
-              value && updateFilter({ status: value })
+            onValueChange={(value: string) =>
+              value && updateFilter({ status: value as Filters["status"] })
             }
             className="w-full grid grid-cols-3 bg-background p-1 rounded-sm"
           >

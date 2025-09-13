@@ -6,14 +6,12 @@ import {
   doc,
   addDoc,
   updateDoc,
-  deleteDoc,
   serverTimestamp,
   writeBatch,
   query,
   where,
   getDocs,
 } from "firebase/firestore";
-import { Category } from "@/interfaces/finance";
 import { User as FirebaseUser } from "firebase/auth";
 
 interface UseCategoriesCrudProps {
@@ -59,9 +57,12 @@ export const useCategoriesCrud = ({
       });
       // Retorna o ID do documento recém-criado
       return docRef.id;
-    } catch (error: any) {
-      setErrorFinanceData(`Erro ao adicionar categoria: ${error.message}`);
-      throw error;
+    } catch (error: unknown) {
+      console.error("Erro ao adicionar categoria:", error);
+      if (typeof error === "object" && error !== null && "message" in error) {
+        setErrorFinanceData(`Erro ao adicionar categoria: ${error.message}`);
+      }
+      throw new Error("Erro ao adicionar categoria.");
     }
   };
 
@@ -72,9 +73,12 @@ export const useCategoriesCrud = ({
     try {
       const docRef = doc(getCategoriesCollectionRef(), id);
       await updateDoc(docRef, data);
-    } catch (error: any) {
-      setErrorFinanceData(`Erro ao atualizar categoria: ${error.message}`);
-      throw error;
+    } catch (error: unknown) {
+      console.error("Erro ao atualizar categoria:", error);
+      if (typeof error === "object" && error !== null && "message" in error) {
+        setErrorFinanceData(`Erro ao atualizar categoria: ${error.message}`);
+      }
+      throw new Error("Erro ao atualizar categoria.");
     }
   };
 
@@ -95,9 +99,12 @@ export const useCategoriesCrud = ({
       batch.delete(categoryDocRef);
 
       await batch.commit();
-    } catch (error: any) {
-      setErrorFinanceData(`Erro ao excluir categoria: ${error.message}`);
-      throw error;
+    } catch (error: unknown) {
+      console.error("Erro ao excluir categoria:", error);
+      if (typeof error === "object" && error !== null && "message" in error) {
+        setErrorFinanceData(`Erro ao excluir categoria: ${error.message}`);
+      }
+      throw new Error("Erro ao excluir categoria.");
     }
   };
 

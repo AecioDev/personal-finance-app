@@ -1,7 +1,5 @@
 // in: interfaces/financial-entry.ts
 
-import { Timestamp } from "firebase/firestore";
-
 export type EntryType = "income" | "expense";
 export type EntryStatus = "pending" | "paid" | "overdue";
 
@@ -61,17 +59,3 @@ export interface FinancialEntry {
   /** The timestamp when the record was created in the system. */
   createdAt?: Date;
 }
-
-/**
- * Helper function to convert Firestore data, which comes with Timestamps,
- * into our domain model which uses Date objects.
- */
-export const convertFirestoreDataToFinancialEntry = (data: any): any => {
-  const convertedData = { ...data };
-  for (const key in convertedData) {
-    if (convertedData[key] instanceof Timestamp) {
-      (convertedData as any)[key] = (convertedData[key] as Timestamp).toDate();
-    }
-  }
-  return convertedData;
-};

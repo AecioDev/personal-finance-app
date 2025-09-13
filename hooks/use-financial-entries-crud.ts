@@ -94,9 +94,12 @@ export const useFinancialEntriesCrud = ({
       });
 
       return true;
-    } catch (error: any) {
-      setErrorFinanceData(`Erro ao processar pagamento: ${error.message}`);
-      return false;
+    } catch (error: unknown) {
+      console.error("Erro ao processar pagamento:", error);
+      if (typeof error === "object" && error !== null && "message" in error) {
+        setErrorFinanceData(`Erro ao processar pagamento: ${error.message}`);
+      }
+      throw new Error("Erro ao processar pagamento.");
     }
   };
 
@@ -109,9 +112,12 @@ export const useFinancialEntriesCrud = ({
         createdAt: serverTimestamp(),
       });
       return docRef.id;
-    } catch (error: any) {
-      setErrorFinanceData(`Erro ao adicionar lançamento: ${error.message}`);
-      throw error;
+    } catch (error: unknown) {
+      console.error("Erro ao adicionar lançamento:", error);
+      if (typeof error === "object" && error !== null && "message" in error) {
+        setErrorFinanceData(`Erro ao adicionar lançamento: ${error.message}`);
+      }
+      throw new Error("Erro ao adicionar lançamento:");
     }
   };
 
@@ -148,11 +154,16 @@ export const useFinancialEntriesCrud = ({
       }
       await batch.commit();
       return true;
-    } catch (error: any) {
-      setErrorFinanceData(
-        `Erro ao criar lançamento parcelado: ${error.message}`
+    } catch (error: unknown) {
+      console.error("Erro ao criar lançamento parcelado:", error);
+      if (typeof error === "object" && error !== null && "message" in error) {
+        setErrorFinanceData(
+          `Erro ao criar lançamento parcelado: ${error.message}`
+        );
+      }
+      throw new Error(
+        "Não foi possível criar lançamento parcelado. Tente novamente."
       );
-      throw error;
     }
   };
 
@@ -194,11 +205,16 @@ export const useFinancialEntriesCrud = ({
       }
       await batch.commit();
       return true;
-    } catch (error: any) {
-      setErrorFinanceData(
-        `Erro ao criar lançamentos recorrentes: ${error.message}`
+    } catch (error: unknown) {
+      console.error("Erro ao criar lançamentos recorrentes:", error);
+      if (typeof error === "object" && error !== null && "message" in error) {
+        setErrorFinanceData(
+          `Erro ao criar lançamentos recorrentes: ${error.message}`
+        );
+      }
+      throw new Error(
+        "Não foi possível criar lançamentos recorrentes. Tente novamente."
       );
-      throw error;
     }
   };
 
@@ -209,9 +225,14 @@ export const useFinancialEntriesCrud = ({
     try {
       const docRef = doc(getCollectionRef("financial-entries"), entryId);
       await updateDoc(docRef, updatedData);
-    } catch (error: any) {
-      setErrorFinanceData(`Erro ao atualizar lançamento: ${error.message}`);
-      throw error;
+    } catch (error: unknown) {
+      console.error("Erro ao atualizar lançamento:", error);
+      if (typeof error === "object" && error !== null && "message" in error) {
+        setErrorFinanceData(`Erro ao atualizar lançamento: ${error.message}`);
+      }
+      throw new Error(
+        "Não foi possível atualizar o lançamento. Tente novamente."
+      );
     }
   };
 
@@ -219,9 +240,14 @@ export const useFinancialEntriesCrud = ({
     try {
       const docRef = doc(getCollectionRef("financial-entries"), entryId);
       await deleteDoc(docRef);
-    } catch (error: any) {
-      setErrorFinanceData(`Erro ao deletar lançamento: ${error.message}`);
-      throw error;
+    } catch (error: unknown) {
+      console.error("Erro ao deletar lançamento:", error);
+      if (typeof error === "object" && error !== null && "message" in error) {
+        setErrorFinanceData(`Erro ao deletar lançamento: ${error.message}`);
+      }
+      throw new Error(
+        "Não foi possível remover a lançamento. Tente novamente."
+      );
     }
   };
 
