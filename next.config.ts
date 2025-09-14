@@ -28,12 +28,7 @@ const nextConfig: NextConfig = {
       },
     ];
   },
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
-  typescript: {
-    ignoreBuildErrors: true,
-  },
+  // As seções 'eslint' e 'typescript' foram removidas daqui.
 };
 
 export default nextConfig;

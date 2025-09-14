@@ -6,7 +6,6 @@ import React from "react";
 import { BottomNavBar } from "./bottom-nav-bar";
 import { useModal } from "../providers/modal-provider";
 import { CategoryManagerDialog } from "../categories/category-manager-dialog";
-import { useFinance } from "../providers/finance-provider";
 import { NewExpenseModal } from "../financial-entries/modals/new-expense-modal";
 import { NewIncomeModal } from "../financial-entries/modals/new-income-modal";
 

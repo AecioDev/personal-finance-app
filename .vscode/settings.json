@@ -1,1 +1,6 @@
-{}
+{
+  "eslint.enable": true,
+  "eslint.useFlatConfig": true,
+  "eslint.debug": true,
+  "eslint.workingDirectories": ["."]
+}

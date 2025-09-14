@@ -76,9 +76,9 @@ export function PaymentMethodsFormContent({
       await onSave({
         name: methodName,
         description: methodDescription,
-        defaultAccountId: defaultAccountId,
+        defaultAccountId: defaultAccountId || "",
       });
-      onClose(); // Fecha o modal após salvar
+      onClose();
       toast({
         title: "Sucesso",
         description: editingMethod

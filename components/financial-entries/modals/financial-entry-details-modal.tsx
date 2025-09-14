@@ -2,7 +2,6 @@
 "use client";
 
 import React from "react";
-import { useRouter } from "next/navigation";
 import { FinancialEntry } from "@/interfaces/financial-entry";
 import {
   Dialog,
