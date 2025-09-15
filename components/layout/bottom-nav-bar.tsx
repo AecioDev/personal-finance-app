@@ -2,11 +2,10 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useTheme } from "next-themes"; // 1. IMPORTAMOS O HOOK DE TEMA
+import { usePathname, useRouter } from "next/navigation"; // 1. Importamos o useRouter
+import { useTheme } from "next-themes";
 import { Icon } from "@iconify/react";
 import { cn } from "@/lib/utils";
-import { useModal } from "@/components/providers/modal-provider";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -25,23 +24,20 @@ const navItems = [
   },
   {
     type: "link",
-    href: "/extrato",
+    href: "/extrato", // ATENÇÃO: Verifique se essa rota existe. Se não, pode ser /transactions, etc.
     icon: "mdi:format-list-bulleted-square",
     label: "Extrato",
   },
   { type: "action" },
-  { type: "theme-toggle" }, // 2. SUBSTITUÍMOS O ITEM VAZIO
+  { type: "theme-toggle" },
   { type: "menu", icon: "mdi:cog-outline", label: "Cadastros" },
 ];
 
 export function BottomNavBar() {
   const pathname = usePathname();
-  const { openNewExpenseModal, openNewIncomeModal, customActions } = useModal();
-
-  // 3. INICIALIZAMOS O HOOK DE TEMA
+  const router = useRouter(); // 2. Inicializamos o router
   const { theme, setTheme } = useTheme();
 
-  // Controle para evitar erro de hidratação (comum com `next-themes`)
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
@@ -49,19 +45,27 @@ export function BottomNavBar() {
     setTheme(theme === "light" ? "dark" : "light");
   };
 
+  // 3. Funções que agora navegam para a nova página
+  const handleNewExpense = () => {
+    router.push("/financial-entry?type=expense");
+  };
+
+  const handleNewIncome = () => {
+    router.push("/financial-entry?type=income");
+  };
+
   return (
-    <div className="fixed bottom-0 left-0 right-0 h-20 bg-muted border-t rounded-2xl z-50">
-      <nav className="grid grid-cols-5 items-center h-full">
+    <div className="fixed bottom-0 left-0 right-0 z-50 h-20 rounded-2xl border-t bg-muted">
+      <nav className="grid h-full grid-cols-5 items-center">
         {navItems.map((item) => {
           if (item.type === "action") {
-            // ... (código do botão de ação, sem alteração)
             return (
               <div key="actions-button" className="-mt-8 flex justify-center">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button
                       size="icon"
-                      className="w-16 h-16 rounded-full bg-accent text-accent-foreground shadow-lg hover:bg-accent/80"
+                      className="h-16 w-16 rounded-full bg-accent text-accent-foreground shadow-lg hover:bg-accent/80"
                     >
                       <Icon icon="mdi:plus" className="h-8 w-8" />
                     </Button>
@@ -71,38 +75,27 @@ export function BottomNavBar() {
                     align="center"
                     className="mb-2 bg-surface"
                   >
-                    {customActions.length > 0 ? (
-                      customActions.map((action) => (
-                        <DropdownMenuItem
-                          key={action.label}
-                          onClick={action.action}
-                          className="py-3 px-4 text-base"
-                        >
-                          <Icon icon={action.icon} className="mr-3 h-5 w-5" />
-                          <span>{action.label}</span>
-                        </DropdownMenuItem>
-                      ))
-                    ) : (
-                      <>
-                        <DropdownMenuItem
-                          onClick={openNewExpenseModal}
-                          className="py-3 px-4 text-base"
-                        >
-                          <Icon
-                            icon="mdi:trending-down"
-                            className="mr-3 h-5 w-5"
-                          />
-                          <span>Nova Despesa</span>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={openNewIncomeModal}
-                          className="py-3 px-4 text-base"
-                        >
-                          <Icon icon="mdi:cash-plus" className="mr-3 h-5 w-5" />
-                          <span>Novo Receita</span>
-                        </DropdownMenuItem>
-                      </>
-                    )}
+                    {/* 4. Trocamos os `onClick` para chamar nossas novas funções de navegação */}
+                    <DropdownMenuItem
+                      onClick={handleNewExpense}
+                      className="px-4 py-3 text-base"
+                    >
+                      <Icon
+                        icon="mdi:trending-down"
+                        className="mr-3 h-5 w-5 text-destructive"
+                      />
+                      <span>Nova Despesa</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={handleNewIncome}
+                      className="px-4 py-3 text-base"
+                    >
+                      <Icon
+                        icon="mdi:cash-plus"
+                        className="mr-3 h-5 w-5 text-green-500"
+                      />
+                      <span>Nova Receita</span>
+                    </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
@@ -114,29 +107,29 @@ export function BottomNavBar() {
             return (
               <DropdownMenu key={item.label}>
                 <DropdownMenuTrigger asChild>
-                  <button className="flex flex-col items-center justify-center gap-1 text-secondary-foreground transition-colors">
+                  <button className="flex flex-col items-center justify-center gap-1 text-muted-foreground transition-colors">
                     <Icon icon={item.icon || "mdi:check"} className="h-6 w-6" />
                     <span className="text-xs">{item.label}</span>
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent side="top" align="end" className="mb-2">
-                  <DropdownMenuItem asChild className="py-3 px-4 text-base">
+                  <DropdownMenuItem asChild className="px-4 py-3 text-base">
                     <Link href="/accounts">
                       <Icon icon="mdi:bank-outline" className="mr-3 h-5 w-5" />
-                      <span>Contas Bancárias</span>
+                      <span>Contas</span>
                     </Link>
                   </DropdownMenuItem>
-                  <DropdownMenuItem asChild className="py-3 px-4 text-base">
+                  <DropdownMenuItem asChild className="px-4 py-3 text-base">
                     <Link href="/payment-methods">
                       <Icon
                         icon="mdi:credit-card-multiple-outline"
                         className="mr-3 h-5 w-5"
                       />
-                      <span>Formas de Pagamento</span>
+                      <span>Formas de Pag.</span>
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem asChild className="py-3 px-4 text-base">
+                  <DropdownMenuItem asChild className="px-4 py-3 text-base">
                     <Link href="/categories">
                       <Icon
                         icon="mdi:tag-multiple-outline"
@@ -146,7 +139,7 @@ export function BottomNavBar() {
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem asChild className="py-3 px-4 text-base">
+                  <DropdownMenuItem asChild className="px-4 py-3 text-base">
                     <Link href="/profile">
                       <Icon
                         icon="mdi:account-circle-outline"
@@ -160,9 +153,7 @@ export function BottomNavBar() {
             );
           }
 
-          // 4. ADICIONAMOS A LÓGICA PARA RENDERIZAR NOSSO NOVO BOTÃO
           if (item.type === "theme-toggle") {
-            // Se o componente ainda não montou, renderiza um placeholder para evitar piscar
             if (!mounted) return <div key="theme-toggle-placeholder" />;
 
             return (

@@ -31,7 +31,7 @@ import { useFinancialEntriesCrud } from "@/hooks/use-financial-entries-crud";
 import { useToast } from "@/components/ui/use-toast";
 import {
   defaultAccount,
-  defaultCategories,
+  essentialCategories,
   defaultPaymentMethods,
 } from "@/lib/data/defaults";
 import { FullBackup } from "@/hooks/use-financial-entries-crud";
@@ -284,7 +284,7 @@ export const FinanceProvider = ({ children }: { children: ReactNode }) => {
           };
 
           const ensureDefaultCategories = () => {
-            defaultCategories.forEach((cat) => {
+            essentialCategories.forEach((cat) => {
               if (existingCategories.some((c) => c.defaultId === cat.id)) {
                 return;
               }
@@ -370,7 +370,7 @@ export const FinanceProvider = ({ children }: { children: ReactNode }) => {
     addMonthlyRecurringEntries,
     updateFinancialEntry,
     deleteFinancialEntry,
-    processFinancialEntryPayment, // <-- PEGANDO A NOVA FUNÇÃO DO HOOK
+    processFinancialEntryPayment,
     exportUserData,
     importUserData,
   } = useFinancialEntriesCrud({

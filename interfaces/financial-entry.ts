@@ -2,6 +2,36 @@
 
 export type EntryType = "income" | "expense";
 export type EntryStatus = "pending" | "paid" | "overdue";
+export type RecurrenceFrequency =
+  | "installment"
+  | "weekly"
+  | "monthly"
+  | "yearly";
+
+// Esta é a "Regra" que será salva em uma nova coleção no Firestore.
+export interface FinancialRecurrence {
+  id: string;
+  uid: string;
+
+  // Dados do "molde" para os lançamentos que serão gerados
+  description: string;
+  expectedAmount: number;
+  type: EntryType;
+  categoryId: string;
+  notes?: string;
+
+  // Regras da Recorrência
+  frequency: RecurrenceFrequency;
+  startDate: Date;
+
+  // Controles para o fim da recorrência
+  totalOccurrences?: number; // Usado para parcelamentos
+  endDate?: Date; // Data final opcional
+
+  // Controle de Status
+  isActive: boolean;
+  createdAt: Date;
+}
 
 export interface FinancialEntry {
   /** The unique identifier for the entry. */

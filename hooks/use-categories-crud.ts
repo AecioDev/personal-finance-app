@@ -47,6 +47,7 @@ export const useCategoriesCrud = ({
   const addCategory = async (data: {
     name: string;
     icon: string;
+    defaultId?: string;
   }): Promise<string> => {
     try {
       const collectionRef = getCategoriesCollectionRef();
@@ -55,13 +56,12 @@ export const useCategoriesCrud = ({
         uid: user!.uid,
         createdAt: serverTimestamp(),
       });
-      // Retorna o ID do documento recém-criado
       return docRef.id;
     } catch (error: unknown) {
       console.error("Erro ao adicionar categoria:", error);
-      if (typeof error === "object" && error !== null && "message" in error) {
-        setErrorFinanceData(`Erro ao adicionar categoria: ${error.message}`);
-      }
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      setErrorFinanceData(`Erro ao adicionar categoria: ${errorMessage}`);
       throw new Error("Erro ao adicionar categoria.");
     }
   };

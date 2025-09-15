@@ -1,3 +1,4 @@
+// src/components/categories/category-manager-dialog.tsx
 "use client";
 
 import React, { useState, useEffect } from "react";
@@ -16,9 +17,8 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { defaultCategories } from "@/lib/data/defaults";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { cn } from "@/lib/utils"; // Importando o helper 'cn'
+import { availableIcons } from "@/lib/icons";
+import { IconPicker } from "./IconPicker";
 
 interface CategoryManagerDialogProps {
   isOpen: boolean;
@@ -35,7 +35,7 @@ export function CategoryManagerDialog({
   const { addCategory, updateCategory } = useFinance();
 
   const [categoryName, setCategoryName] = useState("");
-  const [categoryIcon, setCategoryIcon] = useState(defaultCategories[0].icon);
+  const [categoryIcon, setCategoryIcon] = useState(availableIcons[0]);
 
   useEffect(() => {
     if (isOpen) {
@@ -44,7 +44,7 @@ export function CategoryManagerDialog({
         setCategoryIcon(categoryToEdit.icon);
       } else {
         setCategoryName("");
-        setCategoryIcon(defaultCategories[0].icon);
+        setCategoryIcon(availableIcons[0]); // Pega o primeiro ícone da nossa nova lista
       }
     }
   }, [isOpen, categoryToEdit]);
@@ -58,7 +58,7 @@ export function CategoryManagerDialog({
     if (!categoryName.trim()) {
       toast({
         title: "Atenção!",
-        description: "O nome da categoria не pode estar em branco.",
+        description: "O nome da categoria não pode estar em branco.", // Corrigido texto
         variant: "destructive",
       });
       return;
@@ -72,6 +72,7 @@ export function CategoryManagerDialog({
         });
         toast({ title: "Sucesso!", description: "Categoria atualizada." });
       } else {
+        // Se a categoria for criada manualmente, não terá um 'defaultId'
         await addCategory({ name: categoryName, icon: categoryIcon });
         toast({ title: "Sucesso!", description: "Nova categoria criada." });
       }
@@ -98,52 +99,27 @@ export function CategoryManagerDialog({
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="mt-6 space-y-6">
-          <div>
-            <Label
-              htmlFor="category-name"
-              className="mb-2 block text-sm font-medium"
-            >
-              Descrição
-            </Label>
-            <Input
-              id="category-name"
-              value={categoryName}
-              onChange={(e) => setCategoryName(e.target.value)}
-              placeholder="Ex: Moradia, Lazer..."
-              className="text-base h-12"
-            />
-          </div>
+          <div className="flex items-start gap-4">
+            <div className="flex flex-col items-center gap-2">
+              <Label className="block text-sm font-medium">Ícone</Label>
+              <IconPicker value={categoryIcon} onChange={setCategoryIcon} />
+            </div>
 
-          <div>
-            <Label className="mb-2 block text-sm font-medium">Ícone</Label>
-            <ScrollArea className="h-40 w-full rounded-md border p-2">
-              <div className="grid grid-cols-5 gap-2">
-                {defaultCategories.map(({ icon, name }) => (
-                  <div
-                    key={name}
-                    title={name}
-                    className={cn(
-                      "flex justify-center items-center aspect-square cursor-pointer rounded-md border-2 transition-colors",
-                      // Lógica da borda: primária se selecionado, padrão se não.
-                      categoryIcon === icon
-                        ? "border-primary"
-                        : "border-border hover:border-primary/40"
-                    )}
-                    onClick={() => setCategoryIcon(icon)}
-                  >
-                    <Icon
-                      icon={icon}
-                      className={cn(
-                        "h-10 w-10 transition-colors",
-                        categoryIcon === icon
-                          ? "text-primary"
-                          : "text-muted-foreground"
-                      )}
-                    />
-                  </div>
-                ))}
-              </div>
-            </ScrollArea>
+            <div className="flex-1">
+              <Label
+                htmlFor="category-name"
+                className="mb-2 block text-sm font-medium"
+              >
+                Descrição
+              </Label>
+              <Input
+                id="category-name"
+                value={categoryName}
+                onChange={(e) => setCategoryName(e.target.value)}
+                placeholder="Ex: Moradia, Lazer..."
+                className="text-base h-12"
+              />
+            </div>
           </div>
 
           <div className="flex items-center justify-end gap-2 pt-4 border-t">
