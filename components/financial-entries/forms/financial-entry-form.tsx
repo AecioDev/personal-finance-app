@@ -1,11 +1,8 @@
-// in: components/financial-entries/financial-entry-form.tsx
-
 "use client";
 
 import React, { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Icon } from "@iconify/react";
 import {
   FinancialEntryFormData,
   FinancialEntrySchema,
@@ -29,16 +26,21 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { AnimatePresence, motion } from "framer-motion";
-import { EntryType, FinancialEntry } from "@/interfaces/financial-entry";
+import {
+  EntryType,
+  FinancialEntry,
+  FinancialRecurrence,
+} from "@/interfaces/financial-entry";
 import { useFinance } from "@/components/providers/finance-provider";
 import { CurrencyInput } from "@/components/ui/currency-input";
 import { DatePicker } from "@/components/ui/date-picker";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { CategoryManagerDialog } from "@/components/categories/category-manager-dialog";
-import { Switch } from "@/components/ui/switch";
+import { useRouter } from "next/navigation";
+import { Icon } from "@iconify/react";
 
-// Helper components para ícones
+// ... (Helpers de ícones) ...
 const LoadingSpinner = () => (
   <svg
     className="animate-spin -ml-1 mr-2 h-5 w-5 text-current"
@@ -82,7 +84,7 @@ const PlusIcon = ({ className = "" }: { className?: string }) => (
 interface FinancialEntryFormProps {
   onFinished?: () => void;
   entryType: EntryType;
-  entryToEdit?: FinancialEntry | null;
+  entryToEdit?: FinancialRecurrence | FinancialEntry | null;
 }
 
 export function FinancialEntryForm({
@@ -90,9 +92,16 @@ export function FinancialEntryForm({
   entryType,
   entryToEdit,
 }: FinancialEntryFormProps) {
+  const router = useRouter();
   const { toast } = useToast();
-  const { accounts, categories, paymentMethods, addFinancialEntry } =
-    useFinance();
+  // ✅ 1. Pegamos a função de UPDATE do nosso hook
+  const {
+    accounts,
+    categories,
+    paymentMethods,
+    addFinancialEntry,
+    updateFinancialEntry,
+  } = useFinance();
 
   const [isCategoryManagerOpen, setIsCategoryManagerOpen] = useState(false);
   const [submittingAction, setSubmittingAction] = useState<
@@ -101,7 +110,6 @@ export function FinancialEntryForm({
 
   const isEditing = !!entryToEdit;
 
-  // Helper para obter os valores padrão do formulário
   const getDefaultValues = (): Partial<FinancialEntryFormData> => ({
     description: "",
     expectedAmount: undefined,
@@ -111,8 +119,6 @@ export function FinancialEntryForm({
     entryFrequency: "single",
     dueDate: new Date(),
     payNow: entryType === "income",
-    accountId: undefined,
-    paymentMethodId: undefined,
   });
 
   const form = useForm<FinancialEntryFormData>({
@@ -123,66 +129,49 @@ export function FinancialEntryForm({
   const entryFrequency = form.watch("entryFrequency");
   const payNow = entryFrequency === "single" ? form.watch("payNow") : false;
 
-  // Efeito para popular o formulário quando `entryToEdit` muda
   useEffect(() => {
     if (isEditing && entryToEdit) {
-      // Montamos um objeto base com os campos comuns a todos
-      const baseData = {
-        description: entryToEdit.description,
-        expectedAmount: entryToEdit.expectedAmount,
-        type: entryToEdit.type,
-        categoryId: entryToEdit.categoryId || "",
-        notes: entryToEdit.notes || "",
-      };
+      const isRecurrenceRule = "frequency" in entryToEdit;
 
-      // Verificamos se é um lançamento simples (não tem recurrenceId)
-      if (!entryToEdit.recurrenceId) {
-        form.reset({
-          ...baseData,
-          entryFrequency: "single",
-          dueDate: entryToEdit.dueDate
-            ? new Date(entryToEdit.dueDate)
-            : new Date(),
-          payNow: entryToEdit.status === "paid",
-          accountId: entryToEdit.accountId || undefined,
-          paymentMethodId: entryToEdit.paymentMethodId || undefined,
-        });
-      } else {
-        // É parte de uma recorrência ou parcelamento
-        const isInstallment =
-          entryToEdit.totalInstallments && entryToEdit.totalInstallments > 0;
+      // Setando os valores comuns a ambos os tipos
+      form.setValue("description", entryToEdit.description);
+      form.setValue("expectedAmount", entryToEdit.expectedAmount);
+      form.setValue("type", entryToEdit.type);
+      form.setValue("categoryId", entryToEdit.categoryId || "");
+      form.setValue("notes", entryToEdit.notes || "");
 
-        if (isInstallment) {
-          // Se for parcelamento
-          form.reset({
-            ...baseData,
-            entryFrequency: "installment",
-            startDate: entryToEdit.dueDate
-              ? new Date(entryToEdit.dueDate)
-              : new Date(),
-            totalInstallments: entryToEdit.totalInstallments || undefined,
-          });
+      if (isRecurrenceRule) {
+        const rule = entryToEdit as FinancialRecurrence;
+
+        console.log("rule: ", rule);
+
+        // Setando os valores específicos da Recorrência
+        form.setValue("entryFrequency", rule.frequency);
+        form.setValue("startDate", rule.startDate); // O dado já vem convertido do hook
+        if (rule.frequency === "installment") {
+          form.setValue("totalInstallments", rule.totalOccurrences || 0);
         } else {
-          // Se for uma recorrência (mensal, semanal, etc.)
-          // Usamos 'monthly' como um placeholder seguro, já que o campo está desabilitado na edição.
-          form.reset({
-            ...baseData,
-            entryFrequency: "monthly",
-            startDate: entryToEdit.dueDate
-              ? new Date(entryToEdit.dueDate)
-              : new Date(),
-          });
+          // Limpa o campo de parcelas se não for do tipo installment
+          form.setValue("totalInstallments", 0);
         }
+      } else {
+        const entry = entryToEdit as FinancialEntry;
+
+        console.log("entry: ", entry);
+
+        // Setando os valores específicos do Lançamento Único
+        form.setValue("entryFrequency", "single");
+        form.setValue("dueDate", entry.dueDate); // O dado já vem convertido do hook
+        form.setValue("payNow", entry.status === "paid");
+        form.setValue("accountId", entry.accountId || undefined);
+        form.setValue("paymentMethodId", entry.paymentMethodId || undefined);
       }
     }
-  }, [entryToEdit, isEditing, form]);
+  }, [entryToEdit, isEditing]);
 
-  // Efeito para alternar os campos dinâmicos ao CRIAR um novo lançamento
   useEffect(() => {
     if (isEditing) return;
-
     const newFrequency = form.watch("entryFrequency");
-
     if (newFrequency === "single") {
       form.unregister("startDate");
       form.unregister("totalInstallments");
@@ -204,10 +193,10 @@ export function FinancialEntryForm({
   ) => {
     setSubmittingAction(andNew ? "saveAndNew" : "save");
     try {
-      if (isEditing) {
-        // TODO: Chamar a função de update (ainda não implementada)
-        console.log("Atualizando dados:", data);
-        await new Promise((resolve) => setTimeout(resolve, 1000));
+      if (isEditing && entryToEdit) {
+        // ✅ 2. A MÁGICA FINAL ACONTECE AQUI!
+        // Chamamos a função de update que veio do hook
+        await updateFinancialEntry(entryToEdit, data);
         toast({ title: "Sucesso!", description: "Lançamento atualizado." });
       } else {
         await addFinancialEntry(data);
@@ -218,7 +207,7 @@ export function FinancialEntryForm({
         form.reset(getDefaultValues());
         form.setFocus("description");
       } else {
-        onFinished?.();
+        router.push("/dashboard");
       }
     } catch (error) {
       console.error("Falha ao salvar lançamento", error);
@@ -239,6 +228,7 @@ export function FinancialEntryForm({
           onSubmit={form.handleSubmit((data) => processSubmit(data))}
           className="space-y-4"
         >
+          {/* ... O JSX do formulário continua o mesmo ... */}
           <FormField
             control={form.control}
             name="description"
@@ -286,12 +276,15 @@ export function FinancialEntryForm({
                   <FormLabel>Frequência</FormLabel>
                   <FormControl>
                     <Select
+                      // ✅ A `key` VEM PARA CÁ, NO COMPONENTE INTERNO
+                      key={field.value}
                       onValueChange={field.onChange}
+                      value={field.value}
                       defaultValue={field.value}
                       disabled={isEditing}
                     >
                       <SelectTrigger>
-                        <SelectValue />
+                        <SelectValue placeholder="Selecione..." />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="single">Direta</SelectItem>
@@ -315,14 +308,25 @@ export function FinancialEntryForm({
                 <FormLabel>Categoria</FormLabel>
                 <div className="flex items-center gap-2">
                   <FormControl className="flex-1">
-                    <Select onValueChange={field.onChange} value={field.value}>
+                    <Select
+                      // ✅ E AQUI TAMBÉM
+                      key={field.value}
+                      onValueChange={field.onChange}
+                      value={field.value}
+                      defaultValue={field.value}
+                    >
                       <SelectTrigger>
                         <SelectValue placeholder="Selecione uma categoria" />
                       </SelectTrigger>
                       <SelectContent>
                         {categories.map((cat) => (
                           <SelectItem key={cat.id} value={cat.id}>
-                            {cat.name}
+                            <div className="flex items-center gap-2">
+                              {cat.icon && (
+                                <Icon icon={cat.icon} className="h-4 w-4" />
+                              )}
+                              <span>{cat.name}</span>
+                            </div>
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -405,6 +409,7 @@ export function FinancialEntryForm({
                           type="number"
                           placeholder="Ex: 12"
                           {...field}
+                          value={field.value ?? ""}
                           onChange={(e) =>
                             field.onChange(
                               parseInt(e.target.value, 10) || undefined

@@ -1,4 +1,4 @@
-// in: components/providers/finance-provider.tsx (VERSÃO ATUALIZADA)
+// in: components/providers/finance-provider.tsx (VERSÃO FINAL CORRIGIDA)
 
 "use client";
 
@@ -9,6 +9,7 @@ import React, {
   useContext,
   ReactNode,
   useRef,
+  useMemo, // ✅ 1. IMPORTAR O useMemo
 } from "react";
 import { getApp } from "firebase/app";
 import {
@@ -21,7 +22,10 @@ import {
 } from "firebase/firestore";
 
 import { Account, Category, PaymentMethod } from "@/interfaces/finance";
-import { FinancialEntry } from "@/interfaces/financial-entry";
+import {
+  FinancialEntry,
+  FinancialRecurrence,
+} from "@/interfaces/financial-entry";
 import { useAuth } from "./auth-provider";
 import { useFinanceData } from "@/hooks/use-finance-data";
 import { useAccountsCrud } from "@/hooks/use-accounts-crud";
@@ -35,7 +39,7 @@ import {
   defaultPaymentMethods,
 } from "@/lib/data/defaults";
 import { FullBackup } from "@/hooks/use-financial-entries-crud";
-import { PaymentFormData } from "@/schemas/payment-schema"; // IMPORTAR O TIPO DO FORM
+import { PaymentFormData } from "@/schemas/payment-schema";
 
 interface FinanceContextType {
   // Estados
@@ -70,12 +74,6 @@ interface FinanceContextType {
   addFinancialEntry: ReturnType<
     typeof useFinancialEntriesCrud
   >["addFinancialEntry"];
-  addInstallmentEntry: ReturnType<
-    typeof useFinancialEntriesCrud
-  >["addInstallmentEntry"];
-  addMonthlyRecurringEntries: ReturnType<
-    typeof useFinancialEntriesCrud
-  >["addMonthlyRecurringEntries"];
   updateFinancialEntry: ReturnType<
     typeof useFinancialEntriesCrud
   >["updateFinancialEntry"];
@@ -83,7 +81,6 @@ interface FinanceContextType {
     typeof useFinancialEntriesCrud
   >["deleteFinancialEntry"];
 
-  // NOVA FUNÇÃO DE PAGAMENTO ADICIONADA AQUI
   processFinancialEntryPayment: (
     entryId: string,
     paymentData: PaymentFormData
@@ -94,6 +91,9 @@ interface FinanceContextType {
     backupData: FullBackup,
     onProgress: (message: string) => void
   ) => Promise<void>;
+  getFinancialEntryById: (id: string) => Promise<FinancialEntry | null>;
+  getRecurrenceRuleById: (id: string) => Promise<FinancialRecurrence | null>;
+  migrateLegacyRecurrences: () => Promise<void>;
 }
 
 const FinanceContext = createContext<FinanceContextType | undefined>(undefined);
@@ -115,6 +115,7 @@ export const FinanceProvider = ({ children }: { children: ReactNode }) => {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [dataSeedCheckCompleted, setDataSeedCheckCompleted] = useState(false);
 
+  // ... (useEffect de inicialização do Firestore continua igual) ...
   useEffect(() => {
     if (!authLoading && user && projectId) {
       try {
@@ -138,8 +139,8 @@ export const FinanceProvider = ({ children }: { children: ReactNode }) => {
     setLoading: setLoadingFinanceData,
   });
 
+  // ... (useEffect de verificação de dados padrão continua igual) ...
   useEffect(() => {
-    // ... (lógica de verificação de dados padrão, sem alteração)
     if (user && projectId && !hasCheckedData.current) {
       hasCheckedData.current = true;
       const runDataCheck = async () => {
@@ -344,6 +345,7 @@ export const FinanceProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [user, projectId, toast]);
 
+  // ... (Hooks CRUD continuam iguais) ...
   const { addAccount, updateAccount, deleteAccount } = useAccountsCrud({
     db: dbRef.current,
     user,
@@ -363,16 +365,16 @@ export const FinanceProvider = ({ children }: { children: ReactNode }) => {
       projectId,
       setErrorFinanceData,
     });
-
   const {
     addFinancialEntry,
-    addInstallmentEntry,
-    addMonthlyRecurringEntries,
     updateFinancialEntry,
     deleteFinancialEntry,
     processFinancialEntryPayment,
     exportUserData,
     importUserData,
+    getFinancialEntryById,
+    getRecurrenceRuleById,
+    migrateLegacyRecurrences,
   } = useFinancialEntriesCrud({
     db: dbRef.current,
     user,
@@ -386,37 +388,68 @@ export const FinanceProvider = ({ children }: { children: ReactNode }) => {
     setRefreshTrigger((prev) => prev + 1);
   };
 
+  // ✅ 2. MEMOIZAR O OBJETO DE VALOR DO CONTEXTO
+  const contextValue = useMemo(
+    () => ({
+      accounts,
+      categories,
+      paymentMethods,
+      financialEntries,
+      loadingFinanceData,
+      dataSeedCheckCompleted,
+      errorFinanceData,
+      addAccount,
+      updateAccount,
+      deleteAccount,
+      addCategory,
+      updateCategory,
+      deleteCategory,
+      addPaymentMethod,
+      updatePaymentMethod,
+      deletePaymentMethod,
+      getAccountById,
+      refreshData,
+      addFinancialEntry,
+      updateFinancialEntry,
+      deleteFinancialEntry,
+      processFinancialEntryPayment,
+      exportUserData,
+      importUserData,
+      getFinancialEntryById,
+      getRecurrenceRuleById,
+      migrateLegacyRecurrences,
+    }),
+    [
+      accounts,
+      categories,
+      paymentMethods,
+      financialEntries,
+      loadingFinanceData,
+      dataSeedCheckCompleted,
+      errorFinanceData,
+      addAccount,
+      updateAccount,
+      deleteAccount,
+      addCategory,
+      updateCategory,
+      deleteCategory,
+      addPaymentMethod,
+      updatePaymentMethod,
+      deletePaymentMethod,
+      addFinancialEntry,
+      updateFinancialEntry,
+      deleteFinancialEntry,
+      processFinancialEntryPayment,
+      exportUserData,
+      importUserData,
+      getFinancialEntryById,
+      getRecurrenceRuleById,
+    ]
+  );
+
   return (
-    <FinanceContext.Provider
-      value={{
-        accounts,
-        categories,
-        paymentMethods,
-        financialEntries,
-        loadingFinanceData,
-        dataSeedCheckCompleted,
-        errorFinanceData,
-        addAccount,
-        updateAccount,
-        deleteAccount,
-        addCategory,
-        updateCategory,
-        deleteCategory,
-        addPaymentMethod,
-        updatePaymentMethod,
-        deletePaymentMethod,
-        getAccountById,
-        refreshData,
-        addFinancialEntry,
-        addInstallmentEntry,
-        addMonthlyRecurringEntries,
-        updateFinancialEntry,
-        deleteFinancialEntry,
-        processFinancialEntryPayment, // <-- DISPONIBILIZANDO A FUNÇÃO NO CONTEXTO
-        exportUserData,
-        importUserData,
-      }}
-    >
+    // ✅ 4. USAR O VALOR MEMOIZADO
+    <FinanceContext.Provider value={contextValue}>
       {children}
     </FinanceContext.Provider>
   );

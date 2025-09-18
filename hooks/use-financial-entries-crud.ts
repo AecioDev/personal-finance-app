@@ -1,4 +1,4 @@
-// in: hooks/use-financial-entries-crud.ts (VERSÃO CORRIGIDA E UNIFICADA)
+// in: hooks/use-financial-entries-crud.ts (VERSÃO CORRIGIDA E COMPLETA)
 
 import {
   Firestore,
@@ -10,6 +10,12 @@ import {
   writeBatch,
   getDocs,
   runTransaction,
+  query,
+  where,
+  getDoc,
+  Timestamp,
+  DocumentSnapshot,
+  DocumentData,
 } from "firebase/firestore";
 import { User as FirebaseUser } from "firebase/auth";
 import {
@@ -20,14 +26,38 @@ import { addMonths, addWeeks, addYears } from "date-fns";
 import { FinancialEntryFormData } from "@/schemas/financial-entry-schema";
 import { Account, Category, PaymentMethod } from "@/interfaces/finance";
 import { PaymentFormData } from "@/schemas/payment-schema";
+import { useCallback } from "react"; // ✅ IMPORTADO!
 
-// Interfaces e Funções de conversão (mantidas do seu arquivo original)
 export interface FullBackup {
   financialEntries: FinancialEntry[];
+  financialRecurrences: FinancialRecurrence[];
   accounts: Account[];
   categories: Category[];
   paymentMethods: PaymentMethod[];
 }
+
+// ... Funções helpers ...
+const convertDocToData = <T extends Record<string, any>>(
+  docSnap: DocumentSnapshot<DocumentData>
+): T => {
+  if (!docSnap.exists()) {
+    throw new Error("Document does not exist");
+  }
+
+  const data = docSnap.data();
+  const convertedData: Record<string, any> = {};
+
+  for (const key in data) {
+    const value = data[key];
+    if (value instanceof Timestamp) {
+      convertedData[key] = value.toDate();
+    } else {
+      convertedData[key] = value;
+    }
+  }
+
+  return { id: docSnap.id, ...convertedData } as unknown as T;
+};
 
 const convertDataForExport = (data: any): any => {
   if (!data) return data;
@@ -86,330 +116,558 @@ export const useFinancialEntriesCrud = ({
   projectId,
   setErrorFinanceData,
 }: UseFinancialEntriesCrudProps) => {
-  // getCollectionRef MANTIDO EXATAMENTE COMO VOCÊ PEDIU
-  const getCollectionRef = (collectionName: string) => {
-    if (!db || !user || !projectId) {
-      throw new Error("Firestore não inicializado ou usuário não logado.");
-    }
-    return collection(
-      db,
-      `artifacts/${projectId}/users/${user.uid}/${collectionName}`
-    );
-  };
-
-  // --- NOVA LÓGICA PARA LANÇAMENTOS ÚNICOS (DIRETOS) ---
-  const addSingleFinancialEntry = async (data: FinancialEntryFormData) => {
-    if (data.entryFrequency !== "single" || !data.dueDate || !db || !user)
-      return;
-
-    const newEntryData = {
-      uid: user.uid,
-      description: data.description,
-      expectedAmount: data.expectedAmount,
-      type: data.type,
-      categoryId: data.categoryId,
-      notes: data.notes || "",
-      dueDate: data.dueDate,
-      status: data.payNow ? "paid" : "pending",
-      paidAmount: data.payNow ? data.expectedAmount : null,
-      paymentDate: data.payNow ? new Date() : null,
-      accountId: data.payNow ? data.accountId : null,
-      paymentMethodId: data.payNow ? data.paymentMethodId : null,
-      createdAt: serverTimestamp(),
-      isRecurrence: false,
-    };
-
-    const docRef = doc(getCollectionRef("financial-entries"));
-    await runTransaction(db, async (transaction) => {
-      transaction.set(docRef, { ...newEntryData, id: docRef.id });
-      if (data.payNow && data.accountId) {
-        const accountRef = doc(getCollectionRef("accounts"), data.accountId);
-        const accountDoc = await transaction.get(accountRef);
-        if (accountDoc.exists()) {
-          const currentBalance = accountDoc.data().balance || 0;
-          const newBalance =
-            data.type === "income"
-              ? currentBalance + data.expectedAmount
-              : currentBalance - data.expectedAmount;
-          transaction.update(accountRef, { balance: newBalance });
-        }
+  const getCollectionRef = useCallback(
+    (collectionName: string) => {
+      if (!db || !user || !projectId) {
+        throw new Error("Firestore não inicializado ou usuário não logado.");
       }
-    });
-  };
+      return collection(
+        db,
+        `artifacts/${projectId}/users/${user.uid}/${collectionName}`
+      );
+    },
+    [db, user, projectId]
+  );
 
-  // --- NOVA LÓGICA PARA RECORRÊNCIAS E PARCELAMENTOS ---
-  const addRecurrence = async (data: FinancialEntryFormData) => {
-    if (data.entryFrequency === "single" || !data.startDate || !db || !user)
-      return;
-
-    const batch = writeBatch(db);
-    const recurrenceRef = doc(getCollectionRef("financial-recurrences"));
-
-    const isInstallment = data.entryFrequency === "installment";
-    const totalOccurrences = isInstallment ? data.totalInstallments : undefined;
-
-    const ruleData: Omit<FinancialRecurrence, "id"> = {
-      uid: user.uid,
-      description: data.description,
-      expectedAmount: data.expectedAmount,
-      type: data.type,
-      categoryId: data.categoryId,
-      notes: data.notes || "",
-      frequency: data.entryFrequency,
-      startDate: data.startDate,
-      totalOccurrences: totalOccurrences,
-      isActive: true,
-      createdAt: new Date(),
-    };
-    batch.set(recurrenceRef, { ...ruleData, id: recurrenceRef.id });
-
-    const totalToGenerate = totalOccurrences || 12;
-    let currentDate = data.startDate;
-
-    for (let i = 1; i <= totalToGenerate; i++) {
-      if (i > 1) {
-        switch (data.entryFrequency) {
-          case "weekly":
-            currentDate = addWeeks(currentDate, 1);
-            break;
-          case "installment":
-          case "monthly":
-            currentDate = addMonths(currentDate, 1);
-            break;
-          case "yearly":
-            currentDate = addYears(currentDate, 1);
-            break;
-        }
+  const getDocRef = useCallback(
+    (collectionName: string, id: string) => {
+      if (!db || !user || !projectId) {
+        throw new Error("Firestore não inicializado ou usuário não logado.");
       }
+      return doc(
+        db,
+        `artifacts/${projectId}/users/${user.uid}/${collectionName}`,
+        id
+      );
+    },
+    [db, user, projectId]
+  );
 
-      const newEntryRef = doc(getCollectionRef("financial-entries"));
-      const entry: Omit<FinancialEntry, "id"> = {
+  const addSingleFinancialEntry = useCallback(
+    async (data: FinancialEntryFormData) => {
+      if (data.entryFrequency !== "single" || !data.dueDate || !db || !user)
+        return;
+
+      const newEntryData: Omit<FinancialEntry, "id" | "createdAt"> = {
         uid: user.uid,
         description: data.description,
         expectedAmount: data.expectedAmount,
         type: data.type,
         categoryId: data.categoryId,
         notes: data.notes || "",
-        dueDate: currentDate,
-        status: "pending",
-        paidAmount: null,
-        paymentDate: null,
-        createdAt: new Date(),
-        recurrenceId: recurrenceRef.id,
-        installmentNumber: i,
-        totalInstallments: totalOccurrences || 0,
+        dueDate: data.dueDate,
+        status: data.payNow ? "paid" : "pending",
+        paidAmount: data.payNow ? data.expectedAmount : null,
+        paymentDate: data.payNow ? new Date() : null,
+        accountId: data.payNow ? data.accountId : "",
+        paymentMethodId: data.payNow ? data.paymentMethodId : null,
       };
-      batch.set(newEntryRef, { ...entry, id: newEntryRef.id });
-    }
-    await batch.commit();
-  };
 
-  // --- NOVA FUNÇÃO PRINCIPAL QUE O FORMULÁRIO USA ---
-  const addFinancialEntry = async (data: FinancialEntryFormData) => {
-    try {
-      if (data.entryFrequency === "single") {
-        await addSingleFinancialEntry(data);
-      } else {
-        await addRecurrence(data);
-      }
-    } catch (error: unknown) {
-      console.error("Erro ao adicionar lançamento:", error);
-      const errorMessage =
-        error instanceof Error ? error.message : "Ocorreu um erro desconhecido";
-      setErrorFinanceData(`Erro ao adicionar lançamento: ${errorMessage}`);
-      throw new Error(`Erro ao adicionar lançamento: ${errorMessage}`);
-    }
-  };
-
-  // --- DEMAIS FUNÇÕES DO SEU ARQUIVO ORIGINAL, MANTIDAS COMO ESTAVAM ---
-
-  const processFinancialEntryPayment = async (
-    entryId: string,
-    paymentData: PaymentFormData
-  ): Promise<boolean> => {
-    if (!db) {
-      setErrorFinanceData("Firestore não está disponível.");
-      return false;
-    }
-
-    try {
+      const docRef = doc(getCollectionRef("financial-entries"));
       await runTransaction(db, async (transaction) => {
-        const entryRef = doc(getCollectionRef("financial-entries"), entryId);
-        const accountRef = doc(
-          getCollectionRef("accounts"),
-          paymentData.accountId
-        );
+        transaction.set(docRef, {
+          ...newEntryData,
+          id: docRef.id,
+          createdAt: serverTimestamp(),
+        });
+        if (data.payNow && data.accountId) {
+          const accountRef = getDocRef("accounts", data.accountId);
+          const accountDoc = await transaction.get(accountRef);
+          if (accountDoc.exists()) {
+            const currentBalance = accountDoc.data().balance || 0;
+            const newBalance =
+              data.type === "income"
+                ? currentBalance + data.expectedAmount
+                : currentBalance - data.expectedAmount;
+            transaction.update(accountRef, { balance: newBalance });
+          }
+        }
+      });
+    },
+    [db, user, getCollectionRef, getDocRef]
+  );
 
-        const [entrySnap, accountSnap] = await Promise.all([
-          transaction.get(entryRef),
-          transaction.get(accountRef),
-        ]);
+  const addRecurrence = useCallback(
+    async (data: FinancialEntryFormData) => {
+      if (data.entryFrequency === "single" || !data.startDate || !db || !user)
+        return;
 
-        if (!entrySnap.exists()) throw new Error("Lançamento não encontrado.");
-        if (!accountSnap.exists()) throw new Error("Conta não encontrada.");
+      const batch = writeBatch(db);
+      const recurrenceRef = doc(getCollectionRef("financial-recurrences"));
 
-        const entry = entrySnap.data() as FinancialEntry;
-        const account = accountSnap.data() as Account;
+      const isInstallment = data.entryFrequency === "installment";
+      const totalOccurrences = isInstallment ? data.totalInstallments : null;
 
-        const updatedEntryData: Partial<FinancialEntry> = {
-          status: "paid",
-          paidAmount: paymentData.amount,
-          paymentDate: paymentData.paymentDate,
-          accountId: paymentData.accountId,
-          paymentMethodId: paymentData.paymentMethodId,
-        };
+      const ruleData: Omit<FinancialRecurrence, "id"> = {
+        uid: user.uid,
+        description: data.description,
+        expectedAmount: data.expectedAmount,
+        type: data.type,
+        categoryId: data.categoryId,
+        notes: data.notes || "",
+        frequency: data.entryFrequency,
+        startDate: data.startDate,
+        totalOccurrences: totalOccurrences || 0,
+        isActive: true,
+        createdAt: new Date(),
+      };
+      batch.set(recurrenceRef, { ...ruleData, id: recurrenceRef.id });
 
-        let newBalance = account.balance || 0;
-        if (entry.type === "income") {
-          newBalance += paymentData.amount;
-        } else {
-          newBalance -= paymentData.amount;
+      const totalToGenerate = totalOccurrences || 12;
+      let currentDate = data.startDate;
+
+      for (let i = 1; i <= totalToGenerate; i++) {
+        if (i > 1) {
+          switch (data.entryFrequency) {
+            case "weekly":
+              currentDate = addWeeks(currentDate, 1);
+              break;
+            case "installment":
+            case "monthly":
+              currentDate = addMonths(currentDate, 1);
+              break;
+            case "yearly":
+              currentDate = addYears(currentDate, 1);
+              break;
+          }
         }
 
-        transaction.update(entryRef, updatedEntryData);
-        transaction.update(accountRef, { balance: newBalance });
+        const newEntryRef = doc(getCollectionRef("financial-entries"));
+        const entry: Omit<FinancialEntry, "id" | "createdAt"> = {
+          uid: user.uid,
+          description: data.description,
+          expectedAmount: data.expectedAmount,
+          type: data.type,
+          categoryId: data.categoryId,
+          notes: data.notes || "",
+          dueDate: currentDate,
+          status: "pending",
+          paidAmount: null,
+          paymentDate: null,
+          recurrenceId: recurrenceRef.id,
+          installmentNumber: i,
+          totalInstallments: totalOccurrences || 0,
+        };
+        batch.set(newEntryRef, {
+          ...entry,
+          id: newEntryRef.id,
+          createdAt: new Date(),
+        });
+      }
+      await batch.commit();
+    },
+    [db, user, getCollectionRef]
+  );
+
+  const addFinancialEntry = useCallback(
+    async (data: FinancialEntryFormData) => {
+      try {
+        if (data.entryFrequency === "single") {
+          await addSingleFinancialEntry(data);
+        } else {
+          await addRecurrence(data);
+        }
+      } catch (error: unknown) {
+        console.error("Erro ao adicionar lançamento:", error);
+        const errorMessage =
+          error instanceof Error
+            ? error.message
+            : "Ocorreu um erro desconhecido";
+        setErrorFinanceData(`Erro ao adicionar lançamento: ${errorMessage}`);
+        throw new Error(`Erro ao adicionar lançamento: ${errorMessage}`);
+      }
+    },
+    [addSingleFinancialEntry, addRecurrence, setErrorFinanceData]
+  );
+
+  const updateSingleFinancialEntry = useCallback(
+    async (id: string, data: FinancialEntryFormData) => {
+      if (data.entryFrequency !== "single" || !data.dueDate) return;
+      const entryRef = getDocRef("financial-entries", id);
+      const updatedData = {
+        description: data.description,
+        expectedAmount: data.expectedAmount,
+        categoryId: data.categoryId,
+        notes: data.notes || "",
+        dueDate: data.dueDate,
+      };
+      await updateDoc(entryRef, updatedData);
+    },
+    [getDocRef]
+  );
+
+  const updateRecurrenceRuleAndFutureEntries = useCallback(
+    async (rule: FinancialRecurrence, data: FinancialEntryFormData) => {
+      if (data.entryFrequency === "single" || !db) return;
+
+      const batch = writeBatch(db);
+      const ruleRef = getDocRef("financial-recurrences", rule.id);
+      const updatedRuleData = {
+        description: data.description,
+        expectedAmount: data.expectedAmount,
+        categoryId: data.categoryId,
+        notes: data.notes || "",
+      };
+      batch.update(ruleRef, updatedRuleData);
+
+      const entriesQuery = query(
+        getCollectionRef("financial-entries"),
+        where("recurrenceId", "==", rule.id),
+        where("status", "==", "pending")
+      );
+
+      const querySnapshot = await getDocs(entriesQuery);
+      querySnapshot.forEach((doc) => {
+        batch.update(doc.ref, {
+          description: data.description,
+          expectedAmount: data.expectedAmount,
+          categoryId: data.categoryId,
+          notes: data.notes || "",
+        });
       });
 
-      return true;
-    } catch (error: unknown) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      console.error("Erro ao processar pagamento:", error);
-      setErrorFinanceData(`Erro ao processar pagamento: ${errorMessage}`);
-      throw new Error("Erro ao processar pagamento.");
-    }
-  };
+      await batch.commit();
+    },
+    [db, getDocRef, getCollectionRef]
+  );
 
-  const updateFinancialEntry = async (
-    entryId: string,
-    updatedData: Partial<FinancialEntry>
-  ) => {
-    try {
-      const docRef = doc(getCollectionRef("financial-entries"), entryId);
-      await updateDoc(docRef, updatedData);
-    } catch (error: unknown) {
-      console.error("Erro ao atualizar lançamento:", error);
-      if (typeof error === "object" && error !== null && "message" in error) {
-        setErrorFinanceData(`Erro ao atualizar lançamento: ${error.message}`);
+  const updateFinancialEntry = useCallback(
+    async (
+      itemToEdit: FinancialRecurrence | FinancialEntry,
+      data: FinancialEntryFormData
+    ) => {
+      try {
+        const isRecurrenceRule = "frequency" in itemToEdit;
+        if (isRecurrenceRule) {
+          await updateRecurrenceRuleAndFutureEntries(itemToEdit, data);
+        } else {
+          await updateSingleFinancialEntry(itemToEdit.id, data);
+        }
+      } catch (error: unknown) {
+        console.error("Erro ao atualizar lançamento:", error);
+        const errorMessage =
+          error instanceof Error
+            ? error.message
+            : "Ocorreu um erro desconhecido";
+        setErrorFinanceData(`Erro ao atualizar lançamento: ${errorMessage}`);
+        throw new Error(`Erro ao atualizar lançamento: ${errorMessage}`);
       }
-      throw new Error(
-        "Não foi possível atualizar o lançamento. Tente novamente."
-      );
-    }
-  };
+    },
+    [
+      setErrorFinanceData,
+      updateRecurrenceRuleAndFutureEntries,
+      updateSingleFinancialEntry,
+    ]
+  );
 
-  const deleteFinancialEntry = async (entryId: string) => {
-    try {
-      const docRef = doc(getCollectionRef("financial-entries"), entryId);
-      await deleteDoc(docRef);
-    } catch (error: unknown) {
-      console.error("Erro ao deletar lançamento:", error);
-      if (typeof error === "object" && error !== null && "message" in error) {
-        setErrorFinanceData(`Erro ao deletar lançamento: ${error.message}`);
+  const getFinancialEntryById = useCallback(
+    async (id: string): Promise<FinancialEntry | null> => {
+      if (!db || !user?.uid || !projectId) {
+        console.error(
+          "[HOOK] ERRO FATAL: Contexto do Firebase não está pronto! Abortando busca."
+        );
+        setErrorFinanceData("Contexto do Firebase não está pronto.");
+        return null;
       }
-      throw new Error(
-        "Não foi possível remover a lançamento. Tente novamente."
-      );
-    }
-  };
+      try {
+        const docRef = doc(
+          db,
+          `artifacts/${projectId}/users/${user.uid}/financial-entries`,
+          id
+        );
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          return convertDocToData<FinancialEntry>(docSnap);
+        }
+        return null;
+      } catch (error) {
+        console.error(
+          `[HOOK] CRASH na busca por FinancialEntry ID "${id}":`,
+          error
+        );
+        setErrorFinanceData(
+          "Não foi possível carregar os dados do lançamento."
+        );
+        return null;
+      }
+    },
+    [db, user, projectId, setErrorFinanceData]
+  );
 
-  const exportUserData = async (): Promise<FullBackup> => {
-    if (!db || !user || !projectId) {
-      throw new Error("Não é possível exportar: Firestore não inicializado.");
-    }
-    console.log(`Iniciando exportação para o projeto ${projectId}...`);
-    const [accountsSnap, categoriesSnap, paymentMethodsSnap, entriesSnap] =
-      await Promise.all([
-        getDocs(getCollectionRef("accounts")),
-        getDocs(getCollectionRef("categories")),
-        getDocs(getCollectionRef("paymentMethods")),
-        getDocs(getCollectionRef("financial-entries")),
-      ]);
+  const getRecurrenceRuleById = useCallback(
+    async (id: string): Promise<FinancialRecurrence | null> => {
+      if (!db || !user?.uid || !projectId) {
+        console.error(
+          "[HOOK] ERRO FATAL: Contexto do Firebase não está pronto! Abortando busca."
+        );
+        setErrorFinanceData("Contexto do Firebase não está pronto.");
+        return null;
+      }
+      try {
+        const docRef = doc(
+          db,
+          `artifacts/${projectId}/users/${user.uid}/financial-recurrences`,
+          id
+        );
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          return convertDocToData<FinancialRecurrence>(docSnap);
+        }
+        return null;
+      } catch (error) {
+        console.error(
+          `[HOOK] CRASH na busca por RecurrenceRule ID "${id}":`,
+          error
+        );
+        setErrorFinanceData(
+          "Não foi possível carregar a regra de recorrência."
+        );
+        return null;
+      }
+    },
+    [db, user, projectId, setErrorFinanceData]
+  );
 
-    // Primeiro, pegamos os dados brutos
-    const rawBackup: FullBackup = {
-      accounts: accountsSnap.docs.map(
-        (doc) => ({ id: doc.id, ...doc.data() } as Account)
-      ),
-      categories: categoriesSnap.docs.map(
-        (doc) => ({ id: doc.id, ...doc.data() } as Category)
-      ),
-      paymentMethods: paymentMethodsSnap.docs.map(
-        (doc) => ({ id: doc.id, ...doc.data() } as PaymentMethod)
-      ),
-      financialEntries: entriesSnap.docs.map(
-        (doc) => ({ id: doc.id, ...doc.data() } as FinancialEntry)
-      ),
-    };
+  const deleteFinancialEntry = useCallback(
+    async (entryId: string) => {
+      if (!db) return;
+      try {
+        const docRef = getDocRef("financial-entries", entryId);
+        await deleteDoc(docRef);
+      } catch (error) {
+        console.error("Erro ao deletar lançamento:", error);
+        setErrorFinanceData("Erro ao deletar lançamento.");
+      }
+    },
+    [db, getDocRef, setErrorFinanceData]
+  );
 
-    // Faz a conversão de datas
-    const fullBackup = convertDataForExport(rawBackup);
+  const processFinancialEntryPayment = useCallback(
+    async (entryId: string, paymentData: PaymentFormData): Promise<boolean> => {
+      if (!db) return false;
+      const entryRef = getDocRef("financial-entries", entryId);
+      const accountRef = getDocRef("accounts", paymentData.accountId);
+      try {
+        await runTransaction(db, async (transaction) => {
+          const entryDoc = await transaction.get(entryRef);
+          const accountDoc = await transaction.get(accountRef);
+          if (!entryDoc.exists() || !accountDoc.exists()) {
+            throw new Error("Lançamento ou conta não encontrada.");
+          }
+          const entryData = entryDoc.data() as FinancialEntry;
+          const accountData = accountDoc.data() as Account;
+          const currentBalance = accountData.balance || 0;
+          const newBalance =
+            entryData.type === "income"
+              ? currentBalance + entryData.expectedAmount
+              : currentBalance - entryData.expectedAmount;
+          transaction.update(accountRef, { balance: newBalance });
+          transaction.update(entryRef, {
+            status: "paid",
+            paidAmount: entryData.expectedAmount,
+            paymentDate: paymentData.paymentDate,
+            accountId: paymentData.accountId,
+            paymentMethodId: paymentData.paymentMethodId,
+          });
+        });
+        return true;
+      } catch (error) {
+        console.error("Erro ao processar pagamento:", error);
+        setErrorFinanceData("Erro ao processar pagamento.");
+        return false;
+      }
+    },
+    [db, getDocRef, setErrorFinanceData]
+  );
 
-    console.log("Exportação concluída.");
-    return fullBackup;
-  };
-
-  const importUserData = async (
-    backupData: FullBackup,
-    onProgress: (message: string) => void
-  ) => {
-    if (!db || !user || !projectId) {
-      throw new Error("Não é possível importar: Firestore não inicializado.");
-    }
-    onProgress("Iniciando limpeza de dados antigos...");
-    const collectionsToWipe = [
+  const exportUserData = useCallback(async (): Promise<FullBackup> => {
+    const collectionsToExport: (keyof FullBackup)[] = [
       "accounts",
       "categories",
       "paymentMethods",
-      "financial-entries",
+      "financialEntries",
+      "financialRecurrences",
     ];
-    for (const coll of collectionsToWipe) {
-      onProgress(`Limpando ${coll}...`);
-      const snapshot = await getDocs(getCollectionRef(coll));
-      if (snapshot.empty) continue;
-      const wipeBatch = writeBatch(db);
-      snapshot.docs.forEach((doc) => wipeBatch.delete(doc.ref));
-      await wipeBatch.commit();
+    const backupData: any = {};
+    for (const collectionName of collectionsToExport) {
+      const firestoreCollectionName =
+        collectionName === "financialEntries"
+          ? "financial-entries"
+          : collectionName === "financialRecurrences"
+          ? "financial-recurrences"
+          : collectionName;
+      const querySnapshot = await getDocs(
+        getCollectionRef(firestoreCollectionName)
+      );
+      backupData[collectionName] = querySnapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
     }
-    onProgress("Limpeza de dados concluída.");
-    onProgress("Iniciando importação dos novos dados...");
+    return convertDataForExport(backupData) as FullBackup;
+  }, [getCollectionRef]);
 
-    // Converte as datas para importar.
-    const dataToImport = convertDataForImport(backupData);
-
-    const importBatch = writeBatch(db);
-    const processCollection = (
-      collectionName: keyof FullBackup,
-      collectionPath: string
-    ) => {
-      const items = dataToImport[collectionName] as any[];
-      if (items && items.length > 0) {
-        onProgress(`Importando ${items.length} ${collectionName}...`);
-        items.forEach((item) => {
-          const docRef = doc(getCollectionRef(collectionPath), item.id);
-          const newItemData = { ...item, uid: user.uid };
-          importBatch.set(docRef, newItemData);
-        });
+  const importUserData = useCallback(
+    async (backupData: FullBackup, onProgress: (message: string) => void) => {
+      if (!db) return;
+      onProgress("Iniciando limpeza dos dados existentes...");
+      const collectionsToWipe = [
+        "financial-entries",
+        "financial-recurrences",
+        "accounts",
+        "categories",
+        "paymentMethods",
+      ];
+      for (const collectionName of collectionsToWipe) {
+        const wipeBatch = writeBatch(db);
+        const snapshot = await getDocs(getCollectionRef(collectionName));
+        snapshot.docs.forEach((doc) => wipeBatch.delete(doc.ref));
+        await wipeBatch.commit();
       }
+      onProgress("Limpeza concluída. Importando novos dados...");
+      const dataToImport = convertDataForImport(backupData);
+      const importBatch = writeBatch(db);
+      const processCollection = (
+        collectionKey: keyof FullBackup,
+        collectionPath: string
+      ) => {
+        const items = dataToImport[collectionKey] as any[];
+        if (items && items.length > 0) {
+          onProgress(`Importando ${items.length} ${collectionKey}...`);
+          items.forEach((item) => {
+            const docRef = getDocRef(collectionPath, item.id);
+            importBatch.set(docRef, item);
+          });
+        }
+      };
+      processCollection("accounts", "accounts");
+      processCollection("categories", "categories");
+      processCollection("paymentMethods", "paymentMethods");
+      processCollection("financialEntries", "financial-entries");
+      processCollection("financialRecurrences", "financial-recurrences");
+      await importBatch.commit();
+      onProgress("Importação concluída com sucesso!");
+    },
+    [db, getCollectionRef, getDocRef]
+  );
+
+  const migrateLegacyRecurrences = useCallback(async () => {
+    if (!db || !user) {
+      console.error("DB ou Usuário não disponíveis para migração.");
+      return;
+    }
+    console.log("Iniciando migração de dados legados...");
+
+    const entriesRef = getCollectionRef("financial-entries");
+    const q = query(entriesRef, where("recurrenceId", "!=", null));
+    const querySnapshot = await getDocs(q);
+
+    const legacyEntries = querySnapshot.docs.map(
+      (doc) => doc.data() as FinancialEntry
+    );
+    if (legacyEntries.length === 0) {
+      console.log("Nenhum lançamento legado para migrar.");
+      alert("Nenhum lançamento legado para migrar.");
+      return;
+    }
+
+    const groupedByRecurrence = legacyEntries.reduce((acc, entry) => {
+      const key = entry.recurrenceId!;
+      if (!acc[key]) {
+        acc[key] = [];
+      }
+      acc[key].push(entry);
+      return acc;
+    }, {} as Record<string, FinancialEntry[]>);
+
+    console.log(
+      `Encontrados ${
+        Object.keys(groupedByRecurrence).length
+      } grupos de recorrência para criar.`
+    );
+
+    const batch = writeBatch(db);
+    let migratedCount = 0;
+
+    // ✅ FUNÇÃO HELPER ATUALIZADA PARA USAR .toDate()
+    const safeCreateDate = (dateValue: any): Date | null => {
+      if (!dateValue) return null;
+
+      // A VERIFICAÇÃO CORRETA: Se o objeto tiver o método .toDate(), é um Timestamp.
+      if (typeof dateValue.toDate === "function") {
+        return dateValue.toDate(); // Usa o método oficial de conversão!
+      }
+
+      // Fallbacks para outros formatos (pouco provável, mas seguro)
+      if (
+        typeof dateValue === "object" &&
+        dateValue !== null &&
+        typeof dateValue.seconds === "number"
+      ) {
+        const d = new Date(dateValue.seconds * 1000);
+        return isNaN(d.getTime()) ? null : d;
+      }
+      const d = new Date(dateValue);
+      return isNaN(d.getTime()) ? null : d;
     };
-    processCollection("accounts", "accounts");
-    processCollection("categories", "categories");
-    processCollection("paymentMethods", "paymentMethods");
-    processCollection("financialEntries", "financial-entries");
-    onProgress("Salvando tudo no banco de dados...");
-    await importBatch.commit();
-    onProgress("Importação concluída com sucesso!");
-  };
+
+    for (const recurrenceId in groupedByRecurrence) {
+      const validEntriesInGroup = groupedByRecurrence[recurrenceId]
+        .map((entry) => ({
+          ...entry,
+          jsDate: safeCreateDate(entry.dueDate),
+        }))
+        .filter((entry) => entry.jsDate !== null)
+        .sort((a, b) => a.jsDate!.getTime() - b.jsDate!.getTime());
+
+      if (validEntriesInGroup.length === 0) {
+        console.warn(
+          `[MIGRAÇÃO] Grupo com recurrenceId "${recurrenceId}" foi IGNORADO por não ter lançamentos com datas válidas.`
+        );
+        continue;
+      }
+
+      const firstEntry = validEntriesInGroup[0];
+
+      const newRecurrenceRule: Omit<FinancialRecurrence, "id"> = {
+        uid: user.uid,
+        description: firstEntry.description,
+        expectedAmount: firstEntry.expectedAmount,
+        type: firstEntry.type,
+        categoryId: firstEntry.categoryId || "",
+        notes: firstEntry.notes || "",
+        frequency: "installment",
+        startDate: firstEntry.jsDate!,
+        totalOccurrences: validEntriesInGroup.length,
+        isActive: true,
+        createdAt: new Date(),
+      };
+
+      const docRef = getDocRef("financial-recurrences", recurrenceId);
+      batch.set(docRef, { ...newRecurrenceRule, id: recurrenceId });
+      migratedCount++;
+    }
+
+    if (migratedCount > 0) {
+      await batch.commit();
+    }
+
+    const message = `Migração concluída! ${migratedCount} de ${
+      Object.keys(groupedByRecurrence).length
+    } grupos de recorrência foram criados com sucesso. Verifique o console para detalhes.`;
+    console.log(message);
+    alert(message);
+  }, [db, user, getCollectionRef, getDocRef]);
 
   return {
-    // EXPORTANDO A NOVA FUNÇÃO PRINCIPAL
     addFinancialEntry,
-    // EXPORTANDO AS FUNÇÕES ANTIGAS QUE FORAM MANTIDAS
     updateFinancialEntry,
     deleteFinancialEntry,
     processFinancialEntryPayment,
+    getFinancialEntryById,
+    getRecurrenceRuleById,
     exportUserData,
     importUserData,
-    // As funções antigas de add foram removidas
+    migrateLegacyRecurrences,
   };
 };
