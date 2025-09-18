@@ -1,6 +1,6 @@
-// in: hooks/use-finance-data.ts
+// in: hooks/use-finance-data.ts (VERSÃO FINAL E ROBUSTA)
 
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import {
   Firestore,
   collection,
@@ -8,7 +8,7 @@ import {
   onSnapshot,
   Timestamp,
 } from "firebase/firestore";
-import { Account, Category, PaymentMethod } from "@/interfaces/finance"; // Removido Debt, etc.
+import { Account, Category, PaymentMethod } from "@/interfaces/finance";
 import { FinancialEntry } from "@/interfaces/financial-entry";
 import { User as FirebaseUser } from "firebase/auth";
 
@@ -24,7 +24,6 @@ interface UseFinanceDataProps {
   setLoading: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
-// Este tipo "pega" apenas os setters da interface principal
 type SetterMap = Pick<
   UseFinanceDataProps,
   "setAccounts" | "setCategories" | "setPaymentMethods" | "setFinancialEntries"
@@ -33,19 +32,14 @@ type SetterMap = Pick<
 const convertTimestampsToDates = <T extends Record<string, any>>(
   data: T
 ): T => {
-  if (typeof data !== "object" || data === null) {
-    return data;
-  }
-
+  if (typeof data !== "object" || data === null) return data;
   const convertedData: Record<string, any> = { ...data };
-
   for (const key in convertedData) {
     const value = convertedData[key];
     if (value instanceof Timestamp) {
       convertedData[key] = value.toDate();
     }
   }
-
   return convertedData as T;
 };
 
@@ -60,13 +54,14 @@ export const useFinanceData = ({
   setFinancialEntries,
   setLoading,
 }: UseFinanceDataProps) => {
-  const initialFetchCounter = useRef(0);
-
   useEffect(() => {
-    if (!db || !user || !projectId) return;
+    if (!db || !user || !projectId) {
+      // Se não houver usuário, garantimos que o loading termine para mostrar a tela de login.
+      if (!user) setLoading(false);
+      return;
+    }
 
     setLoading(true);
-    initialFetchCounter.current = 0;
 
     const listenersUnsubscribed: (() => void)[] = [];
 
@@ -77,9 +72,6 @@ export const useFinanceData = ({
       setFinancialEntries,
     };
 
-    const collections = Object.keys(setters) as (keyof typeof setters)[];
-    const totalListeners = collections.length;
-
     const collectionNames: { [key: string]: string } = {
       setAccounts: "accounts",
       setCategories: "categories",
@@ -87,16 +79,28 @@ export const useFinanceData = ({
       setFinancialEntries: "financial-entries",
     };
 
-    const handleInitialFetch = () => {
-      initialFetchCounter.current += 1;
-      if (initialFetchCounter.current === totalListeners) {
-        setLoading(false);
-      }
+    // ✅ LÓGICA DE CARREGAMENTO SIMPLIFICADA
+    // Usamos um objeto para rastrear o status de carregamento de cada coleção.
+    const loadingStatus: Record<string, boolean> = {
+      accounts: true,
+      categories: true,
+      paymentMethods: true,
+      "financial-entries": true,
     };
 
-    collections.forEach((setterKey) => {
+    const checkAllLoaded = () => {
+      // Se algum valor em `loadingStatus` ainda for `true`, não faz nada.
+      if (Object.values(loadingStatus).some((status) => status === true)) {
+        return;
+      }
+      // Se todos forem `false`, o carregamento inicial terminou!
+      setLoading(false);
+      console.log("[useFinanceData] Todos os dados foram carregados.");
+    };
+
+    Object.keys(setters).forEach((setterKey) => {
       const collectionName = collectionNames[setterKey];
-      const setter = setters[setterKey];
+      const setter = setters[setterKey as keyof SetterMap];
 
       const q = query(
         collection(
@@ -114,13 +118,19 @@ export const useFinanceData = ({
           }));
           setter(data as any);
 
-          if (initialFetchCounter.current < totalListeners) {
-            handleInitialFetch();
+          // Na primeira vez que o snapshot responder, marcamos esta coleção como carregada.
+          if (loadingStatus[collectionName]) {
+            loadingStatus[collectionName] = false;
+            checkAllLoaded(); // E verificamos se todas as outras já terminaram.
           }
         },
         (error) => {
           console.error(`Error fetching ${collectionName}: `, error);
-          handleInitialFetch();
+          // Se der erro, consideramos "carregado" para não prender o app.
+          if (loadingStatus[collectionName]) {
+            loadingStatus[collectionName] = false;
+            checkAllLoaded();
+          }
         }
       );
 

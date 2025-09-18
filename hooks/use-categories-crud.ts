@@ -11,6 +11,7 @@ import {
   query,
   where,
   getDocs,
+  writeBatch,
 } from "firebase/firestore";
 import { User as FirebaseUser } from "firebase/auth";
 import { CategoryType } from "@/interfaces/finance";
@@ -115,5 +116,35 @@ export const useCategoriesCrud = ({
     [getCollectionRef, setErrorFinanceData]
   );
 
-  return { addCategory, updateCategory, deleteCategory };
+  const migrateCategoryTypes = useCallback(
+    async (incomeCategoryIds: string[], allUntaggedIds: string[]) => {
+      if (!db || !user || !projectId)
+        throw new Error("Dependências não estão prontas.");
+
+      const batch = writeBatch(db);
+      const incomeSet = new Set(incomeCategoryIds);
+
+      allUntaggedIds.forEach((catId) => {
+        const categoryRef = doc(getCollectionRef("categories"), catId);
+        const type = incomeSet.has(catId) ? "income" : "expense";
+        batch.update(categoryRef, { type: type });
+      });
+
+      const settingsRef = doc(
+        db,
+        `artifacts/${projectId}/users/${user.uid}/profile`,
+        "settings"
+      );
+      batch.set(
+        settingsRef,
+        { categoryTypeMigrationCompleted: true },
+        { merge: true }
+      );
+
+      await batch.commit();
+    },
+    [db, user, projectId, getCollectionRef]
+  );
+
+  return { addCategory, updateCategory, deleteCategory, migrateCategoryTypes };
 };

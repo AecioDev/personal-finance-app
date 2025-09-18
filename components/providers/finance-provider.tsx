@@ -91,6 +91,12 @@ interface FinanceContextType {
     backupData: FullBackup,
     onProgress: (message: string) => void
   ) => Promise<void>;
+
+  migrateCategoryTypes: (
+    incomeCategoryIds: string[],
+    allUntaggedIds: string[]
+  ) => Promise<void>;
+
   getFinancialEntryById: (id: string) => Promise<FinancialEntry | null>;
   getRecurrenceRuleById: (id: string) => Promise<FinancialRecurrence | null>;
   migrateLegacyRecurrences: () => Promise<void>;
@@ -344,6 +350,7 @@ export const FinanceProvider = ({ children }: { children: ReactNode }) => {
       runDataCheck();
     }
   }, [user, projectId, toast]);
+  // fim efeito seed dados
 
   // ... (Hooks CRUD continuam iguais) ...
   const { addAccount, updateAccount, deleteAccount } = useAccountsCrud({
@@ -352,12 +359,13 @@ export const FinanceProvider = ({ children }: { children: ReactNode }) => {
     projectId,
     setErrorFinanceData,
   });
-  const { addCategory, updateCategory, deleteCategory } = useCategoriesCrud({
-    db: dbRef.current,
-    user,
-    projectId,
-    setErrorFinanceData,
-  });
+  const { addCategory, updateCategory, deleteCategory, migrateCategoryTypes } =
+    useCategoriesCrud({
+      db: dbRef.current,
+      user,
+      projectId,
+      setErrorFinanceData,
+    });
   const { addPaymentMethod, updatePaymentMethod, deletePaymentMethod } =
     usePaymentMethodsCrud({
       db: dbRef.current,
@@ -404,6 +412,7 @@ export const FinanceProvider = ({ children }: { children: ReactNode }) => {
       addCategory,
       updateCategory,
       deleteCategory,
+      migrateCategoryTypes,
       addPaymentMethod,
       updatePaymentMethod,
       deletePaymentMethod,
@@ -433,6 +442,7 @@ export const FinanceProvider = ({ children }: { children: ReactNode }) => {
       addCategory,
       updateCategory,
       deleteCategory,
+      migrateCategoryTypes,
       addPaymentMethod,
       updatePaymentMethod,
       deletePaymentMethod,
@@ -444,6 +454,7 @@ export const FinanceProvider = ({ children }: { children: ReactNode }) => {
       importUserData,
       getFinancialEntryById,
       getRecurrenceRuleById,
+      migrateLegacyRecurrences,
     ]
   );
 

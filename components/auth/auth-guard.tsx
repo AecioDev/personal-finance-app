@@ -21,22 +21,18 @@ export function AuthGuard({ children }: AuthGuardProps) {
   const router = useRouter();
   const pathname = usePathname();
 
-  // Um único estado para saber se já temos a resposta final sobre o perfil
   const [isProfileChecked, setIsProfileChecked] = useState(false);
 
   useEffect(() => {
-    // Se a autenticação do Firebase ainda está rolando, a gente espera.
     if (authLoading) {
       return;
     }
 
-    // Se não tem usuário, não há perfil para checar. Fim da verificação.
     if (!user) {
       setIsProfileChecked(true);
       return;
     }
 
-    // Se chegamos aqui, TEMOS um usuário. Vamos checar seu status de onboarding.
     const checkOnboardingStatus = async () => {
       if (!projectId || !user.uid) {
         setIsProfileChecked(true);
@@ -80,21 +76,13 @@ export function AuthGuard({ children }: AuthGuardProps) {
     checkOnboardingStatus();
   }, [user, authLoading, projectId, pathname, router]);
 
-  // --- Lógica de Renderização ---
-
-  // Enquanto a autenticação OU a checagem do nosso perfil estiverem rolando,
-  // mostramos um loader.
   if (authLoading || !isProfileChecked) {
     return <LoadingScreen text="Verificando seus dados..." />;
   }
 
-  // Se, após todas as checagens, existir um usuário,
-  // a lógica do useEffect já decidiu se ele deve ser redirecionado ou não.
-  // Então, é seguro renderizar o conteúdo.
   if (user) {
     return <>{children}</>;
   }
 
-  // Se, após todas as checagens, não houver usuário, mostramos a tela de login.
   return <LoginScreen />;
 }
