@@ -1,3 +1,5 @@
+// in: hooks/use-accounts-crud.ts (VERSÃO ATUALIZADA E SEGURA)
+
 import {
   Firestore,
   collection,
@@ -6,9 +8,13 @@ import {
   updateDoc,
   deleteDoc,
   serverTimestamp,
+  query,
+  where,
+  getDocs,
 } from "firebase/firestore";
 import { Account } from "@/interfaces/finance";
 import { User as FirebaseUser } from "firebase/auth";
+import { useCallback } from "react"; // Importar useCallback
 
 interface UseAccountsCrudProps {
   db: Firestore | null;
@@ -23,72 +29,82 @@ export const useAccountsCrud = ({
   projectId,
   setErrorFinanceData,
 }: UseAccountsCrudProps) => {
-  const addAccount = async (account: Omit<Account, "id" | "uid">) => {
-    if (!db || !user || !projectId) {
-      setErrorFinanceData("Firestore não inicializado ou usuário não logado.");
-      return;
-    }
-    try {
-      await addDoc(
-        collection(db, `artifacts/${projectId}/users/${user.uid}/accounts`),
-        {
+  const getCollectionRef = useCallback(
+    (collectionName: string) => {
+      if (!db || !user || !projectId) {
+        throw new Error("Dependências do Firestore não estão prontas.");
+      }
+      return collection(
+        db,
+        `artifacts/${projectId}/users/${user.uid}/${collectionName}`
+      );
+    },
+    [db, user, projectId]
+  );
+
+  const addAccount = useCallback(
+    async (account: Omit<Account, "id" | "uid">) => {
+      if (!db || !user) return;
+      try {
+        await addDoc(getCollectionRef("accounts"), {
           ...account,
           uid: user.uid,
           createdAt: serverTimestamp(),
+        });
+      } catch (error: unknown) {
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+        setErrorFinanceData(`Erro ao adicionar conta: ${errorMessage}`);
+        throw new Error("Não foi possível adicionar a conta. Tente novamente.");
+      }
+    },
+    [db, user, projectId, setErrorFinanceData, getCollectionRef]
+  );
+
+  const updateAccount = useCallback(
+    async (accountId: string, data: Partial<Omit<Account, "id" | "uid">>) => {
+      if (!db) return;
+      try {
+        await updateDoc(doc(getCollectionRef("accounts"), accountId), data);
+      } catch (error: unknown) {
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+        setErrorFinanceData(`Erro ao atualizar conta: ${errorMessage}`);
+        throw new Error("Não foi possível atualizar a conta. Tente novamente.");
+      }
+    },
+    [db, projectId, setErrorFinanceData, getCollectionRef]
+  );
+
+  const deleteAccount = useCallback(
+    async (accountId: string) => {
+      if (!db) return;
+      try {
+        // 1. VERIFICAR SE A CONTA ESTÁ EM USO
+        const entriesQuery = query(
+          getCollectionRef("financial-entries"),
+          where("accountId", "==", accountId)
+        );
+        const entriesSnapshot = await getDocs(entriesQuery);
+
+        // 2. SE ESTIVER EM USO, BLOQUEIA A EXCLUSÃO
+        if (!entriesSnapshot.empty) {
+          throw new Error(
+            `Esta conta está em uso por ${entriesSnapshot.size} lançamento(s) e não pode ser excluída.`
+          );
         }
-      );
-      console.log("useAccountsCrud: Conta adicionada com sucesso.");
-    } catch (error: unknown) {
-      console.error("useAccountsCrud: Erro ao adicionar conta:", error);
-      if (typeof error === "object" && error !== null && "message" in error) {
-        setErrorFinanceData(`Erro ao adicionar conta: ${error.message}`);
-      }
-      throw new Error("Não foi possível remover a conta. Tente novamente.");
-    }
-  };
 
-  const updateAccount = async (
-    accountId: string,
-    data: Partial<Omit<Account, "id" | "uid">>
-  ) => {
-    if (!db || !user || !projectId) {
-      setErrorFinanceData("Firestore não inicializado ou usuário não logado.");
-      return;
-    }
-    try {
-      await updateDoc(
-        doc(db, `artifacts/${projectId}/users/${user.uid}/accounts`, accountId),
-        data
-      );
-      console.log("useAccountsCrud: Conta atualizada com sucesso.");
-    } catch (error: unknown) {
-      console.error("useAccountsCrud: Erro ao atualizar conta:", error);
-      if (typeof error === "object" && error !== null && "message" in error) {
-        setErrorFinanceData(`Erro ao atualizar conta: ${error.message}`);
+        // 3. SE NÃO ESTIVER EM USO, EXCLUI
+        await deleteDoc(doc(getCollectionRef("accounts"), accountId));
+      } catch (error: unknown) {
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+        setErrorFinanceData(`Erro ao deletar conta: ${errorMessage}`);
+        throw new Error(errorMessage);
       }
-      throw new Error("Não foi possível remover a conta. Tente novamente.");
-    }
-  };
-
-  const deleteAccount = async (accountId: string) => {
-    // ALTERADO: Verifica se user (objeto completo) é null antes de user?.uid
-    if (!db || !user || !projectId) {
-      setErrorFinanceData("Firestore não inicializado ou usuário não logado.");
-      return;
-    }
-    try {
-      await deleteDoc(
-        doc(db, `artifacts/${projectId}/users/${user.uid}/accounts`, accountId)
-      );
-      console.log("useAccountsCrud: Conta deletada com sucesso.");
-    } catch (error: unknown) {
-      console.error("useAccountsCrud: Erro ao deletar conta:", error);
-      if (typeof error === "object" && error !== null && "message" in error) {
-        setErrorFinanceData(`Erro ao deletar conta: ${error.message}`);
-      }
-      throw new Error("Não foi possível remover a conta. Tente novamente.");
-    }
-  };
+    },
+    [db, projectId, setErrorFinanceData, getCollectionRef]
+  );
 
   return { addAccount, updateAccount, deleteAccount };
 };

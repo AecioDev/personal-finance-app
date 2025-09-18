@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
@@ -128,6 +128,12 @@ export function FinancialEntryForm({
 
   const entryFrequency = form.watch("entryFrequency");
   const payNow = entryFrequency === "single" ? form.watch("payNow") : false;
+
+  // Usamos o `useMemo` para criar uma nova lista de categorias filtradas.
+  // Essa lista só será recalculada se a lista principal de `categories` ou o `entryType` mudarem.
+  const filteredCategories = useMemo(() => {
+    return categories.filter((cat) => cat.type === entryType);
+  }, [categories, entryType]);
 
   useEffect(() => {
     if (isEditing && entryToEdit) {
@@ -309,8 +315,6 @@ export function FinancialEntryForm({
                 <div className="flex items-center gap-2">
                   <FormControl className="flex-1">
                     <Select
-                      // ✅ E AQUI TAMBÉM
-                      key={field.value}
                       onValueChange={field.onChange}
                       value={field.value}
                       defaultValue={field.value}
@@ -319,7 +323,7 @@ export function FinancialEntryForm({
                         <SelectValue placeholder="Selecione uma categoria" />
                       </SelectTrigger>
                       <SelectContent>
-                        {categories.map((cat) => (
+                        {filteredCategories.map((cat) => (
                           <SelectItem key={cat.id} value={cat.id}>
                             <div className="flex items-center gap-2">
                               {cat.icon && (

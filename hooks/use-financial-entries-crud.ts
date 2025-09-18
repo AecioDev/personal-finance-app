@@ -163,24 +163,39 @@ export const useFinancialEntriesCrud = ({
         paymentMethodId: data.payNow ? data.paymentMethodId : null,
       };
 
-      const docRef = doc(getCollectionRef("financial-entries"));
+      const entryDocRef = doc(getCollectionRef("financial-entries"));
+
       await runTransaction(db, async (transaction) => {
-        transaction.set(docRef, {
+        let newBalance: number | undefined;
+        const accountRef =
+          data.payNow && data.accountId
+            ? getDocRef("accounts", data.accountId)
+            : null;
+
+        // Se for um pagamento imediato, primeiro lemos o saldo da conta.
+        if (accountRef) {
+          const accountDoc = await transaction.get(accountRef);
+          if (!accountDoc.exists()) {
+            throw new Error(
+              "A conta selecionada para o pagamento não foi encontrada."
+            );
+          }
+          const currentBalance = accountDoc.data().balance || 0;
+          newBalance =
+            data.type === "income"
+              ? currentBalance + data.expectedAmount
+              : currentBalance - data.expectedAmount;
+        }
+
+        // Agora, com todas as leituras feitas, podemos escrever no banco.
+        transaction.set(entryDocRef, {
           ...newEntryData,
-          id: docRef.id,
+          id: entryDocRef.id,
           createdAt: serverTimestamp(),
         });
-        if (data.payNow && data.accountId) {
-          const accountRef = getDocRef("accounts", data.accountId);
-          const accountDoc = await transaction.get(accountRef);
-          if (accountDoc.exists()) {
-            const currentBalance = accountDoc.data().balance || 0;
-            const newBalance =
-              data.type === "income"
-                ? currentBalance + data.expectedAmount
-                : currentBalance - data.expectedAmount;
-            transaction.update(accountRef, { balance: newBalance });
-          }
+
+        if (accountRef && newBalance !== undefined) {
+          transaction.update(accountRef, { balance: newBalance });
         }
       });
     },
@@ -273,11 +288,11 @@ export const useFinancialEntriesCrud = ({
           error instanceof Error
             ? error.message
             : "Ocorreu um erro desconhecido";
-        setErrorFinanceData(`Erro ao adicionar lançamento: ${errorMessage}`);
+
         throw new Error(`Erro ao adicionar lançamento: ${errorMessage}`);
       }
     },
-    [addSingleFinancialEntry, addRecurrence, setErrorFinanceData]
+    [addSingleFinancialEntry, addRecurrence]
   );
 
   const updateSingleFinancialEntry = useCallback(

@@ -1,4 +1,4 @@
-// src/components/categories/category-view.tsx (VERSÃO COM POPOVER)
+// src/components/categories/category-view.tsx (VERSÃO COMPLETA E ATUALIZADA)
 "use client";
 
 import React, { useState, useMemo } from "react";
@@ -11,14 +11,74 @@ import { useToast } from "../ui/use-toast";
 import { ConfirmationDialog } from "../common/confirmation-dialog";
 import { CategoryManagerDialog } from "./category-manager-dialog";
 import { suggestedCategories } from "@/lib/data/defaults";
-
-// NOVO: Importando componentes do Popover
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { ScrollArea } from "../ui/scroll-area";
+
+// ✅ 1. COMPONENTE AUXILIAR REUTILIZÁVEL
+// Criei este componente para renderizar uma lista de categorias.
+// Assim, não precisamos repetir o código para a lista de despesas e de receitas.
+const CategoryList = ({
+  title,
+  categories,
+  onEdit,
+  onDelete,
+}: {
+  title: string;
+  categories: Category[];
+  onEdit: (category: Category) => void;
+  onDelete: (category: Category) => void;
+}) => (
+  <div>
+    <h2 className="text-xl font-semibold text-foreground mb-4 pb-2 border-b-2 border-primary/20">
+      {title}
+    </h2>
+    {categories.length > 0 ? (
+      <div className="space-y-3">
+        {categories.map((item) => (
+          <div
+            key={item.id}
+            className="flex items-center justify-between p-3 rounded-xl bg-background hover:bg-muted/50 transition-colors border-b-2 border-border/50"
+          >
+            <div className="flex items-center gap-4 min-w-0">
+              <div className="flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center bg-muted">
+                <Icon icon={item.icon} className="w-7 h-7 text-primary" />
+              </div>
+              <div className="flex flex-col min-w-0">
+                <p className="font-bold text-base text-foreground truncate">
+                  {item.name}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+              <Button
+                size="icon"
+                variant="outline"
+                onClick={() => onEdit(item)}
+              >
+                <Icon icon="fa6-solid:pencil" />
+              </Button>
+              <Button
+                variant="destructive"
+                size="icon"
+                onClick={() => onDelete(item)}
+              >
+                <Icon icon="fa6-solid:trash-can" />
+              </Button>
+            </div>
+          </div>
+        ))}
+      </div>
+    ) : (
+      <p className="text-sm text-muted-foreground py-4 text-center">
+        Nenhuma categoria deste tipo cadastrada.
+      </p>
+    )}
+  </div>
+);
 
 export function CategoryView() {
   const { toast } = useToast();
@@ -29,8 +89,23 @@ export function CategoryView() {
   );
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [isManagerOpen, setIsManagerOpen] = useState(false);
-  // NOVO: Estado para controlar o Popover
   const [isSuggestionsOpen, setIsSuggestionsOpen] = useState(false);
+
+  const { incomeCategories, expenseCategories } = useMemo(() => {
+    const income: Category[] = [];
+    const expense: Category[] = [];
+    categories.forEach((cat) => {
+      if (cat.type === "income") {
+        income.push(cat);
+      } else {
+        expense.push(cat);
+      }
+    });
+    return {
+      incomeCategories: income.sort((a, b) => a.name.localeCompare(b.name)),
+      expenseCategories: expense.sort((a, b) => a.name.localeCompare(b.name)),
+    };
+  }, [categories]);
 
   const availableSuggestions = useMemo(() => {
     const userCategoryDefaultIds = new Set(
@@ -41,23 +116,23 @@ export function CategoryView() {
     );
   }, [categories]);
 
-  // ALTERADO: A função agora fecha o Popover após adicionar
   const handleAddSuggestion = async (suggestion: {
     name: string;
     icon: string;
     id: string;
+    type: "income" | "expense";
   }) => {
     try {
       await addCategory({
         name: suggestion.name,
         icon: suggestion.icon,
         defaultId: suggestion.id,
+        type: suggestion.type,
       });
       toast({
         title: "Sucesso!",
         description: `Categoria "${suggestion.name}" adicionada.`,
       });
-      // Fecha o popover se todas as sugestões foram adicionadas
       if (availableSuggestions.length <= 1) {
         setIsSuggestionsOpen(false);
       }
@@ -103,10 +178,13 @@ export function CategoryView() {
   };
 
   return (
-    <PageViewLayout title="Categorias">
+    <PageViewLayout
+      title="Categorias"
+      subtitle="Gerencie suas categorias de receitas e despesas."
+    >
       <div className="flex w-full my-2 gap-2">
         <Button
-          className="flex-1 text-base font-semibold bg-status-complete text-status-complete-foreground"
+          className="flex-1 text-base font-semibold bg-primary text-primary-foreground"
           size="sm"
           onClick={handleAddClick}
         >
@@ -114,7 +192,6 @@ export function CategoryView() {
           Nova Categoria
         </Button>
 
-        {/* ✅ ALTERADO: Bloco de sugestões agora usa um Popover */}
         {availableSuggestions.length > 0 && (
           <Popover open={isSuggestionsOpen} onOpenChange={setIsSuggestionsOpen}>
             <PopoverTrigger asChild>
@@ -162,58 +239,36 @@ export function CategoryView() {
         )}
       </div>
 
-      <div className="space-y-4">
-        {/* O resto do componente continua igual... */}
-        {categories.map((item) => (
-          <div
-            key={item.id}
-            className="flex items-center justify-between p-3 rounded-xl bg-background hover:bg-muted/50 cursor-pointer transition-colors border-l-4 border-b-2 border-status-complete"
-          >
-            <div className="flex items-center gap-4 min-w-0">
-              <div className="flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center">
-                <Icon
-                  icon={item.icon}
-                  className="w-10 h-10 text-status-complete"
-                />
-              </div>
-              <div className="flex flex-col min-w-0">
-                <p className="font-bold text-lg text-foreground truncate">
-                  {item.name}
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 flex-shrink-0 ml-2">
-              <Button
-                size="icon"
-                variant="outline"
-                onClick={() => handleEditClick(item)}
-              >
-                <Icon icon="fa6-solid:pencil" />
-              </Button>
-              <Button
-                variant="destructive"
-                size="icon"
-                onClick={() => handleDeleteClick(item)}
-              >
-                <Icon icon="fa6-solid:trash-can" />
-              </Button>
-            </div>
-          </div>
-        ))}
-        <CategoryManagerDialog
-          isOpen={isManagerOpen}
-          onOpenChange={setIsManagerOpen}
-          categoryToEdit={categorySelected}
+      {/* ✅ 3. RENDERIZANDO AS DUAS LISTAS SEPARADAMENTE */}
+      {/* Usamos o nosso componente auxiliar para mostrar as listas, uma depois da outra. */}
+      <div className="space-y-8 mt-6">
+        <CategoryList
+          title="Categorias de Despesa"
+          categories={expenseCategories}
+          onEdit={handleEditClick}
+          onDelete={handleDeleteClick}
         />
-        <ConfirmationDialog
-          isOpen={isDeleteConfirmOpen}
-          onOpenChange={setIsDeleteConfirmOpen}
-          title={`Excluir "${categorySelected?.name}"?`}
-          description="Esta ação não pode ser desfeita."
-          onConfirm={handleConfirmDelete}
-          variant="destructive"
+        <CategoryList
+          title="Categorias de Receita"
+          categories={incomeCategories}
+          onEdit={handleEditClick}
+          onDelete={handleDeleteClick}
         />
       </div>
+
+      <CategoryManagerDialog
+        isOpen={isManagerOpen}
+        onOpenChange={setIsManagerOpen}
+        categoryToEdit={categorySelected}
+      />
+      <ConfirmationDialog
+        isOpen={isDeleteConfirmOpen}
+        onOpenChange={setIsDeleteConfirmOpen}
+        title={`Excluir "${categorySelected?.name}"?`}
+        description="Esta ação não pode ser desfeita e irá desvincular esta categoria de todos os lançamentos associados."
+        onConfirm={handleConfirmDelete}
+        variant="destructive"
+      />
     </PageViewLayout>
   );
 }

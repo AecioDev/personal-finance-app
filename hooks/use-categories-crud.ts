@@ -1,4 +1,4 @@
-// hooks/use-categories-crud.ts
+// hooks/use-categories-crud.ts (VERSÃO FINAL COM useCallback)
 
 import {
   Firestore,
@@ -7,12 +7,14 @@ import {
   addDoc,
   updateDoc,
   serverTimestamp,
-  writeBatch,
+  deleteDoc,
   query,
   where,
   getDocs,
 } from "firebase/firestore";
 import { User as FirebaseUser } from "firebase/auth";
+import { CategoryType } from "@/interfaces/finance";
+import { useCallback } from "react";
 
 interface UseCategoriesCrudProps {
   db: Firestore | null;
@@ -27,86 +29,91 @@ export const useCategoriesCrud = ({
   projectId,
   setErrorFinanceData,
 }: UseCategoriesCrudProps) => {
-  const getCategoriesCollectionRef = () => {
-    if (!db || !user || !projectId) {
-      throw new Error("Dependências do Firestore não estão prontas.");
-    }
-    return collection(
-      db,
-      `artifacts/${projectId}/users/${user.uid}/categories`
-    );
-  };
-
-  const getDebtsCollectionRef = () => {
-    if (!db || !user || !projectId) {
-      throw new Error("Dependências do Firestore não estão prontas.");
-    }
-    return collection(db, `artifacts/${projectId}/users/${user.uid}/debts`);
-  };
-
-  const addCategory = async (data: {
-    name: string;
-    icon: string;
-    defaultId?: string;
-  }): Promise<string> => {
-    try {
-      const collectionRef = getCategoriesCollectionRef();
-      const docRef = await addDoc(collectionRef, {
-        ...data,
-        uid: user!.uid,
-        createdAt: serverTimestamp(),
-      });
-      return docRef.id;
-    } catch (error: unknown) {
-      console.error("Erro ao adicionar categoria:", error);
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      setErrorFinanceData(`Erro ao adicionar categoria: ${errorMessage}`);
-      throw new Error("Erro ao adicionar categoria.");
-    }
-  };
-
-  const updateCategory = async (
-    id: string,
-    data: { name: string; icon: string }
-  ) => {
-    try {
-      const docRef = doc(getCategoriesCollectionRef(), id);
-      await updateDoc(docRef, data);
-    } catch (error: unknown) {
-      console.error("Erro ao atualizar categoria:", error);
-      if (typeof error === "object" && error !== null && "message" in error) {
-        setErrorFinanceData(`Erro ao atualizar categoria: ${error.message}`);
+  const getCollectionRef = useCallback(
+    (collectionName: string) => {
+      if (!db || !user || !projectId) {
+        throw new Error("Dependências do Firestore não estão prontas.");
       }
-      throw new Error("Erro ao atualizar categoria.");
-    }
-  };
-
-  const deleteCategory = async (id: string) => {
-    try {
-      const batch = writeBatch(db!);
-
-      const debtsQuery = query(
-        getDebtsCollectionRef(),
-        where("categoryId", "==", id)
+      return collection(
+        db,
+        `artifacts/${projectId}/users/${user.uid}/${collectionName}`
       );
-      const debtsSnapshot = await getDocs(debtsQuery);
-      debtsSnapshot.forEach((debtDoc) => {
-        batch.update(debtDoc.ref, { categoryId: null });
-      });
+    },
+    [db, user, projectId]
+  );
 
-      const categoryDocRef = doc(getCategoriesCollectionRef(), id);
-      batch.delete(categoryDocRef);
-
-      await batch.commit();
-    } catch (error: unknown) {
-      console.error("Erro ao excluir categoria:", error);
-      if (typeof error === "object" && error !== null && "message" in error) {
-        setErrorFinanceData(`Erro ao excluir categoria: ${error.message}`);
+  const addCategory = useCallback(
+    async (data: {
+      name: string;
+      icon: string;
+      type: CategoryType;
+      defaultId?: string;
+    }): Promise<string> => {
+      if (!user) throw new Error("Usuário não autenticado.");
+      try {
+        const collectionRef = getCollectionRef("categories");
+        const docRef = await addDoc(collectionRef, {
+          ...data,
+          uid: user.uid,
+          createdAt: serverTimestamp(),
+        });
+        return docRef.id;
+      } catch (error: unknown) {
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+        setErrorFinanceData(`Erro ao adicionar categoria: ${errorMessage}`);
+        throw new Error("Erro ao adicionar categoria.");
       }
-      throw new Error("Erro ao excluir categoria.");
-    }
-  };
+    },
+    [user, getCollectionRef, setErrorFinanceData]
+  );
+
+  const updateCategory = useCallback(
+    async (id: string, data: { name: string; icon: string }) => {
+      try {
+        const docRef = doc(getCollectionRef("categories"), id);
+        await updateDoc(docRef, data);
+      } catch (error: unknown) {
+        if (typeof error === "object" && error !== null && "message" in error) {
+          setErrorFinanceData(
+            `Erro ao atualizar categoria: ${String(error.message)}`
+          );
+        }
+        throw new Error("Erro ao atualizar categoria.");
+      }
+    },
+    [getCollectionRef, setErrorFinanceData]
+  );
+
+  const deleteCategory = useCallback(
+    async (id: string) => {
+      try {
+        const entriesQuery = query(
+          getCollectionRef("financial-entries"),
+          where("categoryId", "==", id)
+        );
+        const entriesSnapshot = await getDocs(entriesQuery);
+
+        if (!entriesSnapshot.empty) {
+          throw new Error(
+            `Esta categoria está em uso por ${entriesSnapshot.size} lançamento(s) e não pode ser excluída.`
+          );
+        }
+
+        const categoryDocRef = doc(getCollectionRef("categories"), id);
+        await deleteDoc(categoryDocRef);
+      } catch (error: unknown) {
+        const errorMessage =
+          error instanceof Error
+            ? error.message
+            : "Ocorreu um erro desconhecido.";
+        console.error("Erro ao excluir categoria:", errorMessage);
+        setErrorFinanceData(errorMessage);
+        throw new Error(errorMessage);
+      }
+    },
+    [getCollectionRef, setErrorFinanceData]
+  );
 
   return { addCategory, updateCategory, deleteCategory };
 };
