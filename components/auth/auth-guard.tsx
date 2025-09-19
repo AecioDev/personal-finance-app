@@ -1,3 +1,4 @@
+// components/auth/auth-guard.tsx
 "use client";
 
 import React, { useEffect, useState } from "react";
@@ -5,16 +6,11 @@ import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/components/providers/auth-provider";
 import { LoginScreen } from "./login-screen";
 import { getFirestore, doc, getDoc } from "firebase/firestore";
+import { AppLoader } from "../layout/app-loader";
 
 interface AuthGuardProps {
   children: React.ReactNode;
 }
-
-const LoadingScreen = ({ text }: { text: string }) => (
-  <div className="min-h-screen flex items-center justify-center bg-background p-4">
-    <p className="text-lg text-muted-foreground animate-pulse">{text}</p>
-  </div>
-);
 
 export function AuthGuard({ children }: AuthGuardProps) {
   const { user, loading: authLoading, projectId } = useAuth();
@@ -38,7 +34,6 @@ export function AuthGuard({ children }: AuthGuardProps) {
         setIsProfileChecked(true);
         return;
       }
-
       try {
         const db = getFirestore();
         const settingsRef = doc(
@@ -51,23 +46,11 @@ export function AuthGuard({ children }: AuthGuardProps) {
         const hasCompletedOnboarding =
           docSnap.exists() && docSnap.data().onboardingCompleted;
 
-        if (hasCompletedOnboarding) {
-          if (pathname === "/welcome") {
-            router.push("/");
-          }
-        } else {
-          if (pathname !== "/welcome") {
-            router.push("/welcome");
-          }
+        if (!hasCompletedOnboarding && pathname !== "/welcome") {
+          router.replace("/welcome");
         }
       } catch (error) {
-        console.error(
-          "AuthGuard: Erro ao buscar perfil. Redirecionando para onboarding por segurança.",
-          error
-        );
-        if (pathname !== "/welcome") {
-          router.push("/welcome");
-        }
+        console.error("AuthGuard: Erro ao buscar perfil.", error);
       } finally {
         setIsProfileChecked(true);
       }
@@ -77,7 +60,7 @@ export function AuthGuard({ children }: AuthGuardProps) {
   }, [user, authLoading, projectId, pathname, router]);
 
   if (authLoading || !isProfileChecked) {
-    return <LoadingScreen text="Verificando seus dados..." />;
+    return <AppLoader text="Verificando seus dados..." />;
   }
 
   if (user) {

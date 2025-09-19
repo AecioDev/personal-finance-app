@@ -26,8 +26,6 @@ export const releaseNotes: Record<string, ReleaseNote> = {
           "Suas categorias agora podem ser de 'Receita' ou 'Despesa', para uma organização muito melhor.",
       },
     ],
-    nextStep:
-      "Na próxima tela, vamos te ajudar a organizar suas categorias atuais. Leva só um minutinho!",
   },
   // No futuro, quando tiver uma nova versão, é só adicionar aqui:
   // "v1.2.0-dashboard-graphs": {

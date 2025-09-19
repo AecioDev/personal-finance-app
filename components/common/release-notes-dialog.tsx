@@ -12,22 +12,23 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { getFirestore, doc, setDoc } from "firebase/firestore";
-import { releaseNotes } from "@/lib/release-notes"; // ✅ 1. IMPORTAR AS NOTAS
+import { releaseNotes } from "@/lib/release-notes";
 
 interface ReleaseNotesDialogProps {
   isOpen: boolean;
   onClose: () => void;
   version: string;
+  isMigrationRequired: boolean;
 }
 
 export const ReleaseNotesDialog = ({
   isOpen,
   onClose,
   version,
+  isMigrationRequired,
 }: ReleaseNotesDialogProps) => {
   const { user, projectId } = useAuth();
 
-  // ✅ 2. BUSCAR A NOTA CORRETA USANDO A VERSÃO
   const currentNote = releaseNotes[version];
 
   const handleConfirm = async () => {
@@ -52,7 +53,6 @@ export const ReleaseNotesDialog = ({
     }
   };
 
-  // Se por algum motivo a versão não for encontrada no nosso arquivo, não mostra nada.
   if (!currentNote) {
     return null;
   }
@@ -61,7 +61,6 @@ export const ReleaseNotesDialog = ({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="bg-surface text-surface-foreground">
         <DialogHeader>
-          {/* ✅ 3. RENDERIZAR O CONTEÚDO DINÂMICO */}
           <DialogTitle className="text-2xl">{currentNote.title}</DialogTitle>
           <DialogDescription>{currentNote.description}</DialogDescription>
         </DialogHeader>
@@ -77,9 +76,10 @@ export const ReleaseNotesDialog = ({
               </li>
             ))}
           </ul>
-          {currentNote.nextStep && (
+          {isMigrationRequired && (
             <p className="pt-4 text-accent font-semibold">
-              {currentNote.nextStep}
+              Na próxima tela, vamos te ajudar a organizar suas categorias
+              atuais. Leva só um minutinho!
             </p>
           )}
         </div>

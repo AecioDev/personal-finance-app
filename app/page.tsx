@@ -1,13 +1,21 @@
+// app/page.tsx (NOVA VERSÃO)
 import { AuthGuard } from "@/components/auth/auth-guard";
-import { DashboardView } from "@/components/dashboard/dashboard-view";
-import { MainLayout } from "@/components/layout/main-layout";
+import { SplashScreenView } from "@/components/layout/splash-screen-view";
+import { Suspense } from "react";
 
-export default function Home() {
+// A página principal agora renderiza a Splash Screen por padrão
+function SplashPageContent() {
   return (
     <AuthGuard>
-      <MainLayout>
-        <DashboardView />
-      </MainLayout>
+      <SplashScreenView />
     </AuthGuard>
+  );
+}
+
+export default function SplashPage() {
+  return (
+    <Suspense>
+      <SplashPageContent />
+    </Suspense>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -19,11 +19,14 @@ import { useFinance } from "@/components/providers/finance-provider";
 import { useToast } from "@/components/ui/use-toast";
 import { FullBackup } from "@/hooks/use-financial-entries-crud";
 import { downloadAsJson } from "@/lib/utils";
+import { getFirestore, doc, getDoc, setDoc } from "firebase/firestore";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 
 export function ProfileView() {
   const { toast } = useToast();
   const router = useRouter();
-  const { user, logout, deleteUserAccount } = useAuth();
+  const { user, logout, deleteUserAccount, projectId } = useAuth();
   const { exportUserData, importUserData, refreshData } = useFinance();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -34,6 +37,72 @@ export function ProfileView() {
   const [isImportConfirmOpen, setIsImportConfirmOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isDeleteAccountOpen, setIsDeleteAccountOpen] = useState(false);
+
+  // ✅ NOVOS ESTADOS PARA A CONFIGURAÇÃO DE ANIMAÇÃO
+  const [showAnimation, setShowAnimation] = useState(true);
+  const [isLoadingAnimationSetting, setIsLoadingAnimationSetting] =
+    useState(true);
+
+  // ✅ NOVA LÓGICA PARA BUSCAR E SALVAR A PREFERÊNCIA DE ANIMAÇÃO
+  const getSettingsDocRef = useCallback(() => {
+    if (!user || !projectId) return null;
+    const db = getFirestore();
+    return doc(
+      db,
+      `artifacts/${projectId}/users/${user.uid}/profile`,
+      "settings"
+    );
+  }, [user, projectId]);
+
+  useEffect(() => {
+    const fetchSettings = async () => {
+      const settingsRef = getSettingsDocRef();
+      if (!settingsRef) return;
+
+      setIsLoadingAnimationSetting(true);
+      try {
+        const docSnap = await getDoc(settingsRef);
+        if (
+          docSnap.exists() &&
+          docSnap.data().showSplashScreenAnimation !== undefined
+        ) {
+          setShowAnimation(docSnap.data().showSplashScreenAnimation);
+        } else {
+          setShowAnimation(true);
+        }
+      } catch (error) {
+        console.error("Erro ao buscar configurações:", error);
+      } finally {
+        setIsLoadingAnimationSetting(false);
+      }
+    };
+    fetchSettings();
+  }, [getSettingsDocRef]);
+
+  const handleAnimationToggleChange = async (isChecked: boolean) => {
+    const settingsRef = getSettingsDocRef();
+    if (!settingsRef) return;
+
+    setShowAnimation(isChecked);
+    try {
+      await setDoc(
+        settingsRef,
+        { showSplashScreenAnimation: isChecked },
+        { merge: true }
+      );
+      toast({
+        title: "Preferência salva!",
+        description: "Sua escolha foi salva com sucesso.",
+      });
+    } catch (error) {
+      toast({
+        title: "Erro!",
+        description: "Não foi possível salvar sua preferência.",
+        variant: "destructive",
+      });
+      setShowAnimation(!isChecked);
+    }
+  };
 
   const handleExport = async () => {
     if (!user) return;
@@ -177,6 +246,36 @@ export function ProfileView() {
                 <p className="text-sm text-muted-foreground">{user?.email}</p>
               </div>
             </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Preferências</CardTitle>
+            <CardDescription>
+              Ajuste o comportamento do aplicativo para se adequar ao seu uso.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {isLoadingAnimationSetting ? (
+              <div className="h-10 w-full bg-muted rounded-lg animate-pulse" />
+            ) : (
+              <div className="flex items-center justify-between rounded-lg border p-4">
+                <div className="space-y-0.5">
+                  <Label htmlFor="animation-switch" className="text-base">
+                    Animação na Abertura
+                  </Label>
+                  <p className="text-sm text-muted-foreground">
+                    Exibir a animação de 5 segundos ao iniciar o aplicativo.
+                  </p>
+                </div>
+                <Switch
+                  id="animation-switch"
+                  checked={showAnimation}
+                  onCheckedChange={handleAnimationToggleChange}
+                />
+              </div>
+            )}
           </CardContent>
         </Card>
 
