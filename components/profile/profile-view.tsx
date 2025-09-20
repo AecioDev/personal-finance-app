@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -9,6 +9,12 @@ import {
   CardTitle,
   CardDescription,
 } from "@/components/ui/card";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { Icon } from "@iconify/react";
 import { useAuth } from "@/components/providers/auth-provider";
 import { useRouter } from "next/navigation";
@@ -225,6 +231,14 @@ export function ProfileView() {
     }
   };
 
+  // ✅ LÓGICA PARA DETECTAR iOS
+  const isIOS = useMemo(() => {
+    if (typeof window !== "undefined") {
+      return /iPhone|iPad|iPod/.test(navigator.userAgent);
+    }
+    return false;
+  }, []);
+
   return (
     <PageViewLayout title="Meu Perfil">
       <div className="space-y-6">
@@ -256,7 +270,7 @@ export function ProfileView() {
               Ajuste o comportamento do aplicativo para se adequar ao seu uso.
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
             {isLoadingAnimationSetting ? (
               <div className="h-10 w-full bg-muted rounded-lg animate-pulse" />
             ) : (
@@ -275,6 +289,30 @@ export function ProfileView() {
                   onCheckedChange={handleAnimationToggleChange}
                 />
               </div>
+            )}
+
+            {isIOS && (
+              <Accordion type="single" collapsible className="w-full">
+                <AccordionItem value="install-ios" className="border-t pt-4">
+                  <AccordionTrigger className="text-base">
+                    Como instalar o App no iOS?
+                  </AccordionTrigger>
+                  <AccordionContent className="pt-2 text-sm text-muted-foreground space-y-4">
+                    <p>
+                      1. Toque no ícone de <strong>Compartilhar</strong>{" "}
+                      <Icon
+                        icon="mdi:export-variant"
+                        className="inline-block h-5 w-5 mx-1"
+                      />{" "}
+                      no seu navegador Safari.
+                    </p>
+                    <p>
+                      2. Procure na lista e toque na opção{" "}
+                      <strong>"Adicionar à Tela de Início"</strong>.
+                    </p>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
             )}
           </CardContent>
         </Card>
