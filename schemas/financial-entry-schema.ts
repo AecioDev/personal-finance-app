@@ -21,6 +21,7 @@ const singleEntrySchema = baseSchema.extend({
   entryFrequency: z.literal("single"),
   dueDate: z.date({ required_error: "A data de vencimento é obrigatória." }),
   payNow: z.boolean().default(false),
+  paymentDate: z.date().optional(),
 });
 
 // Schema para o lançamento "Parcelado"

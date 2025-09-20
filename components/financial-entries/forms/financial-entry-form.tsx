@@ -94,7 +94,6 @@ export function FinancialEntryForm({
 }: FinancialEntryFormProps) {
   const router = useRouter();
   const { toast } = useToast();
-  // ✅ 1. Pegamos a função de UPDATE do nosso hook
   const {
     accounts,
     categories,
@@ -119,6 +118,7 @@ export function FinancialEntryForm({
     entryFrequency: "single",
     dueDate: new Date(),
     payNow: entryType === "income",
+    paymentDate: new Date(),
   });
 
   const form = useForm<FinancialEntryFormData>({
@@ -171,6 +171,7 @@ export function FinancialEntryForm({
         form.setValue("payNow", entry.status === "paid");
         form.setValue("accountId", entry.accountId || undefined);
         form.setValue("paymentMethodId", entry.paymentMethodId || undefined);
+        form.setValue("paymentDate", entry.paymentDate || new Date());
       }
     }
   }, [entryToEdit, isEditing]);
@@ -200,8 +201,6 @@ export function FinancialEntryForm({
     setSubmittingAction(andNew ? "saveAndNew" : "save");
     try {
       if (isEditing && entryToEdit) {
-        // ✅ 2. A MÁGICA FINAL ACONTECE AQUI!
-        // Chamamos a função de update que veio do hook
         await updateFinancialEntry(entryToEdit, data);
         toast({ title: "Sucesso!", description: "Lançamento atualizado." });
       } else {
@@ -234,7 +233,6 @@ export function FinancialEntryForm({
           onSubmit={form.handleSubmit((data) => processSubmit(data))}
           className="space-y-4"
         >
-          {/* ... O JSX do formulário continua o mesmo ... */}
           <FormField
             control={form.control}
             name="description"
@@ -282,7 +280,6 @@ export function FinancialEntryForm({
                   <FormLabel>Frequência</FormLabel>
                   <FormControl>
                     <Select
-                      // ✅ A `key` VEM PARA CÁ, NO COMPONENTE INTERNO
                       key={field.value}
                       onValueChange={field.onChange}
                       value={field.value}
@@ -315,6 +312,7 @@ export function FinancialEntryForm({
                 <div className="flex items-center gap-2">
                   <FormControl className="flex-1">
                     <Select
+                      key={field.value}
                       onValueChange={field.onChange}
                       value={field.value}
                       defaultValue={field.value}
@@ -462,56 +460,76 @@ export function FinancialEntryForm({
                 transition={{ duration: 0.3 }}
                 className="overflow-hidden"
               >
-                <div className="grid grid-cols-2 gap-4 pt-2">
+                <div className="space-y-4 pt-2">
+                  {/* Linha 1: Conta e Meio de Pagamento */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="accountId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Conta</FormLabel>
+                          <FormControl>
+                            <Select
+                              onValueChange={field.onChange}
+                              value={field.value}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Selecione a conta" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {accounts.map((acc) => (
+                                  <SelectItem key={acc.id} value={acc.id}>
+                                    {acc.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="paymentMethodId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Meio de Pagamento</FormLabel>
+                          <FormControl>
+                            <Select
+                              onValueChange={field.onChange}
+                              value={field.value}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Selecione" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {paymentMethods.map((pm) => (
+                                  <SelectItem key={pm.id} value={pm.id}>
+                                    {pm.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  {/* Linha 2: Data do Pagamento */}
                   <FormField
                     control={form.control}
-                    name="accountId"
+                    name="paymentDate"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Conta</FormLabel>
+                        <FormLabel>Data do Pagamento</FormLabel>
                         <FormControl>
-                          <Select
-                            onValueChange={field.onChange}
+                          <DatePicker
                             value={field.value}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Selecione a conta" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {accounts.map((acc) => (
-                                <SelectItem key={acc.id} value={acc.id}>
-                                  {acc.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="paymentMethodId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Meio de Pagamento</FormLabel>
-                        <FormControl>
-                          <Select
-                            onValueChange={field.onChange}
-                            value={field.value}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Selecione" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {paymentMethods.map((pm) => (
-                                <SelectItem key={pm.id} value={pm.id}>
-                                  {pm.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                            onChange={field.onChange}
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>

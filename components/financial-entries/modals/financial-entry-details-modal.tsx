@@ -75,6 +75,7 @@ export function FinancialEntryDetailsModal({
     accountId,
     paymentMethodId,
     categoryId,
+    type,
   } = entry;
 
   const dueDateObj = new Date(dueDate);
@@ -112,18 +113,18 @@ export function FinancialEntryDetailsModal({
       await revertFinancialEntryPayment(entry);
       toast({
         title: "Sucesso!",
-        description: "O pagamento foi estornado.",
+        description: "O lançamento foi estornado.",
         variant: "success",
       });
       onOpenChange(false);
     } catch (error) {
       toast({
         title: "Erro!",
-        description: `Não foi possível estornar o pagamento: ${error}`,
+        description: `Não foi possível estornar o lançamento: ${error}`,
         variant: "destructive",
       });
     } finally {
-      setIsRevertConfirmOpen(false); // Fecha o dialog de confirmação
+      setIsRevertConfirmOpen(false);
     }
   };
 
@@ -134,7 +135,7 @@ export function FinancialEntryDetailsModal({
   const handleConfirmDelete = async () => {
     if (!entry) return;
     try {
-      await deleteFinancialEntry(entry.id, "one"); // Assumindo que o delete aceita o escopo
+      await deleteFinancialEntry(entry.id, "one");
       toast({ title: "Sucesso!", description: "Lançamento excluído." });
       onOpenChange(false);
     } catch (error) {
@@ -149,7 +150,7 @@ export function FinancialEntryDetailsModal({
   };
 
   const getStatusText = () => {
-    if (isPaid) return "Pago";
+    if (isPaid) return type === "expense" ? "Pago" : "Recebido";
     if (isOverdue) return "Vencido";
     return "Pendente";
   };
@@ -192,7 +193,7 @@ export function FinancialEntryDetailsModal({
             {isPaid && (
               <>
                 <DetailRow
-                  label="Valor Pago"
+                  label={type === "expense" ? "Valor Pago" : "Valor Recebido"}
                   value={(paidAmount || 0).toLocaleString("pt-BR", {
                     style: "currency",
                     currency: "BRL",
@@ -201,7 +202,9 @@ export function FinancialEntryDetailsModal({
                 />
                 {paymentDate && (
                   <DetailRow
-                    label="Data Pagamento"
+                    label={
+                      type === "expense" ? "Data Pagamento" : "Data Recebimento"
+                    }
                     value={format(new Date(paymentDate), "dd/MM/yyyy", {
                       locale: ptBR,
                     })}
@@ -224,8 +227,10 @@ export function FinancialEntryDetailsModal({
               />
               <div className="text-sm">
                 <p className="font-bold">
-                  Esta despesa está atrasada há {daysOverdue}{" "}
-                  {daysOverdue === 1 ? "dia" : "dias"}.
+                  {type === "expense"
+                    ? "Esta despesa está atrasada há"
+                    : "Esta receita está atrasada há"}{" "}
+                  {daysOverdue} {daysOverdue === 1 ? "dia" : "dias"}.
                 </p>
               </div>
             </div>
@@ -263,7 +268,7 @@ export function FinancialEntryDetailsModal({
                       icon="fa6-solid:dollar-sign"
                       className="mr-2 h-4 w-4"
                     />
-                    Pagar
+                    {type === "expense" ? "Pagar" : "Receber"}
                   </Button>
                 </div>
               </>
@@ -287,7 +292,9 @@ export function FinancialEntryDetailsModal({
       <ConfirmationDialog
         isOpen={isRevertConfirmOpen}
         onOpenChange={setIsRevertConfirmOpen}
-        title="Estornar Pagamento?"
+        title={
+          type === "expense" ? "Estornar Pagamento?" : "Estornar Recebimento"
+        }
         description="Esta ação irá reabrir o lançamento e ajustar o saldo da conta associada. Tem certeza?"
         onConfirm={handleConfirmRevert}
         variant="destructive"

@@ -1,11 +1,11 @@
-// in: components/financial-entry/financial-entry-payment-modal.tsx (VERSÃO FINAL CONECTADA)
+// in: components/financial-entries/modals/financial-entry-payment-modal.tsx
 "use client";
 
 import React from "react";
 import { FormProvider, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useToast } from "@/components/ui/use-toast";
-import { useFinance } from "@/components/providers/finance-provider"; // Importamos o useFinance
+import { useFinance } from "@/components/providers/finance-provider";
 import {
   Dialog,
   DialogContent,
@@ -49,22 +49,42 @@ export function FinancialEntryPaymentModal({
     }
   }, [entry, formMethods]);
 
+  if (!entry) return null;
+
+  const isExpense = entry.type === "expense";
+  const textContent = {
+    title: isExpense ? "Registrar Pagamento" : "Registrar Recebimento",
+    amountLabel: isExpense ? "Valor a Pagar" : "Valor a Receber",
+    dateLabel: isExpense ? "Data do Pagamento" : "Data do Recebimento",
+    accountLabel: isExpense ? "Pagar com a Conta" : "Receber na Conta",
+    submitButton: isExpense ? "Confirmar Pagamento" : "Confirmar Recebimento",
+    submittingButton: isExpense
+      ? "Registrando Pagamento..."
+      : "Registrando Recebimento...",
+    toastSuccessTitle: isExpense
+      ? "Pagamento Registrado! ✅"
+      : "Recebimento Registrado! ✅",
+    toastSuccessDescription: isExpense
+      ? "Sua conta foi paga com sucesso."
+      : "Sua receita foi recebida com sucesso.",
+    toastErrorDescription: isExpense
+      ? "Não foi possível registrar o pagamento."
+      : "Não foi possível registrar o recebimento.",
+  };
+
   const handlePaymentSubmit = async (data: PaymentFormData) => {
     if (!entry) return;
 
-    // --- CHAMANDO A FUNÇÃO DO PROVIDER ---
     const success = await processFinancialEntryPayment(entry.id, data);
 
     if (success) {
-      refreshData(); // ATUALIZA OS DADOS GLOBAIS DO APP
-      onOpenChange(false); // Fecha o modal
+      refreshData();
+      onOpenChange(false);
 
-      // --- A INTELIGÊNCIA DO ROBOZINHO AMIGO ---
       const remainingAmount = entry.expectedAmount - (entry.paidAmount || 0);
       const difference = data.amount - remainingAmount;
 
       if (difference > 0.01) {
-        // Pagou juros
         toast({
           variant: "destructive",
           title: "Juros Detectados! 😟",
@@ -75,7 +95,6 @@ export function FinancialEntryPaymentModal({
           duration: 7000,
         });
       } else if (difference < -0.01) {
-        // Recebeu desconto
         const discount = Math.abs(difference);
         toast({
           variant: "default",
@@ -89,29 +108,25 @@ export function FinancialEntryPaymentModal({
           duration: 7000,
         });
       } else {
-        // Pagou o valor exato
         toast({
-          title: "Pagamento Registrado! ✅",
-          description: "Sua conta foi paga com sucesso.",
+          title: textContent.toastSuccessTitle,
+          description: textContent.toastSuccessDescription,
         });
       }
     } else {
-      // Se a função do provider retornar 'false', significa que deu erro
       toast({
         variant: "destructive",
         title: "Ops! Algo deu errado",
-        description: "Não foi possível registrar o pagamento. Tente novamente.",
+        description: textContent.toastErrorDescription,
       });
     }
   };
-
-  if (!entry) return null;
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Registrar Pagamento</DialogTitle>
+          <DialogTitle>{textContent.title}</DialogTitle>
           <DialogDescription>{entry.description}</DialogDescription>
         </DialogHeader>
 
@@ -145,7 +160,10 @@ export function FinancialEntryPaymentModal({
         </div>
 
         <FormProvider {...formMethods}>
-          <FinancialEntryPaymentForm onSubmit={handlePaymentSubmit} />
+          <FinancialEntryPaymentForm
+            onSubmit={handlePaymentSubmit}
+            textContent={textContent}
+          />
         </FormProvider>
       </DialogContent>
     </Dialog>

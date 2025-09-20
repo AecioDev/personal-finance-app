@@ -148,6 +148,7 @@ export const useFinancialEntriesCrud = ({
       if (data.entryFrequency !== "single" || !data.dueDate || !db || !user)
         return;
 
+      const dataPagamento = data.paymentDate ? data.paymentDate : new Date();
       const newEntryData: Omit<FinancialEntry, "id" | "createdAt"> = {
         uid: user.uid,
         description: data.description,
@@ -158,7 +159,7 @@ export const useFinancialEntriesCrud = ({
         dueDate: data.dueDate,
         status: data.payNow ? "paid" : "pending",
         paidAmount: data.payNow ? data.expectedAmount : null,
-        paymentDate: data.payNow ? new Date() : null,
+        paymentDate: data.payNow ? dataPagamento : null,
         accountId: data.payNow ? data.accountId : "",
         paymentMethodId: data.payNow ? data.paymentMethodId : null,
       };

@@ -1,4 +1,4 @@
-// src/components/financial-entry/financial-entry-payment-form.tsx
+// src/components/forms/financial-entry-payment-form.tsx
 "use client";
 
 import React from "react";
@@ -25,12 +25,22 @@ import { CurrencyInput } from "@/components/ui/currency-input";
 import { PaymentFormData } from "@/schemas/payment-schema";
 import { useFinance } from "@/components/providers/finance-provider";
 
+interface TextContent {
+  amountLabel: string;
+  dateLabel: string;
+  accountLabel: string;
+  submitButton: string;
+  submittingButton: string;
+}
+
 interface FinancialEntryPaymentFormProps {
   onSubmit: (data: PaymentFormData) => void;
+  textContent: TextContent;
 }
 
 export function FinancialEntryPaymentForm({
   onSubmit,
+  textContent,
 }: FinancialEntryPaymentFormProps) {
   const form = useFormContext<PaymentFormData>();
   const { accounts, paymentMethods } = useFinance();
@@ -46,7 +56,7 @@ export function FinancialEntryPaymentForm({
           name="amount"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Valor a Pagar</FormLabel>
+              <FormLabel>{textContent.amountLabel}</FormLabel>
               <FormControl>
                 <CurrencyInput
                   value={field.value}
@@ -64,7 +74,7 @@ export function FinancialEntryPaymentForm({
           name="paymentDate"
           render={({ field }) => (
             <FormItem className="flex flex-col">
-              <FormLabel>Data do Pagamento</FormLabel>
+              <FormLabel>{textContent.dateLabel}</FormLabel>
               <FormControl>
                 <DatePicker value={field.value} onChange={field.onChange} />
               </FormControl>
@@ -78,7 +88,7 @@ export function FinancialEntryPaymentForm({
           name="accountId"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Pagar com a Conta</FormLabel>
+              <FormLabel>{textContent.accountLabel}</FormLabel>
               <Select onValueChange={field.onChange} value={field.value}>
                 <FormControl>
                   <SelectTrigger>
@@ -135,7 +145,9 @@ export function FinancialEntryPaymentForm({
             disabled={isSubmitting}
           >
             <Icon icon="mdi:cash-check" className="mr-2 h-4 w-4" />
-            {isSubmitting ? "Registrando..." : "Confirmar Pagamento"}
+            {isSubmitting
+              ? textContent.submittingButton
+              : textContent.submitButton}
           </Button>
         </div>
       </form>
