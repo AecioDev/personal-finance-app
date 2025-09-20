@@ -15,6 +15,40 @@ interface ReleaseNote {
 // Usamos um Record para mapear a versão (string) para o conteúdo da nota
 export const releaseNotes: Record<string, ReleaseNote> = {
   [APP_VERSION]: {
+    title: "🚀 Uma Nova Experiência Chegou!",
+    description:
+      "Fizemos grandes melhorias para deixar seu controle financeiro ainda mais poderoso e agradável de usar.",
+    changes: [
+      {
+        title: "Jornada de Inicialização Inteligente",
+        detail:
+          "Agora o app te recebe com uma nova tela de boas-vindas que mostra as novidades e te ajuda a configurar o app.",
+      },
+      {
+        title: "Instalação no iOS Facilitada",
+        detail:
+          "Usuários de iPhone e iPad agora recebem instruções claras de como instalar o app na tela de início.",
+      },
+      {
+        title: "Preferências Customizáveis",
+        detail:
+          "Você agora pode desativar a animação de inicialização e encontrar dicas de uso diretamente no seu Perfil.",
+      },
+      {
+        title: "Exclusão Segura e Estorno de Pagamentos",
+        detail:
+          "Adicionamos a função de estornar pagamentos e implementamos travas de segurança para impedir a exclusão de dados em uso.",
+      },
+      {
+        title: "Layout Refinado e Responsivo",
+        detail:
+          "Melhoramos a interface em várias telas, garantindo uma ótima experiência tanto no celular quanto no computador.",
+      },
+    ],
+  },
+
+  // A versão antiga continua aqui para referência
+  "1.1.0": {
     title: "🎉 Boas notícias! O app evoluiu!",
     description: "Preparamos algumas melhorias para você:",
     changes: [
@@ -29,10 +63,4 @@ export const releaseNotes: Record<string, ReleaseNote> = {
       },
     ],
   },
-  // No futuro, quando tiver uma nova versão, é só adicionar aqui:
-  // [APP_VERSION]: {
-  //   title: "🚀 Gráficos no seu Dashboard!",
-  //   description: "Agora você pode visualizar suas finanças.",
-  //   changes: [ ... ],
-  // }
 };

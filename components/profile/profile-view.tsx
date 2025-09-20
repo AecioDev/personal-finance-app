@@ -24,13 +24,15 @@ import { ThemeToggle } from "../theme/theme-toggle";
 import { useFinance } from "@/components/providers/finance-provider";
 import { useToast } from "@/components/ui/use-toast";
 import { FullBackup } from "@/hooks/use-financial-entries-crud";
-import { downloadAsJson } from "@/lib/utils";
+import { cn, downloadAsJson } from "@/lib/utils";
 import { getFirestore, doc, getDoc, setDoc } from "firebase/firestore";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { useTheme } from "next-themes";
 
 export function ProfileView() {
   const { toast } = useToast();
+  const { resolvedTheme } = useTheme();
   const router = useRouter();
   const { user, logout, deleteUserAccount, projectId } = useAuth();
   const { exportUserData, importUserData, refreshData } = useFinance();
@@ -242,7 +244,14 @@ export function ProfileView() {
   return (
     <PageViewLayout title="Meu Perfil">
       <div className="space-y-6">
-        <Card>
+        <Card
+          className={cn(
+            "rounded-[2rem] shadow-md bg-muted text-muted-foreground border",
+            resolvedTheme === "dark"
+              ? "border-primary border-2"
+              : "border-primary"
+          )}
+        >
           <CardHeader>
             <CardTitle>Informações Pessoais</CardTitle>
           </CardHeader>

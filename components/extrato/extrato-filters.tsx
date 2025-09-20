@@ -91,21 +91,23 @@ export function ExtratoFilters({ onFilterChange }: ExtratoFiltersProps) {
       className="rounded-[2rem] shadow-md bg-primary text-primary-foreground p-4"
     >
       <div className="flex items-center justify-between">
-        <h4 className="text-sm font-semibold">Filtros</h4>
         <CollapsibleTrigger asChild>
-          <Button variant="outline" size="sm" className="w-9 p-0">
+          <div
+            role="button"
+            className="flex w-full items-center justify-between cursor-pointer"
+          >
+            <h4 className="text-sm font-semibold">Filtros</h4>
             <Icon
               icon={isOpen ? "mdi:chevron-up" : "mdi:chevron-down"}
-              className="h-4 w-4"
+              className="h-5 w-5 transition-transform duration-200"
             />
-            <span className="sr-only">Toggle</span>
-          </Button>
+          </div>
         </CollapsibleTrigger>
       </div>
 
       <CollapsibleContent className="space-y-6 pt-6">
         {/* Atalhos rápidos */}
-        <div className="flex items-center justify-center gap-2">
+        <div className="flex items-center justify-start gap-2">
           <div className="space-y-2">
             <Button
               size="sm"
@@ -136,46 +138,54 @@ export function ExtratoFilters({ onFilterChange }: ExtratoFiltersProps) {
         </div>
 
         {/* Datas com botão aplicar */}
-        <div className="flex items-center justify-center gap-2">
-          <div className="space-y-2">
-            <label className="text-sm font-medium">De:</label>
+        <div className="flex items-end justify-start gap-2 p-2 bg-background/80 dark:bg-background/20 rounded-lg">
+          <div className="flex-1 space-y-2">
+            <label className="text-sm font-medium text-primary-foreground/80 ml-1">
+              De:
+            </label>
             <DatePicker
               value={filters.dateFrom}
               onChange={(date) => setFilters((f) => ({ ...f, dateFrom: date }))}
             />
           </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Até:</label>
+          <div className="flex-1 space-y-2">
+            <label className="text-sm font-medium text-primary-foreground/80 ml-1">
+              Até:
+            </label>
             <DatePicker
               value={filters.dateTo}
               onChange={(date) => setFilters((f) => ({ ...f, dateTo: date }))}
             />
           </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Executar</label>
+          <div className="flex-shrink-0">
             <Button
+              size="sm"
               className="bg-accent text-accent-foreground hover:bg-accent/80"
               onClick={applyDateRange}
             >
-              Aplicar
+              <Icon icon="fa6-solid:check" className="h-4 w-4" />
+              <span className="hidden md:inline ml-2">Aplicar</span>
             </Button>
           </div>
         </div>
 
         {/* Tipo */}
-        <ToggleGroup
-          type="single"
-          value={filters.type}
-          // Altere aqui de "any" para "string"
-          onValueChange={(value: string) =>
-            value && updateFilter({ type: value as Filters["type"] })
-          }
-          className="w-full grid grid-cols-3 bg-background p-1 rounded-sm"
-        >
-          <ToggleGroupItem value="all">Todos</ToggleGroupItem>
-          <ToggleGroupItem value="expense">Despesas</ToggleGroupItem>
-          <ToggleGroupItem value="income">Receitas</ToggleGroupItem>
-        </ToggleGroup>
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Tipo de Lançamento</label>
+          <ToggleGroup
+            type="single"
+            value={filters.type}
+            // Altere aqui de "any" para "string"
+            onValueChange={(value: string) =>
+              value && updateFilter({ type: value as Filters["type"] })
+            }
+            className="w-full grid grid-cols-3 bg-background/80 dark:bg-background/20 p-1 rounded-sm"
+          >
+            <ToggleGroupItem value="all">Todos</ToggleGroupItem>
+            <ToggleGroupItem value="expense">Despesas</ToggleGroupItem>
+            <ToggleGroupItem value="income">Receitas</ToggleGroupItem>
+          </ToggleGroup>
+        </div>
 
         {/* Status */}
         <div className="space-y-2">
@@ -186,7 +196,7 @@ export function ExtratoFilters({ onFilterChange }: ExtratoFiltersProps) {
             onValueChange={(value: string) =>
               value && updateFilter({ status: value as Filters["status"] })
             }
-            className="w-full grid grid-cols-3 bg-background p-1 rounded-sm"
+            className="w-full grid grid-cols-3 bg-background/80 dark:bg-background/20 p-1 rounded-sm"
           >
             <ToggleGroupItem value="all">Todos</ToggleGroupItem>
             <ToggleGroupItem value="paid">Realizados</ToggleGroupItem>

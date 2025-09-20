@@ -231,21 +231,32 @@ export function FinancialEntryDetailsModal({
             </div>
           )}
 
-          <DialogFooter className="mt-4 flex flex-col gap-2 pt-4 border-t">
+          <DialogFooter className="mt-4 flex flex-col sm:flex-row sm:justify-between gap-2 pt-4 border-t">
             {!isPaid ? (
               // Se o lançamento está ABERTO
               <>
-                <div className="flex w-full gap-2">
+                {/* Botão Excluir: No mobile, será a segunda ordem. No PC, a primeira. */}
+                <Button
+                  variant="destructive-outline"
+                  onClick={handleDeleteClick}
+                  className="w-full sm:w-auto order-2 sm:order-1"
+                >
+                  <Icon icon="fa6-solid:trash-can" className="mr-2 h-4 w-4" />
+                  Excluir
+                </Button>
+
+                {/* Grupo de Ações Primárias: No mobile, será a primeira ordem. No PC, a segunda. */}
+                <div className="flex w-full sm:w-auto gap-2 order-1 sm:order-2">
                   <Button
                     variant="outline"
-                    className="flex-1"
+                    className="flex-1 sm:flex-initial"
                     onClick={handleEdit}
                   >
                     <Icon icon="mdi:pencil" className="mr-2 h-4 w-4" />
                     Editar
                   </Button>
                   <Button
-                    className="flex-1 bg-accent text-accent-foreground"
+                    className="flex-1 sm:flex-initial bg-accent text-accent-foreground"
                     onClick={handlePayClick}
                   >
                     <Icon
@@ -255,24 +266,17 @@ export function FinancialEntryDetailsModal({
                     Pagar
                   </Button>
                 </div>
-                <Button
-                  variant="destructive-outline"
-                  className="w-full"
-                  onClick={handleDeleteClick}
-                >
-                  <Icon icon="fa6-solid:trash-can" className="mr-2 h-4 w-4" />
-                  Excluir Lançamento
-                </Button>
               </>
             ) : (
               // Se o lançamento está PAGO
+              // Botão Estornar fica na direita em telas de PC
               <Button
-                variant="destructive"
-                className="w-full"
+                variant="destructive-outline"
+                className="w-full sm:w-auto sm:ml-auto"
                 onClick={handleRevertPaymentClick}
               >
                 <Icon icon="mdi:cash-refund" className="mr-2 h-4 w-4" />
-                Estornar Pagamento
+                Estornar
               </Button>
             )}
           </DialogFooter>

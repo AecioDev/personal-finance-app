@@ -338,7 +338,7 @@ export function FinancialEntryForm({
                   </FormControl>
                   <Button
                     type="button"
-                    variant="outline"
+                    variant="accent-outline"
                     size="icon"
                     onClick={() => setIsCategoryManagerOpen(true)}
                   >
@@ -434,7 +434,7 @@ export function FinancialEntryForm({
               control={form.control}
               name="payNow"
               render={({ field }) => (
-                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 shadow-sm">
+                <FormItem className="flex flex-row items-center justify-between bg-input rounded-lg border p-4 shadow-sm">
                   <div className="space-y-0.5">
                     <FormLabel className="text-base">
                       {entryType === "income"

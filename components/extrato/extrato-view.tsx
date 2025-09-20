@@ -4,12 +4,7 @@
 import React, { useMemo, useState } from "react";
 import { useFinance } from "@/components/providers/finance-provider";
 import { ExtratoFilters, Filters } from "./extrato-filters";
-import {
-  startOfMonth,
-  endOfMonth,
-  startOfDay,
-  endOfDay,
-} from "date-fns";
+import { startOfMonth, endOfMonth, startOfDay, endOfDay } from "date-fns";
 import { StatementSummaryCard } from "./statement-summary-card";
 import { StatementByDayView } from "./statement-by-day-view";
 import { StatementComparisonView } from "./statement-comparison-view";
