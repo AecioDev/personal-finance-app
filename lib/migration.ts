@@ -8,14 +8,7 @@ import {
   writeBatch,
   type Firestore,
 } from "firebase/firestore";
-import type {
-  Account,
-  Category,
-  Debt,
-  DebtInstallment,
-  PaymentMethod,
-  Transaction,
-} from "@/interfaces/finance"; // Ajuste o caminho
+import type { Account, Category, PaymentMethod } from "@/interfaces/finance"; // Ajuste o caminho
 import type { FinancialEntry } from "@/interfaces/financial-entry"; // Ajuste o caminho
 
 // Nova interface para o nosso arquivo de backup completo
@@ -240,3 +233,67 @@ export const importFullUserData = async (
   await batch.commit();
   onProgress("Importação concluída com sucesso!");
 };
+
+export type TransactionType = "income" | "expense";
+export type DebtInstallmentStatus = "pending" | "paid" | "overdue" | "partial";
+
+export interface Debt {
+  id: string;
+  uid: string;
+  description: string;
+  originalAmount: number;
+  totalRepaymentAmount: number | null;
+  isRecurring: boolean;
+  type: string;
+  categoryId?: string;
+  startDate: Date;
+  endDate: Date | null;
+  isActive: boolean;
+  createdAt?: Date;
+  currentOutstandingBalance?: number;
+  totalPaidOnThisDebt?: number;
+  totalInterestPaidOnThisDebt?: number;
+  totalFinePaidOnThisDebt?: number;
+  paidInstallments?: number;
+  totalInstallments: number | null;
+  interestRate: number | null;
+  fineRate: number | null;
+  expectedInstallmentAmount: number | null;
+  lastBalanceUpdate?: Date;
+}
+
+export interface DebtInstallment {
+  id: string;
+  debtId: string;
+  uid: string;
+  installmentNumber?: number;
+  expectedDueDate: Date;
+  expectedAmount: number;
+  paidAmount: number;
+  remainingAmount: number;
+  currentDueAmount: number;
+  discountAmount: number;
+  interestPaidAmount: number;
+  status: DebtInstallmentStatus;
+  paymentDate: Date | null;
+  transactionIds: string[];
+  createdAt?: Date;
+}
+
+export interface Transaction {
+  id: string;
+  accountId: string;
+  type: TransactionType;
+  description: string;
+  amount: number; // Valor total que saiu da conta
+  date: Date;
+  categoryId?: string;
+  uid: string;
+  createdAt?: Date;
+  debtInstallmentId: string | null;
+  isLoanIncome?: boolean;
+  loanSource: string | null;
+  paymentMethodId: string | null;
+  interestPaid: number | null; // Parte do 'amount' que foi juros/multa
+  discountReceived: number | null; // Valor de desconto que abateu da dívida
+}

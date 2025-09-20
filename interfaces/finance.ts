@@ -1,9 +1,5 @@
 // in: interfaces/finance.ts
 
-export type TransactionType = "income" | "expense";
-
-export type DebtInstallmentStatus = "pending" | "paid" | "overdue" | "partial";
-
 export type CategoryType = "income" | "expense";
 
 export interface Category {
