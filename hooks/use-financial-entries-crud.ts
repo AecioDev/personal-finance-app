@@ -22,11 +22,11 @@ import {
   FinancialEntry,
   FinancialRecurrence,
 } from "@/interfaces/financial-entry";
-import { addMonths, addWeeks, addYears } from "date-fns";
+import { addMonths, addWeeks, addYears, isPast, isToday } from "date-fns";
 import { FinancialEntryFormData } from "@/schemas/financial-entry-schema";
 import { Account, Category, PaymentMethod } from "@/interfaces/finance";
 import { PaymentFormData } from "@/schemas/payment-schema";
-import { useCallback } from "react"; // ✅ IMPORTADO!
+import { useCallback } from "react";
 
 export interface FullBackup {
   financialEntries: FinancialEntry[];
@@ -444,17 +444,64 @@ export const useFinancialEntriesCrud = ({
   );
 
   const deleteFinancialEntry = useCallback(
-    async (entryId: string) => {
-      if (!db) return;
-      try {
-        const docRef = getDocRef("financial-entries", entryId);
-        await deleteDoc(docRef);
-      } catch (error) {
-        console.error("Erro ao deletar lançamento:", error);
-        setErrorFinanceData("Erro ao deletar lançamento.");
+    async (
+      entryId: string,
+      scope: "one" | "future" | "all" = "one" // 'one' é o padrão
+    ) => {
+      if (!db) throw new Error("Banco de dados não inicializado.");
+
+      const entryRef = getDocRef("financial-entries", entryId);
+
+      // 1. Buscamos o lançamento que o usuário quer deletar
+      const entrySnap = await getDoc(entryRef);
+      if (!entrySnap.exists()) {
+        throw new Error("Lançamento não encontrado para exclusão.");
       }
+      const entryData = entrySnap.data() as FinancialEntry;
+
+      // 2. REGRA DE SEGURANÇA: Bloqueia a exclusão de lançamentos pagos
+      if (entryData.status === "paid") {
+        throw new Error(
+          "Lançamentos pagos devem ser estornados antes de serem excluídos para manter a consistência do saldo."
+        );
+      }
+
+      // Se o escopo for 'one' ou se o lançamento não for recorrente, deleta apenas ele.
+      if (scope === "one" || !entryData.recurrenceId) {
+        await deleteDoc(entryRef);
+        return;
+      }
+
+      // Se for um lançamento recorrente e o escopo for 'future' ou 'all'
+      const batch = writeBatch(db);
+      const recurrenceId = entryData.recurrenceId;
+
+      if (scope === "future") {
+        // Deleta esta e todas as futuras
+        const q = query(
+          getCollectionRef("financial-entries"),
+          where("recurrenceId", "==", recurrenceId),
+          where("dueDate", ">=", entryData.dueDate)
+        );
+        const querySnapshot = await getDocs(q);
+        querySnapshot.forEach((doc) => batch.delete(doc.ref));
+      } else if (scope === "all") {
+        // Deleta a série inteira (lançamentos + a regra)
+        const q = query(
+          getCollectionRef("financial-entries"),
+          where("recurrenceId", "==", recurrenceId)
+        );
+        const querySnapshot = await getDocs(q);
+        querySnapshot.forEach((doc) => batch.delete(doc.ref));
+
+        // Também deleta a regra principal na outra coleção
+        const recurrenceRef = getDocRef("financial-recurrences", recurrenceId);
+        batch.delete(recurrenceRef);
+      }
+
+      await batch.commit();
     },
-    [db, getDocRef, setErrorFinanceData]
+    [db, getDocRef, getCollectionRef]
   );
 
   const processFinancialEntryPayment = useCallback(
@@ -493,6 +540,57 @@ export const useFinancialEntriesCrud = ({
       }
     },
     [db, getDocRef, setErrorFinanceData]
+  );
+
+  const revertFinancialEntryPayment = useCallback(
+    async (entry: FinancialEntry) => {
+      if (!db) throw new Error("Banco de dados não inicializado.");
+      if (entry.status !== "paid" || !entry.accountId || !entry.paidAmount) {
+        throw new Error(
+          "Este lançamento não é um pagamento válido para ser estornado."
+        );
+      }
+
+      const entryRef = getDocRef("financial-entries", entry.id);
+      const accountRef = getDocRef("accounts", entry.accountId);
+
+      await runTransaction(db, async (transaction) => {
+        // LEITURAS PRIMEIRO
+        const accountDoc = await transaction.get(accountRef);
+        if (!accountDoc.exists()) {
+          throw new Error(
+            "A conta associada a este pagamento não foi encontrada."
+          );
+        }
+
+        // CÁLCULOS
+        const accountData = accountDoc.data() as Account;
+        const currentBalance = accountData.balance || 0;
+
+        // Lógica inversa do pagamento: se era despesa, devolve o dinheiro. Se era receita, retira.
+        const revertedBalance =
+          entry.type === "expense"
+            ? currentBalance + entry.paidAmount!
+            : currentBalance - entry.paidAmount!;
+
+        // Determina o novo status: se a data de vencimento já passou, vira 'overdue'
+        const newStatus =
+          isPast(entry.dueDate) && !isToday(entry.dueDate)
+            ? "overdue"
+            : "pending";
+
+        // GRAVA
+        transaction.update(accountRef, { balance: revertedBalance });
+        transaction.update(entryRef, {
+          status: newStatus,
+          paidAmount: null,
+          paymentDate: null,
+          accountId: "",
+          paymentMethodId: null,
+        });
+      });
+    },
+    [db, getDocRef]
   );
 
   const exportUserData = useCallback(async (): Promise<FullBackup> => {
@@ -604,16 +702,13 @@ export const useFinancialEntriesCrud = ({
     const batch = writeBatch(db);
     let migratedCount = 0;
 
-    // ✅ FUNÇÃO HELPER ATUALIZADA PARA USAR .toDate()
     const safeCreateDate = (dateValue: any): Date | null => {
       if (!dateValue) return null;
 
-      // A VERIFICAÇÃO CORRETA: Se o objeto tiver o método .toDate(), é um Timestamp.
       if (typeof dateValue.toDate === "function") {
-        return dateValue.toDate(); // Usa o método oficial de conversão!
+        return dateValue.toDate();
       }
 
-      // Fallbacks para outros formatos (pouco provável, mas seguro)
       if (
         typeof dateValue === "object" &&
         dateValue !== null &&
@@ -679,6 +774,7 @@ export const useFinancialEntriesCrud = ({
     updateFinancialEntry,
     deleteFinancialEntry,
     processFinancialEntryPayment,
+    revertFinancialEntryPayment,
     getFinancialEntryById,
     getRecurrenceRuleById,
     exportUserData,

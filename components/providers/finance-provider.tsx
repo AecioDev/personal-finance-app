@@ -77,9 +77,10 @@ interface FinanceContextType {
   updateFinancialEntry: ReturnType<
     typeof useFinancialEntriesCrud
   >["updateFinancialEntry"];
-  deleteFinancialEntry: ReturnType<
-    typeof useFinancialEntriesCrud
-  >["deleteFinancialEntry"];
+  deleteFinancialEntry: (
+    entryId: string,
+    scope?: "one" | "future" | "all"
+  ) => Promise<void>;
 
   processFinancialEntryPayment: (
     entryId: string,
@@ -100,6 +101,7 @@ interface FinanceContextType {
   getFinancialEntryById: (id: string) => Promise<FinancialEntry | null>;
   getRecurrenceRuleById: (id: string) => Promise<FinancialRecurrence | null>;
   migrateLegacyRecurrences: () => Promise<void>;
+  revertFinancialEntryPayment: (entry: FinancialEntry) => Promise<void>;
 }
 
 const FinanceContext = createContext<FinanceContextType | undefined>(undefined);
@@ -378,6 +380,7 @@ export const FinanceProvider = ({ children }: { children: ReactNode }) => {
     updateFinancialEntry,
     deleteFinancialEntry,
     processFinancialEntryPayment,
+    revertFinancialEntryPayment,
     exportUserData,
     importUserData,
     getFinancialEntryById,
@@ -422,6 +425,7 @@ export const FinanceProvider = ({ children }: { children: ReactNode }) => {
       updateFinancialEntry,
       deleteFinancialEntry,
       processFinancialEntryPayment,
+      revertFinancialEntryPayment,
       exportUserData,
       importUserData,
       getFinancialEntryById,
@@ -450,6 +454,7 @@ export const FinanceProvider = ({ children }: { children: ReactNode }) => {
       updateFinancialEntry,
       deleteFinancialEntry,
       processFinancialEntryPayment,
+      revertFinancialEntryPayment,
       exportUserData,
       importUserData,
       getFinancialEntryById,
