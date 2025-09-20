@@ -3,8 +3,7 @@ import { useState, useEffect } from "react";
 import { useFinance } from "@/components/providers/finance-provider";
 import { getFirestore, doc, getDoc } from "firebase/firestore";
 import { useAuth } from "@/components/providers/auth-provider";
-
-const CURRENT_RELEASE_VERSION = "v1.1.0-category-types";
+import { APP_VERSION } from "@/lib/constants";
 
 export const useAppFlow = () => {
   const { user, projectId } = useAuth();
@@ -51,7 +50,7 @@ export const useAppFlow = () => {
       }
 
       // 4. Verificamos se precisa mostrar as notas de release.
-      if (settingsData.lastReleaseNotesSeen !== CURRENT_RELEASE_VERSION) {
+      if (settingsData.lastReleaseNotesSeen !== APP_VERSION) {
         setShowReleaseNotes(true);
       }
 
@@ -76,6 +75,6 @@ export const useAppFlow = () => {
     showIosInstallPrompt,
     untaggedCategories,
     isAnimationEnabled,
-    CURRENT_RELEASE_VERSION,
+    CURRENT_RELEASE_VERSION: APP_VERSION,
   };
 };

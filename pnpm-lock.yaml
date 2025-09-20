@@ -4,6 +4,9 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+overrides:
+  '@rushstack/eslint-patch': ^1.12.0
+
 importers:
 
   .:

@@ -1,5 +1,7 @@
 // lib/release-notes.ts
 
+import { APP_VERSION } from "./constants";
+
 interface ReleaseNote {
   title: string;
   description: string;
@@ -12,7 +14,7 @@ interface ReleaseNote {
 
 // Usamos um Record para mapear a versão (string) para o conteúdo da nota
 export const releaseNotes: Record<string, ReleaseNote> = {
-  "v1.1.0-category-types": {
+  [APP_VERSION]: {
     title: "🎉 Boas notícias! O app evoluiu!",
     description: "Preparamos algumas melhorias para você:",
     changes: [
@@ -28,7 +30,7 @@ export const releaseNotes: Record<string, ReleaseNote> = {
     ],
   },
   // No futuro, quando tiver uma nova versão, é só adicionar aqui:
-  // "v1.2.0-dashboard-graphs": {
+  // [APP_VERSION]: {
   //   title: "🚀 Gráficos no seu Dashboard!",
   //   description: "Agora você pode visualizar suas finanças.",
   //   changes: [ ... ],

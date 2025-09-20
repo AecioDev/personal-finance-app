@@ -27,6 +27,7 @@ import {
   setDoc,
   getDoc,
 } from "firebase/firestore";
+import { APP_VERSION } from "@/lib/constants";
 
 interface AuthContextType {
   user: FirebaseUser | null;
@@ -210,10 +211,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
         "settings"
       );
 
+      // Ao completar o onboarding, já "carimbamos" o usuário com o estado mais recente do app.
       await setDoc(settingsRef, {
         onboardingCompleted: true,
         createdAt: new Date(),
+        lastReleaseNotesSeen: APP_VERSION, // Já viu o último release
+        categoryTypeMigrationCompleted: true, // Já começa com as categorias corretas
+        hasSeenIosInstallPrompt: false, // Ainda não viu o prompt de PWA
+        showSplashScreenAnimation: true, // Animação ligada por padrão
       });
+
       console.log(
         "Onboarding finalizado e salvo para o usuário no caminho correto."
       );
