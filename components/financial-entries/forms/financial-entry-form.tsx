@@ -108,6 +108,7 @@ export function FinancialEntryForm({
   >(null);
 
   const isEditing = !!entryToEdit;
+  const defaultDate = new Date();
 
   const getDefaultValues = (): Partial<FinancialEntryFormData> => ({
     description: "",
@@ -116,9 +117,11 @@ export function FinancialEntryForm({
     categoryId: "",
     type: entryType,
     entryFrequency: "single",
-    dueDate: new Date(),
+    dueDate: defaultDate,
     payNow: entryType === "income",
-    paymentDate: new Date(),
+    paymentDate: defaultDate,
+    accountId: undefined,
+    paymentMethodId: undefined,
   });
 
   const form = useForm<FinancialEntryFormData>({
@@ -126,6 +129,7 @@ export function FinancialEntryForm({
     defaultValues: getDefaultValues(),
   });
 
+  const watchedDueDate = form.watch("dueDate");
   const entryFrequency = form.watch("entryFrequency");
   const payNow = entryFrequency === "single" ? form.watch("payNow") : false;
 
@@ -134,6 +138,13 @@ export function FinancialEntryForm({
   const filteredCategories = useMemo(() => {
     return categories.filter((cat) => cat.type === entryType);
   }, [categories, entryType]);
+
+  // Este efeito roda sempre que a data de vencimento mudar.
+  useEffect(() => {
+    if (watchedDueDate) {
+      form.setValue("paymentDate", watchedDueDate);
+    }
+  }, [watchedDueDate, form]);
 
   useEffect(() => {
     if (isEditing && entryToEdit) {
@@ -171,7 +182,7 @@ export function FinancialEntryForm({
         form.setValue("payNow", entry.status === "paid");
         form.setValue("accountId", entry.accountId || undefined);
         form.setValue("paymentMethodId", entry.paymentMethodId || undefined);
-        form.setValue("paymentDate", entry.paymentDate || new Date());
+        form.setValue("paymentDate", entry.paymentDate || entry.dueDate);
       }
     }
   }, [entryToEdit, isEditing]);
