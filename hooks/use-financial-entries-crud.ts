@@ -493,6 +493,20 @@ export const useFinancialEntriesCrud = ({
           where("recurrenceId", "==", recurrenceId)
         );
         const querySnapshot = await getDocs(q);
+
+        // Antes de deletar, vamos verificar se existe algum lançamento pago na série.
+        const hasPaidEntries = querySnapshot.docs.some(
+          (doc) => (doc.data() as FinancialEntry).status === "paid"
+        );
+
+        if (hasPaidEntries) {
+          // Se houver, lançamos um erro e abortamos a operação.
+          throw new Error(
+            "Esta série possui lançamentos que já foram pagos. Por favor, estorne todos os pagamentos antes de excluir a série completa."
+          );
+        }
+
+        // Se passou na verificação, então podemos deletar tudo.
         querySnapshot.forEach((doc) => batch.delete(doc.ref));
 
         // Também deleta a regra principal na outra coleção

@@ -19,6 +19,9 @@ import { ptBR } from "date-fns/locale";
 import { useToast } from "@/components/ui/use-toast";
 import { useRouter } from "next/navigation";
 import { ConfirmationDialog } from "@/components/common/confirmation-dialog";
+// --- NOVOS IMPORTS ---
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
 
 interface FinancialEntryDetailsModalProps {
   isOpen: boolean;
@@ -62,6 +65,10 @@ export function FinancialEntryDetailsModal({
 
   const [isRevertConfirmOpen, setIsRevertConfirmOpen] = useState(false);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  // --- NOVO ESTADO PARA O ESCOPO DA EXCLUSÃO ---
+  const [deleteScope, setDeleteScope] = useState<"one" | "future" | "all">(
+    "one"
+  );
 
   if (!entry) return null;
 
@@ -76,6 +83,7 @@ export function FinancialEntryDetailsModal({
     paymentMethodId,
     categoryId,
     type,
+    recurrenceId, // Adicionado para clareza
   } = entry;
 
   const dueDateObj = new Date(dueDate);
@@ -129,15 +137,28 @@ export function FinancialEntryDetailsModal({
   };
 
   const handleDeleteClick = () => {
+    // Reseta o scope para o padrão toda vez que o modal for aberto
+    setDeleteScope("one");
     setIsDeleteConfirmOpen(true);
   };
 
+  // --- FUNÇÃO DE CONFIRMAR EXCLUSÃO ATUALIZADA ---
   const handleConfirmDelete = async () => {
     if (!entry) return;
     try {
-      await deleteFinancialEntry(entry.id, "one");
-      toast({ title: "Sucesso!", description: "Lançamento excluído." });
-      onOpenChange(false);
+      await deleteFinancialEntry(entry.id, deleteScope);
+
+      let successMessage = "Lançamento excluído.";
+      if (entry.recurrenceId) {
+        if (deleteScope === "future") {
+          successMessage = "Esta e as futuras parcelas foram excluídas.";
+        } else if (deleteScope === "all") {
+          successMessage = "Toda a série de recorrência foi excluída.";
+        }
+      }
+
+      toast({ title: "Sucesso!", description: successMessage });
+      onOpenChange(false); // Fecha o modal principal
     } catch (error) {
       toast({
         title: "Erro!",
@@ -145,7 +166,7 @@ export function FinancialEntryDetailsModal({
         variant: "destructive",
       });
     } finally {
-      setIsDeleteConfirmOpen(false);
+      setIsDeleteConfirmOpen(false); // Fecha o modal de confirmação
     }
   };
 
@@ -240,7 +261,6 @@ export function FinancialEntryDetailsModal({
             {!isPaid ? (
               // Se o lançamento está ABERTO
               <>
-                {/* Botão Excluir: No mobile, será a segunda ordem. No PC, a primeira. */}
                 <Button
                   variant="destructive-outline"
                   onClick={handleDeleteClick}
@@ -249,8 +269,6 @@ export function FinancialEntryDetailsModal({
                   <Icon icon="fa6-solid:trash-can" className="mr-2 h-4 w-4" />
                   Excluir
                 </Button>
-
-                {/* Grupo de Ações Primárias: No mobile, será a primeira ordem. No PC, a segunda. */}
                 <div className="flex w-full sm:w-auto gap-2 order-1 sm:order-2">
                   <Button
                     variant="outline"
@@ -274,7 +292,6 @@ export function FinancialEntryDetailsModal({
               </>
             ) : (
               // Se o lançamento está PAGO
-              // Botão Estornar fica na direita em telas de PC
               <Button
                 variant="destructive-outline"
                 className="w-full sm:w-auto sm:ml-auto"
@@ -288,7 +305,7 @@ export function FinancialEntryDetailsModal({
         </DialogContent>
       </Dialog>
 
-      {/* DIALOG DE CONFIRMAÇÃO PARA O ESTORNO */}
+      {/* DIALOG DE CONFIRMAÇÃO PARA O ESTORNO (continua usando o genérico) */}
       <ConfirmationDialog
         isOpen={isRevertConfirmOpen}
         onOpenChange={setIsRevertConfirmOpen}
@@ -301,16 +318,78 @@ export function FinancialEntryDetailsModal({
         confirmText="Sim, estornar"
       />
 
-      {/* DIALOG DE CONFIRMAÇÃO PARA EXCLUSÃO */}
-      <ConfirmationDialog
-        isOpen={isDeleteConfirmOpen}
-        onOpenChange={setIsDeleteConfirmOpen}
-        title={`Excluir "${entry.description}"?`}
-        description="Esta ação não pode ser desfeita. O lançamento será removido permanentemente."
-        onConfirm={handleConfirmDelete}
-        variant="destructive"
-        confirmText="Sim, excluir"
-      />
+      {/* --- NOVO DIALOG DE CONFIRMAÇÃO DE EXCLUSÃO (CUSTOMIZADO) --- */}
+      <Dialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Excluir "{entry.description}"?</DialogTitle>
+            <DialogDescription>
+              Esta ação não pode ser desfeita.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-4">
+            {recurrenceId ? (
+              <>
+                <h4 className="text-sm font-medium mb-3">
+                  O que você deseja fazer?
+                </h4>
+                <RadioGroup
+                  value={deleteScope}
+                  onValueChange={(value: "one" | "future" | "all") =>
+                    setDeleteScope(value)
+                  }
+                  className="space-y-3"
+                >
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="one" id="delete-one" />
+                    <Label
+                      htmlFor="delete-one"
+                      className="font-normal cursor-pointer"
+                    >
+                      Excluir apenas este lançamento
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="future" id="delete-future" />
+                    <Label
+                      htmlFor="delete-future"
+                      className="font-normal cursor-pointer"
+                    >
+                      Excluir este e os futuros lançamentos
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="all" id="delete-all" />
+                    <Label
+                      htmlFor="delete-all"
+                      className="font-normal cursor-pointer"
+                    >
+                      Excluir todos os lançamentos (a série inteira)
+                    </Label>
+                  </div>
+                </RadioGroup>
+              </>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                O lançamento será removido permanentemente.
+              </p>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsDeleteConfirmOpen(false)}
+            >
+              Cancelar
+            </Button>
+            <Button variant="destructive" onClick={handleConfirmDelete}>
+              Confirmar Exclusão
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
