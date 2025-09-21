@@ -482,6 +482,7 @@ export function FinancialEntryForm({
                           <FormLabel>Conta</FormLabel>
                           <FormControl>
                             <Select
+                              key={field.value}
                               onValueChange={field.onChange}
                               value={field.value}
                             >
@@ -509,6 +510,7 @@ export function FinancialEntryForm({
                           <FormLabel>Meio de Pagamento</FormLabel>
                           <FormControl>
                             <Select
+                              key={field.value}
                               onValueChange={field.onChange}
                               value={field.value}
                             >
