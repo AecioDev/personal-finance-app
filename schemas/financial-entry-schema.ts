@@ -8,7 +8,7 @@ const baseSchema = z.object({
   expectedAmount: z
     .number({ invalid_type_error: "O valor é obrigatório." })
     .positive("O valor deve ser maior que zero."),
-  type: z.enum(["income", "expense"]),
+  type: z.enum(["income", "expense", "transfer"]),
   // --- ALTERAÇÃO 1: Tornamos o campo opcional na base ---
   categoryId: z.string().optional(),
   notes: z.string().optional(),
