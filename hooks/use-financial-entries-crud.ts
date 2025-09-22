@@ -27,6 +27,7 @@ import { FinancialEntryFormData } from "@/schemas/financial-entry-schema";
 import { Account, Category, PaymentMethod } from "@/interfaces/finance";
 import { PaymentFormData } from "@/schemas/payment-schema";
 import { useCallback } from "react";
+import { TransferFormData } from "@/schemas/transfer-schema";
 
 export interface FullBackup {
   financialEntries: FinancialEntry[];
@@ -219,7 +220,7 @@ export const useFinancialEntriesCrud = ({
         description: data.description,
         expectedAmount: data.expectedAmount,
         type: data.type,
-        categoryId: data.categoryId,
+        categoryId: data.categoryId || "",
         notes: data.notes || "",
         frequency: data.entryFrequency,
         startDate: data.startDate,
@@ -784,6 +785,77 @@ export const useFinancialEntriesCrud = ({
     alert(message);
   }, [db, user, getCollectionRef, getDocRef]);
 
+  const createTransfer = useCallback(
+    async (data: TransferFormData) => {
+      if (!db || !user) throw new Error("Usuário ou DB não inicializado.");
+
+      const batch = writeBatch(db);
+      const transferId = doc(collection(db, "temp")).id; // Gera um ID único
+
+      // Lançamento de SAÍDA (despesa)
+      const expenseEntryRef = doc(getCollectionRef("financial-entries"));
+      const expenseEntry: Omit<FinancialEntry, "id" | "createdAt"> = {
+        uid: user.uid,
+        description: data.description,
+        notes: data.notes || "",
+        type: "expense", // Tipo é despesa na conta de origem
+        status: "paid", // Transferências são sempre "pagas"
+        expectedAmount: data.amount,
+        dueDate: data.date,
+        paidAmount: data.amount,
+        paymentDate: data.date,
+        accountId: data.sourceAccountId,
+        isTransfer: true,
+        transferId: transferId,
+      };
+      batch.set(expenseEntryRef, {
+        ...expenseEntry,
+        createdAt: serverTimestamp(),
+      });
+
+      // Lançamento de ENTRADA (receita)
+      const incomeEntryRef = doc(getCollectionRef("financial-entries"));
+      const incomeEntry: Omit<FinancialEntry, "id" | "createdAt"> = {
+        uid: user.uid,
+        description: data.description,
+        notes: data.notes || "",
+        type: "income", // Tipo é receita na conta de destino
+        status: "paid",
+        expectedAmount: data.amount,
+        dueDate: data.date,
+        paidAmount: data.amount,
+        paymentDate: data.date,
+        accountId: data.destinationAccountId,
+        isTransfer: true,
+        transferId: transferId,
+      };
+      batch.set(incomeEntryRef, {
+        ...incomeEntry,
+        createdAt: serverTimestamp(),
+      });
+
+      // Atualizar saldos das contas (leitura fora do batch, escrita dentro)
+      const sourceAccountRef = getDocRef("accounts", data.sourceAccountId);
+      const destAccountRef = getDocRef("accounts", data.destinationAccountId);
+
+      const sourceAccountSnap = await getDoc(sourceAccountRef);
+      const destAccountSnap = await getDoc(destAccountRef);
+
+      if (!sourceAccountSnap.exists() || !destAccountSnap.exists()) {
+        throw new Error("Uma das contas não foi encontrada.");
+      }
+
+      const sourceBalance = sourceAccountSnap.data().balance || 0;
+      const destBalance = destAccountSnap.data().balance || 0;
+
+      batch.update(sourceAccountRef, { balance: sourceBalance - data.amount });
+      batch.update(destAccountRef, { balance: destBalance + data.amount });
+
+      await batch.commit();
+    },
+    [db, user, getCollectionRef, getDocRef]
+  );
+
   return {
     addFinancialEntry,
     updateFinancialEntry,
@@ -795,5 +867,6 @@ export const useFinancialEntriesCrud = ({
     exportUserData,
     importUserData,
     migrateLegacyRecurrences,
+    createTransfer,
   };
 };

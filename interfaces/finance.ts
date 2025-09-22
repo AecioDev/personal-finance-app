@@ -18,6 +18,7 @@ export interface Account {
   icon?: string;
   uid: string;
   defaultId?: string;
+  type: "checking" | "savings" | "credit_card" | "other";
 }
 
 export interface PaymentMethod {

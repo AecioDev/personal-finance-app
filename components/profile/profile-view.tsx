@@ -300,8 +300,40 @@ export function ProfileView() {
               </div>
             )}
 
-            {isIOS && (
-              <Accordion type="single" collapsible className="w-full">
+            <div className="border-t pt-4">
+              <h3 className="text-sm font-semibold text-muted-foreground px-1">
+                DÚVIDAS FREQUENTES (FAQ)
+              </h3>
+            </div>
+            <Accordion type="single" collapsible className="w-full">
+              <AccordionItem
+                value="credit-card-guide"
+                className="border-t pt-4"
+              >
+                <AccordionTrigger className="text-base text-left">
+                  Como lanço os gastos do Cartão de Crédito?
+                </AccordionTrigger>
+                <AccordionContent className="pt-2 text-sm text-muted-foreground space-y-2">
+                  <p>
+                    <strong>1. Cadastre o Cartão:</strong> Vá em "Cadastros"{" "}
+                    {">"} "Contas" e crie uma nova conta com o tipo "Cartão de
+                    Crédito".
+                  </p>
+                  <p>
+                    <strong>2. Lance seus Gastos:</strong> Ao criar uma "Nova
+                    Despesa", no campo "Conta", selecione a conta do seu cartão
+                    que você acabou de cadastrar.
+                  </p>
+                  <p>
+                    <strong>3. Pague a Fatura:</strong> Para pagar a fatura, use
+                    a função <strong>"Nova Transferência"</strong>, movendo o
+                    dinheiro da sua conta corrente para a conta do cartão de
+                    crédito.
+                  </p>
+                </AccordionContent>
+              </AccordionItem>
+
+              {isIOS && (
                 <AccordionItem value="install-ios" className="border-t pt-4">
                   <AccordionTrigger className="text-base">
                     Como instalar o App no iOS?
@@ -321,8 +353,8 @@ export function ProfileView() {
                     </p>
                   </AccordionContent>
                 </AccordionItem>
-              </Accordion>
-            )}
+              )}
+            </Accordion>
           </CardContent>
         </Card>
 

@@ -83,7 +83,8 @@ export function FinancialEntryDetailsModal({
     paymentMethodId,
     categoryId,
     type,
-    recurrenceId, // Adicionado para clareza
+    recurrenceId,
+    notes,
   } = entry;
 
   const dueDateObj = new Date(dueDate);
@@ -142,7 +143,6 @@ export function FinancialEntryDetailsModal({
     setIsDeleteConfirmOpen(true);
   };
 
-  // --- FUNÇÃO DE CONFIRMAR EXCLUSÃO ATUALIZADA ---
   const handleConfirmDelete = async () => {
     if (!entry) return;
     try {
@@ -158,7 +158,7 @@ export function FinancialEntryDetailsModal({
       }
 
       toast({ title: "Sucesso!", description: successMessage });
-      onOpenChange(false); // Fecha o modal principal
+      onOpenChange(false);
     } catch (error) {
       toast({
         title: "Erro!",
@@ -166,7 +166,7 @@ export function FinancialEntryDetailsModal({
         variant: "destructive",
       });
     } finally {
-      setIsDeleteConfirmOpen(false); // Fecha o modal de confirmação
+      setIsDeleteConfirmOpen(false);
     }
   };
 
@@ -238,6 +238,7 @@ export function FinancialEntryDetailsModal({
               </>
             )}
             {category && <DetailRow label="Categoria" value={category.name} />}
+            {notes && <DetailRow label="Detalhes" value={notes} />}
           </div>
 
           {isOverdue && daysOverdue > 0 && (

@@ -25,6 +25,7 @@ export function ExtratoView() {
 
   const filteredEntries = useMemo(() => {
     return financialEntries
+      .filter((entry) => !entry.isTransfer)
       .filter((entry) => {
         const entryDate = new Date(entry.dueDate);
         const from = filters.dateFrom ? startOfDay(filters.dateFrom) : null;

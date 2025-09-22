@@ -15,6 +15,16 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Icon } from "@iconify/react";
+// --- NOVOS IMPORTS ---
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { CurrencyInput } from "../ui/currency-input";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 interface AccountManagerDialogProps {
   isOpen: boolean;
@@ -31,16 +41,19 @@ export function AccountManagerDialog({
   const { addAccount, updateAccount } = useFinance();
 
   const [accountName, setAccountName] = useState("");
-  const [accountBalance, setAccountBalance] = useState("");
+  const [accountBalance, setAccountBalance] = useState<number>(0);
+  const [accountType, setAccountType] = useState<Account["type"]>("checking");
 
   useEffect(() => {
     if (isOpen) {
       if (accountToEdit) {
         setAccountName(accountToEdit.name);
-        setAccountBalance(accountToEdit.balance?.toString() || "");
+        setAccountBalance(Math.abs(accountToEdit.balance || 0));
+        setAccountType(accountToEdit.type || "checking");
       } else {
         setAccountName("");
-        setAccountBalance("");
+        setAccountBalance(0);
+        setAccountType("checking");
       }
     }
   }, [isOpen, accountToEdit]);
@@ -60,30 +73,31 @@ export function AccountManagerDialog({
       return;
     }
 
-    // Converte o saldo para número, tratando o campo vazio como null
+    // Se for cartão de crédito, o saldo inicial vira negativo para representar a dívida
     const balanceValue =
-      accountBalance.trim() === ""
-        ? null
-        : parseFloat(accountBalance.replace(",", "."));
-
-    if (accountBalance.trim() !== "" && isNaN(balanceValue!)) {
-      toast({
-        title: "Erro de Formato",
-        description: "O saldo inicial deve ser um número válido.",
-        variant: "destructive",
-      });
-      return;
-    }
+      accountType === "credit_card"
+        ? -Math.abs(accountBalance)
+        : accountBalance;
 
     const accountData = {
       name: accountName,
       balance: balanceValue,
-      icon: "fa6-solid:piggy-bank", // Ícone padrão
+      type: accountType,
+      icon:
+        accountType === "credit_card"
+          ? "fa6-solid:credit-card"
+          : "fa6-solid:piggy-bank",
     };
 
     try {
       if (accountToEdit) {
-        await updateAccount(accountToEdit.id, accountData);
+        const dataToUpdate: Partial<Account> = {
+          name: accountData.name,
+          type: accountData.type,
+          icon: accountData.icon,
+          balance: accountData.balance,
+        };
+        await updateAccount(accountToEdit.id, dataToUpdate);
         toast({ title: "Sucesso!", description: "Conta atualizada." });
       } else {
         await addAccount(accountData);
@@ -113,6 +127,50 @@ export function AccountManagerDialog({
 
         <form onSubmit={handleSubmit} className="mt-6 space-y-6">
           <div>
+            <Label htmlFor="account-type">Tipo de Conta</Label>
+            <Select
+              value={accountType}
+              onValueChange={(value) =>
+                setAccountType(value as Account["type"])
+              }
+              disabled={!!accountToEdit}
+            >
+              <SelectTrigger id="account-type" className="mt-2 h-12">
+                <SelectValue placeholder="Selecione o tipo..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="checking">Conta Corrente</SelectItem>
+                <SelectItem value="savings">Poupança</SelectItem>
+                <SelectItem value="credit_card">Cartão de Crédito</SelectItem>
+                <SelectItem value="other">Outro (Ex: Carteira)</SelectItem>
+              </SelectContent>
+            </Select>
+            {accountToEdit && (
+              <p className="text-xs text-muted-foreground mt-1">
+                O tipo de conta não pode ser alterado após a criação.
+              </p>
+            )}
+          </div>
+
+          {accountType === "credit_card" && (
+            <Alert>
+              <Icon icon="mdi:lightbulb-on-outline" className="h-4 w-4" />
+              <AlertTitle>Como Lançar?</AlertTitle>
+              <AlertDescription className="text-xs space-y-1">
+                <p>
+                  1. Lance seus gastos do dia a dia selecionando esta conta do
+                  cartão.
+                </p>
+                <p>
+                  2. Ao pagar a fatura, use a função{" "}
+                  <strong>"Nova Transferência"</strong> da sua conta corrente
+                  para esta.
+                </p>
+              </AlertDescription>
+            </Alert>
+          )}
+
+          <div>
             <Label
               htmlFor="account-name"
               className="mb-2 block text-sm font-medium"
@@ -123,7 +181,7 @@ export function AccountManagerDialog({
               id="account-name"
               value={accountName}
               onChange={(e) => setAccountName(e.target.value)}
-              placeholder="Ex: Carteira, Conta Corrente"
+              placeholder="Ex: Nubank, Inter, Bradesco"
               className="text-base h-12"
             />
           </div>
@@ -133,17 +191,21 @@ export function AccountManagerDialog({
               htmlFor="account-balance"
               className="mb-2 block text-sm font-medium"
             >
-              Saldo Inicial (Opcional)
+              {accountType === "credit_card"
+                ? "Valor da Fatura Aberta (Opcional)"
+                : "Saldo Inicial (Opcional)"}
             </Label>
-            <Input
+            <CurrencyInput
               id="account-balance"
-              type="text"
-              inputMode="decimal"
               value={accountBalance}
-              onChange={(e) => setAccountBalance(e.target.value)}
-              placeholder="0,00"
-              className="text-base h-12"
+              onChange={(value) => setAccountBalance(value)}
+              placeholder="R$ 0,00"
             />
+            {accountType === "credit_card" && !accountToEdit && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Informe o total de gastos já feitos na sua fatura atual.
+              </p>
+            )}
           </div>
 
           <div className="flex items-center justify-end gap-2 pt-4 border-t">
@@ -151,7 +213,7 @@ export function AccountManagerDialog({
               Cancelar
             </Button>
             <Button
-              className="bg-status-complete text-status-complete-foreground"
+              className="bg-primary text-primary-foreground"
               type="submit"
             >
               <Icon

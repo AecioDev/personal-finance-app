@@ -15,6 +15,30 @@ interface ReleaseNote {
 // Usamos um Record para mapear a versão (string) para o conteúdo da nota
 export const releaseNotes: Record<string, ReleaseNote> = {
   [APP_VERSION]: {
+    title: "🚀 Controle Total: Transferências e Cartões de Crédito!",
+    description:
+      "Esta atualização traz duas das funcionalidades mais pedidas para um controle financeiro completo e sem duplicidade.",
+    changes: [
+      {
+        title: "Nova Função de Transferência Entre Contas",
+        detail:
+          "Agora você pode registrar movimentações entre suas contas (Ex: da conta corrente para a carteira) sem afetar os totais de receitas e despesas.",
+      },
+      {
+        title: "Gestão Inteligente de Cartão de Crédito",
+        detail:
+          "Cadastre seus cartões como contas, lance os gastos neles e pague a fatura com uma transferência. Diga adeus à dupla contagem de despesas!",
+      },
+      {
+        title: "Guias e Dicas Integradas",
+        detail:
+          "Adicionamos dicas no app para te ajudar a usar a nova funcionalidade de cartão de crédito da forma correta e aproveitar ao máximo.",
+      },
+    ],
+  },
+
+  // A versão antiga é movida para baixo
+  "1.2.0": {
     title: "🚀 Uma Nova Experiência Chegou!",
     description:
       "Fizemos grandes melhorias para deixar seu controle financeiro ainda mais poderoso e agradável de usar.",

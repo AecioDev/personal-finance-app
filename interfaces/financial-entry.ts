@@ -1,6 +1,6 @@
 // in: interfaces/financial-entry.ts
 
-export type EntryType = "income" | "expense";
+export type EntryType = "income" | "expense" | "transfer";
 export type EntryStatus = "pending" | "paid" | "overdue";
 export type RecurrenceFrequency =
   | "installment"
@@ -85,6 +85,12 @@ export interface FinancialEntry {
 
   /** The total number of installments in the series. E.g., 48 */
   totalInstallments?: number;
+
+  /** Identifies if the entry is part of a transfer between accounts. */
+  isTransfer?: boolean;
+
+  /** An ID that links the two legs of a transfer (the debit and credit entries). */
+  transferId?: string;
 
   /** The timestamp when the record was created in the system. */
   createdAt?: Date;

@@ -40,6 +40,7 @@ import {
 } from "@/lib/data/defaults";
 import { FullBackup } from "@/hooks/use-financial-entries-crud";
 import { PaymentFormData } from "@/schemas/payment-schema";
+import { TransferFormData } from "@/schemas/transfer-schema";
 
 interface FinanceContextType {
   // Estados
@@ -102,6 +103,8 @@ interface FinanceContextType {
   getRecurrenceRuleById: (id: string) => Promise<FinancialRecurrence | null>;
   migrateLegacyRecurrences: () => Promise<void>;
   revertFinancialEntryPayment: (entry: FinancialEntry) => Promise<void>;
+
+  createTransfer: (data: TransferFormData) => Promise<void>;
 }
 
 const FinanceContext = createContext<FinanceContextType | undefined>(undefined);
@@ -386,6 +389,7 @@ export const FinanceProvider = ({ children }: { children: ReactNode }) => {
     getFinancialEntryById,
     getRecurrenceRuleById,
     migrateLegacyRecurrences,
+    createTransfer,
   } = useFinancialEntriesCrud({
     db: dbRef.current,
     user,
@@ -431,6 +435,7 @@ export const FinanceProvider = ({ children }: { children: ReactNode }) => {
       getFinancialEntryById,
       getRecurrenceRuleById,
       migrateLegacyRecurrences,
+      createTransfer,
     }),
     [
       accounts,
@@ -460,6 +465,7 @@ export const FinanceProvider = ({ children }: { children: ReactNode }) => {
       getFinancialEntryById,
       getRecurrenceRuleById,
       migrateLegacyRecurrences,
+      createTransfer,
     ]
   );
 

@@ -9,14 +9,14 @@ const baseSchema = z.object({
     .number({ invalid_type_error: "O valor é obrigatório." })
     .positive("O valor deve ser maior que zero."),
   type: z.enum(["income", "expense"]),
-  categoryId: z.string().min(1, "Selecione uma categoria."),
+  // --- ALTERAÇÃO 1: Tornamos o campo opcional na base ---
+  categoryId: z.string().optional(),
   notes: z.string().optional(),
-  // Continuam opcionais aqui, pois a regra é condicional
   accountId: z.string().optional(),
   paymentMethodId: z.string().optional(),
 });
 
-// Schema para o lançamento "Direto" (sem o .superRefine aqui)
+// Schema para o lançamento "Direto"
 const singleEntrySchema = baseSchema.extend({
   entryFrequency: z.literal("single"),
   dueDate: z.date({ required_error: "A data de vencimento é obrigatória." }),
@@ -47,9 +47,8 @@ export const FinancialEntrySchema = z
     recurringEntrySchema,
   ])
   .superRefine((data, ctx) => {
-    // A regra só se aplica se a frequência for 'single'
+    // Regra 1: Validação para pagamento imediato (sua lógica original)
     if (data.entryFrequency === "single" && data.payNow) {
-      // ...então 'accountId' precisa ser uma string com pelo menos 1 caractere.
       if (!data.accountId) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
@@ -57,7 +56,6 @@ export const FinancialEntrySchema = z
           path: ["accountId"],
         });
       }
-      // ...e 'paymentMethodId' também precisa ser uma string com pelo menos 1 caractere.
       if (!data.paymentMethodId) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
@@ -65,6 +63,15 @@ export const FinancialEntrySchema = z
           path: ["paymentMethodId"],
         });
       }
+    }
+
+    // Regra 2: Categoria é obrigatória para Despesa e Receita neste formulário.
+    if (!data.categoryId || data.categoryId.trim() === "") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Selecione uma categoria.",
+        path: ["categoryId"],
+      });
     }
   });
 

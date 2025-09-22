@@ -65,7 +65,12 @@ export function DashboardView() {
     const selectedMonth = getMonth(displayDate);
     const selectedYear = getYear(displayDate);
 
-    const currentMonthEntries = financialEntries.filter((entry) => {
+    // Filtra transferências antes de qualquer cálculo
+    const nonTransferEntries = financialEntries.filter(
+      (entry) => !entry.isTransfer
+    );
+
+    const currentMonthEntries = nonTransferEntries.filter((entry) => {
       const entryDate = new Date(entry.dueDate);
       return (
         getMonth(entryDate) === selectedMonth &&
@@ -136,6 +141,7 @@ export function DashboardView() {
       financialEntries
         .filter(
           (entry) =>
+            !entry.isTransfer &&
             entry.type === "expense" &&
             (entry.status === "pending" || entry.status === "overdue")
         )

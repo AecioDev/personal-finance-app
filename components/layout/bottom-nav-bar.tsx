@@ -53,14 +53,14 @@ export function BottomNavBar() {
     router.push("/financial-entry?type=income");
   };
 
+  // --- NOVA FUNÇÃO AQUI ---
+  const handleNewTransfer = () => {
+    router.push("/financial-entry/transfer");
+  };
+
   return (
-    // ✅ 1. CONTAINER EXTERNO: Fica fixo na tela inteira, mas é invisível.
-    // As classes 'pointer-events-none' garantem que ele não atrapalhe o clique na barra de rolagem.
     <div className="fixed bottom-0 left-0 right-0 z-50 h-20 pointer-events-none">
-      {/* ✅ 2. CONTAINER INTERNO: Este sim tem a largura máxima e a centralização. */}
-      {/* 'pointer-events-auto' reativa os cliques para o conteúdo dentro dele. */}
       <div className="mx-auto h-full w-full md:max-w-screen-md pointer-events-auto">
-        {/* ✅ 3. A BARRA DE NAVEGAÇÃO: Agora com 100% de largura do container interno. */}
         <nav className="grid h-full w-full grid-cols-5 items-center rounded-t-2xl border-t bg-muted">
           {navItems.map((item) => {
             if (item.type === "action") {
@@ -90,6 +90,19 @@ export function BottomNavBar() {
                         />
                         <span>Nova Despesa</span>
                       </DropdownMenuItem>
+
+                      {/* --- NOVO ITEM DE MENU AQUI --- */}
+                      <DropdownMenuItem
+                        onClick={handleNewTransfer}
+                        className="px-4 py-3 text-base"
+                      >
+                        <Icon
+                          icon="mdi:swap-horizontal"
+                          className="mr-3 h-5 w-5 text-blue-500"
+                        />
+                        <span>Nova Transferência</span>
+                      </DropdownMenuItem>
+
                       <DropdownMenuItem
                         onClick={handleNewIncome}
                         className="px-4 py-3 text-base"
