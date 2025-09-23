@@ -19,9 +19,10 @@ import { ptBR } from "date-fns/locale";
 import { useToast } from "@/components/ui/use-toast";
 import { useRouter } from "next/navigation";
 import { ConfirmationDialog } from "@/components/common/confirmation-dialog";
-// --- NOVOS IMPORTS ---
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
+// --- NOVO IMPORT ---
+import { Badge } from "@/components/ui/badge";
 
 interface FinancialEntryDetailsModalProps {
   isOpen: boolean;
@@ -65,7 +66,6 @@ export function FinancialEntryDetailsModal({
 
   const [isRevertConfirmOpen, setIsRevertConfirmOpen] = useState(false);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
-  // --- NOVO ESTADO PARA O ESCOPO DA EXCLUSÃO ---
   const [deleteScope, setDeleteScope] = useState<"one" | "future" | "all">(
     "one"
   );
@@ -85,6 +85,7 @@ export function FinancialEntryDetailsModal({
     type,
     recurrenceId,
     notes,
+    isTransfer,
   } = entry;
 
   const dueDateObj = new Date(dueDate);
@@ -107,6 +108,15 @@ export function FinancialEntryDetailsModal({
   };
 
   const handleEdit = () => {
+    // Para transferências, não há edição por enquanto
+    if (isTransfer) {
+      toast({
+        title: "Atenção",
+        description: "A edição de transferências ainda não está disponível.",
+        variant: "default",
+      });
+      return;
+    }
     const idToEdit = entry.recurrenceId || entry.id;
     router.push(`/financial-entry/${idToEdit}/edit`);
     onOpenChange(false);
@@ -138,7 +148,6 @@ export function FinancialEntryDetailsModal({
   };
 
   const handleDeleteClick = () => {
-    // Reseta o scope para o padrão toda vez que o modal for aberto
     setDeleteScope("one");
     setIsDeleteConfirmOpen(true);
   };
@@ -171,20 +180,36 @@ export function FinancialEntryDetailsModal({
   };
 
   const getStatusText = () => {
+    if (isTransfer) return "Realizada";
     if (isPaid) return type === "expense" ? "Pago" : "Recebido";
     if (isOverdue) return "Vencido";
     return "Pendente";
+  };
+
+  const getTypeBadge = () => {
+    if (isTransfer) {
+      return <Badge className="bg-blue-500 text-white">Transferência</Badge>;
+    }
+    switch (type) {
+      case "income":
+        return <Badge className="bg-green-500 text-white">Receita</Badge>;
+      case "expense":
+        return <Badge variant="destructive">Despesa</Badge>;
+      default:
+        return null;
+    }
   };
 
   return (
     <>
       <Dialog open={isOpen} onOpenChange={onOpenChange}>
         <DialogContent className="sm:max-w-md">
-          <DialogHeader>
+          <DialogHeader className="text-center">
             <DialogTitle>{description}</DialogTitle>
             <DialogDescription>
               Resumo dos valores e status deste lançamento.
             </DialogDescription>
+            <div className="flex justify-center mt-2">{getTypeBadge()}</div>
           </DialogHeader>
 
           <div className="space-y-2 text-sm py-4">
@@ -192,7 +217,9 @@ export function FinancialEntryDetailsModal({
               label="Status"
               value={getStatusText()}
               valueClassName={cn(
-                isPaid
+                isTransfer
+                  ? "text-blue-500"
+                  : isPaid
                   ? "text-green-500"
                   : isOverdue
                   ? "text-destructive"
@@ -200,18 +227,18 @@ export function FinancialEntryDetailsModal({
               )}
             />
             <DetailRow
-              label="Vencimento"
+              label={isTransfer ? "Data" : "Vencimento"}
               value={format(dueDateObj, "dd 'de' MMMM, yyyy", { locale: ptBR })}
             />
             <DetailRow
-              label="Valor Previsto"
+              label="Valor"
               value={expectedAmount.toLocaleString("pt-BR", {
                 style: "currency",
                 currency: "BRL",
               })}
             />
 
-            {isPaid && (
+            {isPaid && !isTransfer && (
               <>
                 <DetailRow
                   label={type === "expense" ? "Valor Pago" : "Valor Recebido"}
@@ -231,14 +258,26 @@ export function FinancialEntryDetailsModal({
                     })}
                   />
                 )}
+              </>
+            )}
+
+            {isTransfer && account && (
+              <DetailRow label="Conta" value={account.name} />
+            )}
+
+            {!isTransfer && (
+              <>
                 {account && <DetailRow label="Conta" value={account.name} />}
                 {paymentMethod && (
                   <DetailRow label="Forma de Pag." value={paymentMethod.name} />
                 )}
+                {category && (
+                  <DetailRow label="Categoria" value={category.name} />
+                )}
               </>
             )}
-            {category && <DetailRow label="Categoria" value={category.name} />}
-            {notes && <DetailRow label="Detalhes" value={notes} />}
+
+            {notes && <DetailRow label="Observações" value={notes} />}
           </div>
 
           {isOverdue && daysOverdue > 0 && (
@@ -259,8 +298,18 @@ export function FinancialEntryDetailsModal({
           )}
 
           <DialogFooter className="mt-4 flex flex-col sm:flex-row sm:justify-between gap-2 pt-4 border-t">
-            {!isPaid ? (
-              // Se o lançamento está ABERTO
+            {isTransfer ? (
+              // --- BOTÕES PARA TRANSFERÊNCIA ---
+              <Button
+                variant="destructive-outline"
+                onClick={handleDeleteClick}
+                className="w-full"
+              >
+                <Icon icon="fa6-solid:trash-can" className="mr-2 h-4 w-4" />
+                Excluir Transferência
+              </Button>
+            ) : !isPaid ? (
+              // --- BOTÕES PARA LANÇAMENTO EM ABERTO ---
               <>
                 <Button
                   variant="destructive-outline"
@@ -292,7 +341,7 @@ export function FinancialEntryDetailsModal({
                 </div>
               </>
             ) : (
-              // Se o lançamento está PAGO
+              // --- BOTÕES PARA LANÇAMENTO PAGO ---
               <Button
                 variant="destructive-outline"
                 className="w-full sm:w-auto sm:ml-auto"
@@ -306,7 +355,6 @@ export function FinancialEntryDetailsModal({
         </DialogContent>
       </Dialog>
 
-      {/* DIALOG DE CONFIRMAÇÃO PARA O ESTORNO (continua usando o genérico) */}
       <ConfirmationDialog
         isOpen={isRevertConfirmOpen}
         onOpenChange={setIsRevertConfirmOpen}
@@ -319,7 +367,6 @@ export function FinancialEntryDetailsModal({
         confirmText="Sim, estornar"
       />
 
-      {/* --- NOVO DIALOG DE CONFIRMAÇÃO DE EXCLUSÃO (CUSTOMIZADO) --- */}
       <Dialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
         <DialogContent>
           <DialogHeader>

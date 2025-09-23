@@ -64,31 +64,42 @@ export function FinancialEntryList({
           const dueDate = new Date(entry.dueDate);
           const isIncome = entry.type === "income";
           const isPaid = entry.status === "paid";
-
           const isOverdue = !isPaid && isPast(dueDate) && !isToday(dueDate);
+          const isTransfer = entry.isTransfer ?? false;
 
-          const statusColor = isPaid
+          const statusColor = isTransfer
+            ? "bg-blue-500"
+            : isPaid
             ? "bg-status-complete"
             : isOverdue
             ? "bg-destructive"
             : isIncome
             ? "bg-green-500"
             : "bg-status-in-progress";
-          const borderColor = isPaid
+
+          const borderColor = isTransfer
+            ? "border-blue-500"
+            : isPaid
             ? "border-status-complete"
             : isOverdue
             ? "border-destructive"
             : isIncome
             ? "border-green-500"
             : "border-status-in-progress";
-          const textColor = isPaid
+
+          const textColor = isTransfer
+            ? "text-blue-500"
+            : isPaid
             ? "text-status-complete"
             : isOverdue
             ? "text-destructive"
             : isIncome
             ? "text-green-600"
             : "text-foreground";
-          const categoryIcon = getCategoryIcon(entry.categoryId);
+
+          const itemIcon = isTransfer
+            ? "mdi:swap-horizontal"
+            : getCategoryIcon(entry.categoryId);
 
           return (
             <div
@@ -106,7 +117,7 @@ export function FinancialEntryList({
                     statusColor
                   )}
                 >
-                  <Icon icon={categoryIcon} className="w-6 h-6 text-white" />
+                  <Icon icon={itemIcon} className="w-6 h-6 text-white" />
                 </div>
                 <div className="flex flex-col min-w-0">
                   <p className="font-bold text-base text-foreground truncate">
@@ -124,7 +135,11 @@ export function FinancialEntryList({
                     )}
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    {isPaid && entry.paymentDate
+                    {isTransfer
+                      ? `Realizada em: ${format(dueDate, "dd 'de' MMM, yyyy", {
+                          locale: ptBR,
+                        })}`
+                      : isPaid && entry.paymentDate
                       ? `Pago em: ${format(
                           new Date(entry.paymentDate),
                           "dd 'de' MMM, yyyy",

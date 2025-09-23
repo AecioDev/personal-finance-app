@@ -11,7 +11,7 @@ import { StatementComparisonView } from "./statement-comparison-view";
 import { Button } from "../ui/button";
 
 export function ExtratoView() {
-  const { financialEntries, categories } = useFinance();
+  const { financialEntries, categories, accounts } = useFinance(); // Puxa as contas aqui
   const [view, setView] = useState<"extrato" | "comparativo">("extrato");
 
   const [filters, setFilters] = useState<Filters>({
@@ -25,7 +25,6 @@ export function ExtratoView() {
 
   const filteredEntries = useMemo(() => {
     return financialEntries
-      .filter((entry) => !entry.isTransfer)
       .filter((entry) => {
         const entryDate = new Date(entry.dueDate);
         const from = filters.dateFrom ? startOfDay(filters.dateFrom) : null;
@@ -33,7 +32,13 @@ export function ExtratoView() {
 
         if (from && entryDate < from) return false;
         if (to && entryDate > to) return false;
-        if (filters.type !== "all" && entry.type !== filters.type) return false;
+
+        if (filters.type === "transfer") {
+          if (!entry.isTransfer) return false;
+        } else if (filters.type !== "all") {
+          if (entry.isTransfer || entry.type !== filters.type) return false;
+        }
+
         if (
           filters.status !== "all" &&
           (filters.status === "paid"
@@ -48,6 +53,7 @@ export function ExtratoView() {
           return false;
         if (
           filters.categoryId !== "all" &&
+          !entry.isTransfer &&
           entry.categoryId !== filters.categoryId
         )
           return false;
@@ -58,6 +64,15 @@ export function ExtratoView() {
         (a, b) => new Date(b.dueDate).getTime() - new Date(a.dueDate).getTime()
       );
   }, [financialEntries, filters]);
+
+  const summaryEntries = useMemo(() => {
+    return filteredEntries.filter((entry) => !entry.isTransfer);
+  }, [filteredEntries]);
+
+  // ✅ NOVA LISTA PARA O COMPARATIVO
+  const comparisonEntries = useMemo(() => {
+    return filteredEntries.filter((entry) => !entry.isTransfer);
+  }, [filteredEntries]);
 
   return (
     <div className="space-y-6">
@@ -78,15 +93,19 @@ export function ExtratoView() {
         </Button>
       </div>
 
-      <StatementSummaryCard entries={filteredEntries} filters={filters} />
+      <StatementSummaryCard entries={summaryEntries} filters={filters} />
 
       {view === "extrato" && (
-        <StatementByDayView entries={filteredEntries} categories={categories} />
+        <StatementByDayView
+          entries={filteredEntries}
+          categories={categories}
+          accounts={accounts}
+        />
       )}
 
       {view === "comparativo" && (
         <StatementComparisonView
-          entries={filteredEntries}
+          entries={comparisonEntries}
           categories={categories}
         />
       )}

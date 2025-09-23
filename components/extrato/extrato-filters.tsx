@@ -175,15 +175,15 @@ export function ExtratoFilters({ onFilterChange }: ExtratoFiltersProps) {
           <ToggleGroup
             type="single"
             value={filters.type}
-            // Altere aqui de "any" para "string"
             onValueChange={(value: string) =>
               value && updateFilter({ type: value as Filters["type"] })
             }
-            className="w-full grid grid-cols-3 bg-background/80 dark:bg-background/20 p-1 rounded-sm"
+            className="w-full grid grid-cols-4 bg-background/80 dark:bg-background/20 p-1 rounded-sm"
           >
             <ToggleGroupItem value="all">Todos</ToggleGroupItem>
             <ToggleGroupItem value="expense">Despesas</ToggleGroupItem>
             <ToggleGroupItem value="income">Receitas</ToggleGroupItem>
+            <ToggleGroupItem value="transfer">Transf.</ToggleGroupItem>
           </ToggleGroup>
         </div>
 

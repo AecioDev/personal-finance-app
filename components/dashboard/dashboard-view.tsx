@@ -65,12 +65,7 @@ export function DashboardView() {
     const selectedMonth = getMonth(displayDate);
     const selectedYear = getYear(displayDate);
 
-    // Filtra transferências antes de qualquer cálculo
-    const nonTransferEntries = financialEntries.filter(
-      (entry) => !entry.isTransfer
-    );
-
-    const currentMonthEntries = nonTransferEntries.filter((entry) => {
+    const entriesInDateRange = financialEntries.filter((entry) => {
       const entryDate = new Date(entry.dueDate);
       return (
         getMonth(entryDate) === selectedMonth &&
@@ -78,15 +73,20 @@ export function DashboardView() {
       );
     });
 
-    const totalReceitas = currentMonthEntries
+    // ✅ CORREÇÃO: Lista para CÁLCULOS (sem transferências)
+    const entriesForSummary = entriesInDateRange.filter(
+      (entry) => !entry.isTransfer
+    );
+
+    const totalReceitas = entriesForSummary
       .filter((e) => e.type === "income" && e.status === "paid")
       .reduce((acc, e) => acc + (e.paidAmount || 0), 0);
 
-    const totalDespesas = currentMonthEntries
+    const totalDespesas = entriesForSummary
       .filter((e) => e.type === "expense" && e.status === "paid")
       .reduce((acc, e) => acc + (e.paidAmount || 0), 0);
 
-    const expensesForMonth = currentMonthEntries.filter(
+    const expensesForMonth = entriesForSummary.filter(
       (e) => e.type === "expense"
     );
 
@@ -111,17 +111,24 @@ export function DashboardView() {
 
     return {
       monthlySummary: summary,
-      entriesForMonth: currentMonthEntries.sort(
+      // A lista para exibição (entriesForMonth) continua contendo as transferências
+      entriesForMonth: entriesInDateRange.sort(
         (a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()
       ),
     };
   }, [financialEntries, displayDate]);
 
   const filteredEntries = useMemo(() => {
-    let entries = entriesForMonth.filter((e) => e.type === activeMainTab);
+    // ✅ CORREÇÃO: A aba "Receitas" agora também mostra a entrada da transferência
+    let entries = entriesForMonth.filter((e) => {
+      if (activeMainTab === "income") return e.type === "income";
+      if (activeMainTab === "expense") return e.type === "expense";
+      return true;
+    });
 
     if (statusFilter !== "all") {
       if (statusFilter === "pending") {
+        // Transferências são sempre 'paid', então serão filtradas aqui
         entries = entries.filter(
           (e) => e.status === "pending" || e.status === "overdue"
         );
@@ -141,7 +148,7 @@ export function DashboardView() {
       financialEntries
         .filter(
           (entry) =>
-            !entry.isTransfer &&
+            !entry.isTransfer && // Mantém o filtro aqui para não mostrar transferência como "próxima conta"
             entry.type === "expense" &&
             (entry.status === "pending" || entry.status === "overdue")
         )
