@@ -62,6 +62,7 @@ export function FinancialEntryDetailsModal({
     categories,
     revertFinancialEntryPayment,
     deleteFinancialEntry,
+    deleteTransfer,
   } = useFinance();
 
   const [isRevertConfirmOpen, setIsRevertConfirmOpen] = useState(false);
@@ -86,6 +87,7 @@ export function FinancialEntryDetailsModal({
     recurrenceId,
     notes,
     isTransfer,
+    transferId,
   } = entry;
 
   const dueDateObj = new Date(dueDate);
@@ -155,18 +157,21 @@ export function FinancialEntryDetailsModal({
   const handleConfirmDelete = async () => {
     if (!entry) return;
     try {
-      await deleteFinancialEntry(entry.id, deleteScope);
-
-      let successMessage = "Lançamento excluído.";
-      if (entry.recurrenceId) {
-        if (deleteScope === "future") {
-          successMessage = "Esta e as futuras parcelas foram excluídas.";
-        } else if (deleteScope === "all") {
-          successMessage = "Toda a série de recorrência foi excluída.";
+      if (isTransfer && transferId) {
+        await deleteTransfer(transferId);
+        toast({ title: "Sucesso!", description: "Transferência excluída." });
+      } else {
+        await deleteFinancialEntry(entry.id, deleteScope);
+        let successMessage = "Lançamento excluído.";
+        if (entry.recurrenceId) {
+          if (deleteScope === "future") {
+            successMessage = "Esta e as futuras parcelas foram excluídas.";
+          } else if (deleteScope === "all") {
+            successMessage = "Toda a série de recorrência foi excluída.";
+          }
         }
+        toast({ title: "Sucesso!", description: successMessage });
       }
-
-      toast({ title: "Sucesso!", description: successMessage });
       onOpenChange(false);
     } catch (error) {
       toast({
@@ -299,7 +304,6 @@ export function FinancialEntryDetailsModal({
 
           <DialogFooter className="mt-4 flex flex-col sm:flex-row sm:justify-between gap-2 pt-4 border-t">
             {isTransfer ? (
-              // --- BOTÕES PARA TRANSFERÊNCIA ---
               <Button
                 variant="destructive-outline"
                 onClick={handleDeleteClick}
@@ -361,7 +365,11 @@ export function FinancialEntryDetailsModal({
         title={
           type === "expense" ? "Estornar Pagamento?" : "Estornar Recebimento"
         }
-        description="Esta ação irá reabrir o lançamento e ajustar o saldo da conta associada. Tem certeza?"
+        description={
+          isTransfer
+            ? "Esta ação não pode ser desfeita. A movimentação será estornada e os dois lançamentos (saída e entrada) serão removidos."
+            : "Esta ação não pode ser desfeita. O lançamento será removido permanentemente."
+        }
         onConfirm={handleConfirmRevert}
         variant="destructive"
         confirmText="Sim, estornar"

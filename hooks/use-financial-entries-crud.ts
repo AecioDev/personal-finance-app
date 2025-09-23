@@ -445,6 +445,63 @@ export const useFinancialEntriesCrud = ({
     [db, user, projectId, setErrorFinanceData]
   );
 
+  const deleteTransfer = useCallback(
+    async (transferId: string) => {
+      if (!db) throw new Error("Banco de dados não inicializado.");
+
+      // 1. Encontrar as duas "pernas" da transferência
+      const q = query(
+        getCollectionRef("financial-entries"),
+        where("transferId", "==", transferId)
+      );
+      const querySnapshot = await getDocs(q);
+
+      if (querySnapshot.docs.length !== 2) {
+        throw new Error("Transferência inválida ou não encontrada.");
+      }
+
+      const entryA = querySnapshot.docs[0].data() as FinancialEntry;
+      const entryB = querySnapshot.docs[1].data() as FinancialEntry;
+
+      const expenseEntry = entryA.type === "expense" ? entryA : entryB;
+      const incomeEntry = entryA.type === "income" ? entryA : entryB;
+
+      if (!expenseEntry.accountId || !incomeEntry.accountId) {
+        throw new Error("Contas da transferência não encontradas.");
+      }
+
+      const sourceAccountRef = getDocRef("accounts", expenseEntry.accountId);
+      const destAccountRef = getDocRef("accounts", incomeEntry.accountId);
+
+      // 2. Executar a exclusão e o estorno dos saldos em uma transação atômica
+      await runTransaction(db, async (transaction) => {
+        const sourceAccountDoc = await transaction.get(sourceAccountRef);
+        const destAccountDoc = await transaction.get(destAccountRef);
+
+        if (!sourceAccountDoc.exists() || !destAccountDoc.exists()) {
+          throw new Error(
+            "Uma das contas da transferência não foi encontrada."
+          );
+        }
+
+        const sourceBalance = sourceAccountDoc.data().balance || 0;
+        const destBalance = destAccountDoc.data().balance || 0;
+        const amount = expenseEntry.paidAmount || 0;
+
+        // Reverte a operação: devolve o dinheiro para a origem e retira do destino
+        transaction.update(sourceAccountRef, {
+          balance: sourceBalance + amount,
+        });
+        transaction.update(destAccountRef, { balance: destBalance - amount });
+
+        // Deleta os dois lançamentos
+        transaction.delete(querySnapshot.docs[0].ref);
+        transaction.delete(querySnapshot.docs[1].ref);
+      });
+    },
+    [db, getCollectionRef, getDocRef]
+  );
+
   const deleteFinancialEntry = useCallback(
     async (
       entryId: string,
@@ -460,6 +517,12 @@ export const useFinancialEntriesCrud = ({
         throw new Error("Lançamento não encontrado para exclusão.");
       }
       const entryData = entrySnap.data() as FinancialEntry;
+
+      if (entryData.isTransfer) {
+        throw new Error(
+          "Transferências devem ser excluídas através da função deleteTransfer."
+        );
+      }
 
       // 2. REGRA DE SEGURANÇA: Bloqueia a exclusão de lançamentos pagos
       if (entryData.status === "paid") {
@@ -860,6 +923,7 @@ export const useFinancialEntriesCrud = ({
     addFinancialEntry,
     updateFinancialEntry,
     deleteFinancialEntry,
+    deleteTransfer,
     processFinancialEntryPayment,
     revertFinancialEntryPayment,
     getFinancialEntryById,

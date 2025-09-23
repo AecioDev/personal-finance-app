@@ -105,6 +105,7 @@ interface FinanceContextType {
   revertFinancialEntryPayment: (entry: FinancialEntry) => Promise<void>;
 
   createTransfer: (data: TransferFormData) => Promise<void>;
+  deleteTransfer: (entryId: string) => Promise<void>;
 }
 
 const FinanceContext = createContext<FinanceContextType | undefined>(undefined);
@@ -382,6 +383,7 @@ export const FinanceProvider = ({ children }: { children: ReactNode }) => {
     addFinancialEntry,
     updateFinancialEntry,
     deleteFinancialEntry,
+    deleteTransfer,
     processFinancialEntryPayment,
     revertFinancialEntryPayment,
     exportUserData,
@@ -428,6 +430,7 @@ export const FinanceProvider = ({ children }: { children: ReactNode }) => {
       addFinancialEntry,
       updateFinancialEntry,
       deleteFinancialEntry,
+      deleteTransfer,
       processFinancialEntryPayment,
       revertFinancialEntryPayment,
       exportUserData,
@@ -458,6 +461,7 @@ export const FinanceProvider = ({ children }: { children: ReactNode }) => {
       addFinancialEntry,
       updateFinancialEntry,
       deleteFinancialEntry,
+      deleteTransfer,
       processFinancialEntryPayment,
       revertFinancialEntryPayment,
       exportUserData,
