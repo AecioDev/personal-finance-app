@@ -61,7 +61,6 @@ export function ExtratoView() {
         )
           return false;
 
-        // ✅ LÓGICA DO FILTRO DE DESCRIÇÃO
         if (
           filters.description &&
           !entry.description
@@ -82,9 +81,8 @@ export function ExtratoView() {
   }, [filteredEntries]);
 
   const comparisonEntries = useMemo(() => {
-    // ✅ CORREÇÃO: Relatório considera todos os status, para ver o futuro.
     return financialEntries
-      .filter((entry) => !entry.isTransfer) // Sempre sem transferências
+      .filter((entry) => !entry.isTransfer)
       .filter((entry) => {
         const entryDate = new Date(entry.dueDate);
         const from = filters.dateFrom ? startOfDay(filters.dateFrom) : null;
