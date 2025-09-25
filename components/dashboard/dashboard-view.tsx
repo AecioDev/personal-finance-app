@@ -22,6 +22,7 @@ import { FinancialEntryList } from "./financial-entry-list";
 import { cn } from "@/lib/utils";
 import { Icon } from "@iconify/react/dist/iconify.js";
 import { FinancialEntryPaymentModal } from "../financial-entries/modals/financial-entry-payment-modal";
+import { Input } from "../ui/input";
 
 type StatusFilter = "pending" | "paid" | "all";
 
@@ -41,6 +42,7 @@ export function DashboardView() {
   const [activeMainTab, setActiveMainTab] = useState<EntryType>("expense");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("pending");
   const [displayDate, setDisplayDate] = useState(new Date());
+  const [descriptionFilter, setDescriptionFilter] = useState("");
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState<FinancialEntry | null>(
     null
@@ -111,16 +113,20 @@ export function DashboardView() {
 
     return {
       monthlySummary: summary,
-      // A lista para exibição (entriesForMonth) continua contendo as transferências
-      entriesForMonth: entriesInDateRange.sort(
-        (a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()
-      ),
+      entriesForMonth: entriesInDateRange,
     };
   }, [financialEntries, displayDate]);
 
   const filteredEntries = useMemo(() => {
-    // ✅ CORREÇÃO: A aba "Receitas" agora também mostra a entrada da transferência
-    let entries = entriesForMonth.filter((e) => {
+    let entries = entriesForMonth;
+
+    if (descriptionFilter) {
+      entries = entries.filter((e) =>
+        e.description.toLowerCase().includes(descriptionFilter.toLowerCase())
+      );
+    }
+
+    entries = entries.filter((e) => {
       if (activeMainTab === "income") return e.type === "income";
       if (activeMainTab === "expense") return e.type === "expense";
       return true;
@@ -128,7 +134,6 @@ export function DashboardView() {
 
     if (statusFilter !== "all") {
       if (statusFilter === "pending") {
-        // Transferências são sempre 'paid', então serão filtradas aqui
         entries = entries.filter(
           (e) => e.status === "pending" || e.status === "overdue"
         );
@@ -138,7 +143,7 @@ export function DashboardView() {
     }
 
     return entries;
-  }, [entriesForMonth, activeMainTab, statusFilter]);
+  }, [entriesForMonth, activeMainTab, statusFilter, descriptionFilter]);
 
   const nextEntryToPay = useMemo(() => {
     const today = new Date();
@@ -326,6 +331,19 @@ export function DashboardView() {
                 tabClassName="text-sm"
                 layoutId="status-filter-tabs"
               />
+              <div className="my-4">
+                <Icon
+                  icon="mdi:magnify"
+                  className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground"
+                />
+                <Input
+                  placeholder="Buscar por descrição..."
+                  className="pl-10"
+                  value={descriptionFilter}
+                  onChange={(e) => setDescriptionFilter(e.target.value)}
+                />
+              </div>
+
               <div className="mt-4">
                 <FinancialEntryList
                   entries={filteredEntries}

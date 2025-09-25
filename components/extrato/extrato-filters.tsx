@@ -27,6 +27,7 @@ import {
   endOfDay,
 } from "date-fns";
 import { DatePicker } from "../ui/date-picker";
+import { Input } from "../ui/input";
 
 export interface Filters {
   dateFrom: Date | undefined;
@@ -35,6 +36,7 @@ export interface Filters {
   status: "all" | "paid" | "pending";
   accountId: string;
   categoryId: string;
+  description: string;
 }
 
 interface ExtratoFiltersProps {
@@ -52,6 +54,7 @@ export function ExtratoFilters({ onFilterChange }: ExtratoFiltersProps) {
     status: "paid",
     accountId: "all",
     categoryId: "all",
+    description: "",
   };
 
   const [filters, setFilters] = useState<Filters>(defaultFilters);
@@ -106,6 +109,16 @@ export function ExtratoFilters({ onFilterChange }: ExtratoFiltersProps) {
       </div>
 
       <CollapsibleContent className="space-y-6 pt-6">
+        {/* FILTRO DE DESCRIÇÃO */}
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Buscar por Descrição</label>
+          <Input
+            placeholder="Ex: Aluguel, Salário..."
+            className="bg-background/80 dark:bg-background/20 text-foreground placeholder:text-muted-foreground"
+            value={filters.description}
+            onChange={(e) => updateFilter({ description: e.target.value })}
+          />
+        </div>
         {/* Atalhos rápidos */}
         <div className="flex items-center justify-start gap-2">
           <div className="space-y-2">

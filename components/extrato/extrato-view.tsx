@@ -11,7 +11,7 @@ import { StatementComparisonView } from "./statement-comparison-view";
 import { Button } from "../ui/button";
 
 export function ExtratoView() {
-  const { financialEntries, categories, accounts } = useFinance(); // Puxa as contas aqui
+  const { financialEntries, categories, accounts } = useFinance();
   const [view, setView] = useState<"extrato" | "comparativo">("extrato");
 
   const [filters, setFilters] = useState<Filters>({
@@ -21,6 +21,7 @@ export function ExtratoView() {
     status: "all",
     accountId: "all",
     categoryId: "all",
+    description: "",
   });
 
   const filteredEntries = useMemo(() => {
@@ -46,15 +47,26 @@ export function ExtratoView() {
             : entry.status === "paid")
         )
           return false;
+
         if (
           filters.accountId !== "all" &&
           entry.accountId !== filters.accountId
         )
           return false;
+
         if (
           filters.categoryId !== "all" &&
           !entry.isTransfer &&
           entry.categoryId !== filters.categoryId
+        )
+          return false;
+
+        // ✅ LÓGICA DO FILTRO DE DESCRIÇÃO
+        if (
+          filters.description &&
+          !entry.description
+            .toLowerCase()
+            .includes(filters.description.toLowerCase())
         )
           return false;
 
@@ -69,10 +81,39 @@ export function ExtratoView() {
     return filteredEntries.filter((entry) => !entry.isTransfer);
   }, [filteredEntries]);
 
-  // ✅ NOVA LISTA PARA O COMPARATIVO
   const comparisonEntries = useMemo(() => {
-    return filteredEntries.filter((entry) => !entry.isTransfer);
-  }, [filteredEntries]);
+    // ✅ CORREÇÃO: Relatório considera todos os status, para ver o futuro.
+    return financialEntries
+      .filter((entry) => !entry.isTransfer) // Sempre sem transferências
+      .filter((entry) => {
+        const entryDate = new Date(entry.dueDate);
+        const from = filters.dateFrom ? startOfDay(filters.dateFrom) : null;
+        const to = filters.dateTo ? endOfDay(filters.dateTo) : null;
+
+        if (from && entryDate < from) return false;
+        if (to && entryDate > to) return false;
+        if (filters.type !== "all" && entry.type !== filters.type) return false;
+        if (
+          filters.accountId !== "all" &&
+          entry.accountId !== filters.accountId
+        )
+          return false;
+        if (
+          filters.categoryId !== "all" &&
+          entry.categoryId !== filters.categoryId
+        )
+          return false;
+        if (
+          filters.description &&
+          !entry.description
+            .toLowerCase()
+            .includes(filters.description.toLowerCase())
+        )
+          return false;
+
+        return true;
+      });
+  }, [financialEntries, filters]);
 
   return (
     <div className="space-y-6">

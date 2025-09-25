@@ -1,7 +1,7 @@
 // src/components/dashboard/financial-entry-list.tsx
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { FinancialEntry } from "@/interfaces/financial-entry";
 import { cn } from "@/lib/utils";
 import { format, isPast, isToday } from "date-fns";
@@ -26,6 +26,12 @@ export function FinancialEntryList({
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
 
+  const sortedEntries = useMemo(() => {
+    return [...entries].sort(
+      (a, b) => new Date(b.dueDate).getTime() - new Date(a.dueDate).getTime()
+    );
+  }, [entries]);
+
   const handleViewDetails = (entry: FinancialEntry) => {
     setSelectedEntry(entry);
     setIsDetailsModalOpen(true);
@@ -42,17 +48,15 @@ export function FinancialEntryList({
     return category?.icon || "mdi:help-circle-outline";
   };
 
-  if (entries.length === 0) {
+  if (sortedEntries.length === 0) {
     return (
       <div className="text-center py-12 text-muted-foreground">
         <Icon
           icon="mdi:check-circle-outline"
           className="w-16 h-16 mx-auto mb-4 text-primary/50"
         />
-        <p className="font-semibold">Tudo certo por aqui!</p>
-        <p className="text-sm">
-          Nenhum lançamento encontrado para este filtro.
-        </p>
+        <p className="font-semibold">Nenhum lançamento encontrado</p>
+        <p className="text-sm">Tente ajustar os filtros ou limpar a busca.</p>
       </div>
     );
   }
@@ -60,7 +64,7 @@ export function FinancialEntryList({
   return (
     <>
       <div className="space-y-3">
-        {entries.map((entry) => {
+        {sortedEntries.map((entry) => {
           const dueDate = new Date(entry.dueDate);
           const isIncome = entry.type === "income";
           const isPaid = entry.status === "paid";
@@ -101,6 +105,17 @@ export function FinancialEntryList({
             ? "mdi:swap-horizontal"
             : getCategoryIcon(entry.categoryId);
 
+          const getFormattedDescription = () => {
+            if (entry.installmentNumber && entry.totalInstallments) {
+              return `${entry.description} (${entry.installmentNumber}/${entry.totalInstallments})`;
+            }
+            if (entry.recurrenceId) {
+              const formattedDate = format(dueDate, "MMM/yy", { locale: ptBR });
+              return `${entry.description} (${formattedDate})`;
+            }
+            return entry.description;
+          };
+
           return (
             <div
               key={entry.id}
@@ -121,7 +136,7 @@ export function FinancialEntryList({
                 </div>
                 <div className="flex flex-col min-w-0">
                   <p className="font-bold text-base text-foreground truncate">
-                    {entry.description}
+                    {getFormattedDescription()}
                   </p>
                   <p
                     className={cn(
