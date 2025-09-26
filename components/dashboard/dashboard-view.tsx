@@ -331,7 +331,7 @@ export function DashboardView() {
                 tabClassName="text-sm"
                 layoutId="status-filter-tabs"
               />
-              <div className="my-4">
+              <div className="relative my-4">
                 <Icon
                   icon="mdi:magnify"
                   className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground"
