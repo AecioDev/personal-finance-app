@@ -54,7 +54,7 @@ export function FinancialEntryPaymentModal({
   const isExpense = entry.type === "expense";
   const textContent = {
     title: isExpense ? "Registrar Pagamento" : "Registrar Recebimento",
-    amountLabel: isExpense ? "Valor a Pagar" : "Valor a Receber",
+    amountLabel: isExpense ? "Valor Pago" : "Valor Recebido",
     dateLabel: isExpense ? "Data do Pagamento" : "Data do Recebimento",
     accountLabel: isExpense ? "Pagar com a Conta" : "Receber na Conta",
     submitButton: isExpense ? "Confirmar Pagamento" : "Confirmar Recebimento",

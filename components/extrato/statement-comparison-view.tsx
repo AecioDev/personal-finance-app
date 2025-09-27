@@ -55,9 +55,16 @@ export function StatementComparisonView({
             <tbody>
               {monthEntries.map((e) => {
                 const diff = (e.paidAmount ?? 0) - (e.expectedAmount ?? 0);
+                const isIncome = e.type === "income";
+
                 return (
                   <tr key={e.id} className="border-t">
-                    <td className="p-2 text-center">
+                    <td
+                      className={cn(
+                        "p-2 text-center font-semibold",
+                        isIncome ? "text-green-600" : "text-muted-foreground" // Cor mais forte para despesa
+                      )}
+                    >
                       {format(new Date(e.dueDate), "dd")}
                     </td>
                     <td className="p-2 flex items-center gap-2">
@@ -67,13 +74,23 @@ export function StatementComparisonView({
                       />
                       {e.description}
                     </td>
-                    <td className="text-right p-2">
+                    <td
+                      className={cn(
+                        "text-right p-2",
+                        isIncome ? "text-green-600" : "text-muted-foreground"
+                      )}
+                    >
                       {e.expectedAmount?.toLocaleString("pt-BR", {
                         style: "currency",
                         currency: "BRL",
                       })}
                     </td>
-                    <td className="text-right p-2">
+                    <td
+                      className={cn(
+                        "text-right p-2",
+                        isIncome ? "text-green-600" : "text-muted-foreground"
+                      )}
+                    >
                       {e.paidAmount?.toLocaleString("pt-BR", {
                         style: "currency",
                         currency: "BRL",
@@ -83,10 +100,10 @@ export function StatementComparisonView({
                       className={cn(
                         "text-right p-2 font-medium",
                         diff > 0
-                          ? "text-red-600"
+                          ? "text-red-600" // Pagou a mais (juros)
                           : diff < 0
-                          ? "text-green-600"
-                          : "text-gray-600"
+                          ? "text-green-600" // Pagou a menos (desconto)
+                          : "text-muted-foreground"
                       )}
                     >
                       {(e.paidAmount ?? 0) > 0 && (

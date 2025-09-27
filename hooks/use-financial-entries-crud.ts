@@ -598,14 +598,17 @@ export const useFinancialEntriesCrud = ({
           const entryData = entryDoc.data() as FinancialEntry;
           const accountData = accountDoc.data() as Account;
           const currentBalance = accountData.balance || 0;
+
           const newBalance =
             entryData.type === "income"
-              ? currentBalance + entryData.expectedAmount
-              : currentBalance - entryData.expectedAmount;
+              ? currentBalance + paymentData.amount
+              : currentBalance - paymentData.amount;
+
           transaction.update(accountRef, { balance: newBalance });
+
           transaction.update(entryRef, {
             status: "paid",
-            paidAmount: entryData.expectedAmount,
+            paidAmount: paymentData.amount,
             paymentDate: paymentData.paymentDate,
             accountId: paymentData.accountId,
             paymentMethodId: paymentData.paymentMethodId,
