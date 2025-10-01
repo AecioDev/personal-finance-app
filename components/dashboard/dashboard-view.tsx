@@ -326,7 +326,6 @@ export function DashboardView() {
             onNextMonth={handleNextMonth}
           />
 
-          {/* ✅ 2. NOVO COMPONENTE DO CARROSSEL ADICIONADO AQUI */}
           <div className="pt-2">
             <AccountsCarousel accounts={accounts} />
           </div>
