@@ -3,7 +3,6 @@
 
 import React, { useState } from "react";
 import { Icon } from "@iconify/react";
-// NÃO PRECISAMOS MAIS DO 'Button' AQUI DENTRO, SÓ NO TRIGGER
 import {
   Dialog,
   DialogContent,
@@ -11,7 +10,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button"; // Usado apenas no DialogTrigger
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { availableIcons } from "@/lib/icons";

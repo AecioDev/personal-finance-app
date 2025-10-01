@@ -1,5 +1,30 @@
 // src/lib/icons.ts
-export const availableIcons = [
+
+// ✅ NOVOS ÍCONES DE BANCOS E FINANÇAS ADICIONADOS
+const bankAndFinanceIcons = [
+  "bank:itau",
+  "bank:bradesco",
+  "bank:bb",
+  "bank:caixa",
+  "bank:santander",
+  "bank:nubank",
+  "bank:inter",
+  "bank:c6",
+  "bank:btg",
+  "bank:banrisul",
+  // Cartões
+  "logos:mastercard",
+  "logos:visa",
+  // Geral
+  "fa6-brands:pix",
+  "fa6-solid:landmark",
+  "fa6-solid:money-bill-wave",
+  "fa6-solid:wallet",
+  "fa6-solid:piggy-bank",
+  "fa6-solid:credit-card",
+];
+
+const generalIcons = [
   "fa6-solid:house-chimney",
   "fa6-solid:building-user",
   "fa6-solid:file-invoice-dollar",
@@ -7,7 +32,6 @@ export const availableIcons = [
   "fa6-solid:mobile-screen-button",
   "fa6-solid:arrows-rotate",
   "fa6-solid:hand-holding-dollar",
-  "fa6-solid:credit-card",
   "fa6-solid:arrow-trend-up",
   "fa6-solid:briefcase-medical",
   "fa6-solid:graduation-cap",
@@ -70,12 +94,12 @@ export const availableIcons = [
   "fa6-solid:euro-sign",
   "fa6-solid:brazilian-real-sign",
   "fa6-solid:coins",
-  "fa6-solid:wallet",
-  "fa6-solid:piggy-bank",
-  "fa6-solid:landmark",
   "fa6-solid:tree",
   "fa6-solid:seedling",
   "fa6-solid:bicycle",
   "fa6-solid:futbol",
   "fa6-solid:person-swimming",
 ];
+
+// ✅ LISTA FINAL COMBINANDO TUDO
+export const availableIcons = [...bankAndFinanceIcons, ...generalIcons];

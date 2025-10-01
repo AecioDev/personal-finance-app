@@ -26,6 +26,7 @@ import { cn } from "@/lib/utils";
 import { Icon } from "@iconify/react/dist/iconify.js";
 import { FinancialEntryPaymentModal } from "../financial-entries/modals/financial-entry-payment-modal";
 import { Input } from "../ui/input";
+import { AccountsCarousel } from "../accounts/accounts-carousel";
 
 type StatusFilter = "pending" | "paid" | "all";
 
@@ -34,6 +35,7 @@ export function DashboardView() {
   const { user } = useAuth();
   const {
     financialEntries,
+    accounts,
     categories,
     loadingFinanceData,
     dataSeedCheckCompleted,
@@ -323,6 +325,11 @@ export function DashboardView() {
             onPreviousMonth={handlePreviousMonth}
             onNextMonth={handleNextMonth}
           />
+
+          {/* ✅ 2. NOVO COMPONENTE DO CARROSSEL ADICIONADO AQUI */}
+          <div className="pt-2">
+            <AccountsCarousel accounts={accounts} />
+          </div>
 
           <div className="mt-2">
             <AnimatedTabs

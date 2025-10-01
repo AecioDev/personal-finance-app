@@ -8,6 +8,10 @@ import { useModal } from "../providers/modal-provider";
 import { CategoryManagerDialog } from "../categories/category-manager-dialog";
 import { NewExpenseModal } from "../financial-entries/modals/new-expense-modal";
 import { NewIncomeModal } from "../financial-entries/modals/new-income-modal";
+import { addCollection } from "@iconify/react";
+import bankIcons from "../../public/bank-icons.json";
+
+addCollection(bankIcons);
 
 export function MainLayout({ children }: { children: React.ReactNode }) {
   const {

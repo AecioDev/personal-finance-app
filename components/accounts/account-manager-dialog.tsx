@@ -15,7 +15,6 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Icon } from "@iconify/react";
-// --- NOVOS IMPORTS ---
 import {
   Select,
   SelectContent,
@@ -25,6 +24,7 @@ import {
 } from "@/components/ui/select";
 import { CurrencyInput } from "../ui/currency-input";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { IconPicker } from "../categories/IconPicker";
 
 interface AccountManagerDialogProps {
   isOpen: boolean;
@@ -43,6 +43,7 @@ export function AccountManagerDialog({
   const [accountName, setAccountName] = useState("");
   const [accountBalance, setAccountBalance] = useState<number>(0);
   const [accountType, setAccountType] = useState<Account["type"]>("checking");
+  const [accountIcon, setAccountIcon] = useState("fa6-solid:piggy-bank");
 
   useEffect(() => {
     if (isOpen) {
@@ -50,10 +51,12 @@ export function AccountManagerDialog({
         setAccountName(accountToEdit.name);
         setAccountBalance(Math.abs(accountToEdit.balance || 0));
         setAccountType(accountToEdit.type || "checking");
+        setAccountIcon(accountToEdit.icon || "fa6-solid:piggy-bank");
       } else {
         setAccountName("");
         setAccountBalance(0);
         setAccountType("checking");
+        setAccountIcon("fa6-solid:piggy-bank");
       }
     }
   }, [isOpen, accountToEdit]);
@@ -73,7 +76,6 @@ export function AccountManagerDialog({
       return;
     }
 
-    // Se for cartão de crédito, o saldo inicial vira negativo para representar a dívida
     const balanceValue =
       accountType === "credit_card"
         ? -Math.abs(accountBalance)
@@ -83,21 +85,12 @@ export function AccountManagerDialog({
       name: accountName,
       balance: balanceValue,
       type: accountType,
-      icon:
-        accountType === "credit_card"
-          ? "fa6-solid:credit-card"
-          : "fa6-solid:piggy-bank",
+      icon: accountIcon,
     };
 
     try {
       if (accountToEdit) {
-        const dataToUpdate: Partial<Account> = {
-          name: accountData.name,
-          type: accountData.type,
-          icon: accountData.icon,
-          balance: accountData.balance,
-        };
-        await updateAccount(accountToEdit.id, dataToUpdate);
+        await updateAccount(accountToEdit.id, accountData);
         toast({ title: "Sucesso!", description: "Conta atualizada." });
       } else {
         await addAccount(accountData);
@@ -121,35 +114,61 @@ export function AccountManagerDialog({
         <DialogHeader>
           <DialogTitle className="text-xl">{dialogTitle}</DialogTitle>
           <DialogDescription>
-            Preencha os detalhes da sua conta ou carteira.
+            Preencha os detalhes e escolha um ícone para sua conta.
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="mt-6 space-y-6">
-          <div>
-            <Label htmlFor="account-type">Tipo de Conta</Label>
-            <Select
-              value={accountType}
-              onValueChange={(value) =>
-                setAccountType(value as Account["type"])
-              }
-              disabled={!!accountToEdit}
-            >
-              <SelectTrigger id="account-type" className="mt-2 h-12">
-                <SelectValue placeholder="Selecione o tipo..." />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="checking">Conta Corrente</SelectItem>
-                <SelectItem value="savings">Poupança</SelectItem>
-                <SelectItem value="credit_card">Cartão de Crédito</SelectItem>
-                <SelectItem value="other">Outro (Ex: Carteira)</SelectItem>
-              </SelectContent>
-            </Select>
-            {accountToEdit && (
-              <p className="text-xs text-muted-foreground mt-1">
-                O tipo de conta não pode ser alterado após a criação.
-              </p>
-            )}
+          <div className="flex items-start gap-4">
+            <div className="flex flex-col items-center gap-2">
+              <Label className="block text-sm font-medium">Ícone</Label>
+              <IconPicker value={accountIcon} onChange={setAccountIcon} />
+            </div>
+            <div className="flex-1 space-y-6">
+              <div>
+                <Label
+                  htmlFor="account-name"
+                  className="mb-2 block text-sm font-medium"
+                >
+                  Nome da Conta
+                </Label>
+                <Input
+                  id="account-name"
+                  value={accountName}
+                  onChange={(e) => setAccountName(e.target.value)}
+                  placeholder="Ex: Nubank, Inter, Bradesco"
+                  className="text-base h-12"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="account-type">Tipo de Conta</Label>
+                <Select
+                  value={accountType}
+                  onValueChange={(value) =>
+                    setAccountType(value as Account["type"])
+                  }
+                  disabled={!!accountToEdit}
+                >
+                  <SelectTrigger id="account-type" className="mt-2 h-12">
+                    <SelectValue placeholder="Selecione o tipo..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="checking">Conta Corrente</SelectItem>
+                    <SelectItem value="savings">Poupança</SelectItem>
+                    <SelectItem value="credit_card">
+                      Cartão de Crédito
+                    </SelectItem>
+                    <SelectItem value="other">Outro (Ex: Carteira)</SelectItem>
+                  </SelectContent>
+                </Select>
+                {accountToEdit && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    O tipo de conta não pode ser alterado após a criação.
+                  </p>
+                )}
+              </div>
+            </div>
           </div>
 
           {accountType === "credit_card" && (
@@ -169,22 +188,6 @@ export function AccountManagerDialog({
               </AlertDescription>
             </Alert>
           )}
-
-          <div>
-            <Label
-              htmlFor="account-name"
-              className="mb-2 block text-sm font-medium"
-            >
-              Nome da Conta
-            </Label>
-            <Input
-              id="account-name"
-              value={accountName}
-              onChange={(e) => setAccountName(e.target.value)}
-              placeholder="Ex: Nubank, Inter, Bradesco"
-              className="text-base h-12"
-            />
-          </div>
 
           <div>
             <Label

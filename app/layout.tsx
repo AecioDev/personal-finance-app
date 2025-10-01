@@ -5,7 +5,7 @@ import { Inter, Roboto_Slab } from "next/font/google";
 import { AuthProvider } from "@/components/providers/auth-provider";
 import { FinanceProvider } from "@/components/providers/finance-provider";
 import { ThemeProvider } from "@/components/theme/theme-provider";
-import { PaletteProvider } from "@/components/theme/palette-provider"; // 1. Importamos o novo provedor
+import { PaletteProvider } from "@/components/theme/palette-provider";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import "./globals.css";
