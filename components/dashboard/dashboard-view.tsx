@@ -16,7 +16,10 @@ import {
   subMonths,
   isPast,
   isToday,
+  endOfMonth,
+  format,
 } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import { MonthlySummaryCard } from "./monthly-summary-card";
 import { FinancialEntryList } from "./financial-entry-list";
 import { cn } from "@/lib/utils";
@@ -75,7 +78,6 @@ export function DashboardView() {
       );
     });
 
-    // ✅ CORREÇÃO: Lista para CÁLCULOS (sem transferências)
     const entriesForSummary = entriesInDateRange.filter(
       (entry) => !entry.isTransfer
     );
@@ -146,17 +148,20 @@ export function DashboardView() {
   }, [entriesForMonth, activeMainTab, statusFilter, descriptionFilter]);
 
   const nextEntryToPay = useMemo(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    // ✅ LÓGICA CORRIGIDA AQUI
+    const endOfCurrentMonth = endOfMonth(new Date());
 
     return (
       financialEntries
-        .filter(
-          (entry) =>
-            !entry.isTransfer && // Mantém o filtro aqui para não mostrar transferência como "próxima conta"
+        .filter((entry) => {
+          const dueDate = new Date(entry.dueDate);
+          return (
+            !entry.isTransfer &&
             entry.type === "expense" &&
-            (entry.status === "pending" || entry.status === "overdue")
-        )
+            (entry.status === "pending" || entry.status === "overdue") &&
+            dueDate <= endOfCurrentMonth
+          );
+        })
         .sort(
           (a, b) =>
             new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()
@@ -173,6 +178,19 @@ export function DashboardView() {
     ? isPast(new Date(nextEntryToPay.dueDate)) &&
       !isToday(new Date(nextEntryToPay.dueDate))
     : false;
+
+  const getFormattedDescription = (entry: FinancialEntry) => {
+    if (entry.installmentNumber && entry.totalInstallments) {
+      return `${entry.description} (${entry.installmentNumber}/${entry.totalInstallments})`;
+    }
+    if (entry.recurrenceId) {
+      const formattedDate = format(new Date(entry.dueDate), "MMM/yy", {
+        locale: ptBR,
+      });
+      return `${entry.description} (${formattedDate})`;
+    }
+    return entry.description;
+  };
 
   if (isLoadingContent) {
     return (
@@ -219,7 +237,7 @@ export function DashboardView() {
                     {isOverdue ? "Conta Vencida!" : "Próxima Conta"}
                   </p>
                   <p className="text-lg font-bold tracking-tight">
-                    {nextEntryToPay.description}
+                    {getFormattedDescription(nextEntryToPay)}
                   </p>
                   <p
                     className={cn(
@@ -249,7 +267,7 @@ export function DashboardView() {
             <div className="text-center py-8">
               <p className="font-bold text-lg">Tudo em dia por aqui!</p>
               <p className="text-sm opacity-80">
-                Nenhuma conta próxima do vencimento.
+                Nenhuma conta pendente para o mês atual.
               </p>
             </div>
           )}
