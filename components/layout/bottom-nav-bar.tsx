@@ -1,9 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useTheme } from "next-themes";
 import { Icon } from "@iconify/react";
 import { cn } from "@/lib/utils";
 import {
@@ -15,6 +14,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "../ui/button";
 
+// Array de itens de navegação atualizado
 const navItems = [
   {
     type: "link",
@@ -28,23 +28,21 @@ const navItems = [
     icon: "mdi:format-list-bulleted-square",
     label: "Extrato",
   },
-  { type: "action" },
-  { type: "theme-toggle" },
+  { type: "action" }, // Botão central de ações
+  {
+    type: "link",
+    href: "/reports", // <<--- AQUI A MUDANÇA
+    icon: "mdi:chart-pie",
+    label: "Relatórios",
+  },
   { type: "menu", icon: "mdi:cog-outline", label: "Cadastros" },
 ];
 
 export function BottomNavBar() {
   const pathname = usePathname();
   const router = useRouter();
-  const { theme, setTheme } = useTheme();
 
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
-
-  const toggleTheme = () => {
-    setTheme(theme === "light" ? "dark" : "light");
-  };
-
+  // Hooks para novas despesas, receitas e transferências
   const handleNewExpense = () => {
     router.push("/financial-entry?type=expense");
   };
@@ -53,7 +51,6 @@ export function BottomNavBar() {
     router.push("/financial-entry?type=income");
   };
 
-  // --- NOVA FUNÇÃO AQUI ---
   const handleNewTransfer = () => {
     router.push("/financial-entry/transfer");
   };
@@ -91,7 +88,6 @@ export function BottomNavBar() {
                         <span>Nova Despesa</span>
                       </DropdownMenuItem>
 
-                      {/* --- NOVO ITEM DE MENU AQUI --- */}
                       <DropdownMenuItem
                         onClick={handleNewTransfer}
                         className="px-4 py-3 text-base"
@@ -175,27 +171,7 @@ export function BottomNavBar() {
               );
             }
 
-            if (item.type === "theme-toggle") {
-              if (!mounted) return <div key="theme-toggle-placeholder" />;
-
-              return (
-                <button
-                  key="theme-toggle"
-                  onClick={toggleTheme}
-                  className="flex flex-col items-center justify-center gap-1 text-muted-foreground transition-colors"
-                >
-                  <Icon
-                    icon={
-                      theme === "light"
-                        ? "mdi:weather-sunny"
-                        : "mdi:weather-night"
-                    }
-                    className="h-6 w-6"
-                  />
-                  <span className="text-xs capitalize">{theme}</span>
-                </button>
-              );
-            }
+            // O bloco "theme-toggle" foi removido daqui.
 
             const isActive = pathname === item.href;
             return (

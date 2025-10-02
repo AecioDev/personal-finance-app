@@ -15,6 +15,28 @@ interface ReleaseNote {
 // Usamos um Record para mapear a versão (string) para o conteúdo da nota
 export const releaseNotes: Record<string, ReleaseNote> = {
   [APP_VERSION]: {
+    title: "📊 Seus Dados, Suas Regras: Novos Relatórios Inteligentes!",
+    description:
+      "Analisar suas finanças nunca foi tão fácil e visual. Mergulhe nos seus dados com a nova tela de Relatórios e tome decisões mais inteligentes.",
+    changes: [
+      {
+        title: "Relatório Mensal por Categoria",
+        detail:
+          "Veja um resumo completo de suas Receitas e Despesas de cada mês, tudo agrupado por categoria para fácil visualização.",
+      },
+      {
+        title: "Gráficos Interativos (Pizza e Barras)",
+        detail:
+          "Escolha como visualizar seus dados! Alterne entre um gráfico de pizza (rosca) e um gráfico de barras adaptativo e super detalhado.",
+      },
+      {
+        title: "Mergulhe nos Detalhes",
+        detail:
+          "Ficou curioso com algum gasto? Agora você pode clicar em qualquer categoria na lista para ver todos os lançamentos relacionados àquele item.",
+      },
+    ],
+  },
+  "1.3.0": {
     title: "🚀 Controle Total: Transferências e Cartões de Crédito!",
     description:
       "Esta atualização traz duas das funcionalidades mais pedidas para um controle financeiro completo e sem duplicidade.",
@@ -36,8 +58,6 @@ export const releaseNotes: Record<string, ReleaseNote> = {
       },
     ],
   },
-
-  // A versão antiga é movida para baixo
   "1.2.0": {
     title: "🚀 Uma Nova Experiência Chegou!",
     description:
@@ -70,8 +90,6 @@ export const releaseNotes: Record<string, ReleaseNote> = {
       },
     ],
   },
-
-  // A versão antiga continua aqui para referência
   "1.1.0": {
     title: "🎉 Boas notícias! O app evoluiu!",
     description: "Preparamos algumas melhorias para você:",

@@ -80,6 +80,17 @@ export function ExtratoView() {
     return filteredEntries.filter((entry) => !entry.isTransfer);
   }, [filteredEntries]);
 
+  // ✅ CÁLCULO DOS TOTAIS DE RECEITA E DESPESA
+  const { totalIncome, totalExpense } = useMemo(() => {
+    const income = summaryEntries
+      .filter((e) => e.type === "income" && e.status === "paid")
+      .reduce((acc, e) => acc + (e.paidAmount || 0), 0);
+    const expense = summaryEntries
+      .filter((e) => e.type === "expense" && e.status === "paid")
+      .reduce((acc, e) => acc + (e.paidAmount || 0), 0);
+    return { totalIncome: income, totalExpense: expense };
+  }, [summaryEntries]);
+
   const comparisonEntries = useMemo(() => {
     return financialEntries
       .filter((entry) => !entry.isTransfer)
@@ -132,7 +143,13 @@ export function ExtratoView() {
         </Button>
       </div>
 
-      <StatementSummaryCard entries={summaryEntries} filters={filters} />
+      {/* ✅ PASSANDO OS NOVOS TOTAIS PARA O CARD */}
+      <StatementSummaryCard
+        entries={summaryEntries}
+        filters={filters}
+        totalIncome={totalIncome}
+        totalExpense={totalExpense}
+      />
 
       {view === "extrato" && (
         <StatementByDayView

@@ -6,15 +6,21 @@ import { FinancialEntry } from "@/interfaces/financial-entry";
 import { Filters } from "./extrato-filters";
 import { format } from "date-fns";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
+import { Separator } from "../ui/separator"; // ✅ NOVO IMPORT
+import { cn } from "@/lib/utils";
 
 interface StatementSummaryCardProps {
   entries: FinancialEntry[];
   filters: Filters;
+  totalIncome: number; // ✅ NOVA PROP
+  totalExpense: number; // ✅ NOVA PROP
 }
 
 export function StatementSummaryCard({
   entries,
   filters,
+  totalIncome,
+  totalExpense,
 }: StatementSummaryCardProps) {
   const summary = useMemo(() => {
     const totalPrevisto = entries.reduce(
@@ -48,42 +54,72 @@ export function StatementSummaryCard({
             : "Período não definido"}
         </p>
       </CardHeader>
-      <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="text-center">
-          <p className="text-sm text-muted-foreground">Previsto</p>
-          <p className="font-bold">
-            {summary.totalPrevisto.toLocaleString("pt-BR", {
-              style: "currency",
-              currency: "BRL",
-            })}
-          </p>
+      {/* ✅ GRID ATUALIZADO */}
+      <CardContent className="p-4 space-y-3">
+        <div className="grid grid-cols-2 gap-4">
+          <div className="text-center">
+            <p className="text-sm text-muted-foreground">Total Receitas</p>
+            <p className="font-bold text-green-500">
+              {totalIncome > 0
+                ? totalIncome.toLocaleString("pt-BR", {
+                    style: "currency",
+                    currency: "BRL",
+                  })
+                : 0}
+            </p>
+          </div>
+          <div className="text-center">
+            <p className="text-sm text-muted-foreground">Total Despesas</p>
+            <p className="font-bold text-destructive">
+              {totalExpense > 0
+                ? totalExpense.toLocaleString("pt-BR", {
+                    style: "currency",
+                    currency: "BRL",
+                  })
+                : 0}
+            </p>
+          </div>
         </div>
-        <div className="text-center">
-          <p className="text-sm text-muted-foreground">Realizado</p>
-          <p className="font-bold">
-            {summary.totalRealizado.toLocaleString("pt-BR", {
-              style: "currency",
-              currency: "BRL",
-            })}
-          </p>
-        </div>
-        <div className="text-center">
-          <p className="text-sm text-muted-foreground">Juros</p>
-          <p className="font-bold text-red-600">
-            {summary.juros.toLocaleString("pt-BR", {
-              style: "currency",
-              currency: "BRL",
-            })}
-          </p>
-        </div>
-        <div className="text-center">
-          <p className="text-sm text-muted-foreground">Descontos</p>
-          <p className="font-bold text-green-600">
-            {summary.descontos.toLocaleString("pt-BR", {
-              style: "currency",
-              currency: "BRL",
-            })}
-          </p>
+
+        <Separator className="bg-primary/20" />
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-2">
+          <div className="text-center">
+            <p className="text-sm text-muted-foreground">Previsto</p>
+            <p className="font-bold">
+              {summary.totalPrevisto.toLocaleString("pt-BR", {
+                style: "currency",
+                currency: "BRL",
+              })}
+            </p>
+          </div>
+          <div className="text-center">
+            <p className="text-sm text-muted-foreground">Realizado</p>
+            <p className="font-bold">
+              {summary.totalRealizado.toLocaleString("pt-BR", {
+                style: "currency",
+                currency: "BRL",
+              })}
+            </p>
+          </div>
+          <div className="text-center">
+            <p className="text-sm text-muted-foreground">Juros</p>
+            <p className="font-bold text-red-600">
+              {summary.juros.toLocaleString("pt-BR", {
+                style: "currency",
+                currency: "BRL",
+              })}
+            </p>
+          </div>
+          <div className="text-center">
+            <p className="text-sm text-muted-foreground">Descontos</p>
+            <p className="font-bold text-green-600">
+              {summary.descontos.toLocaleString("pt-BR", {
+                style: "currency",
+                currency: "BRL",
+              })}
+            </p>
+          </div>
         </div>
       </CardContent>
     </Card>

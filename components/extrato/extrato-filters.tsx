@@ -8,6 +8,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Icon } from "@iconify/react";
 import { useFinance } from "../providers/finance-provider";
 import {
@@ -25,14 +26,14 @@ import {
   subDays,
   startOfDay,
   endOfDay,
+  subMonths, // ✅ 1. IMPORTAR subMonths
 } from "date-fns";
 import { DatePicker } from "../ui/date-picker";
-import { Input } from "../ui/input";
 
 export interface Filters {
   dateFrom: Date | undefined;
   dateTo: Date | undefined;
-  type: "all" | EntryType;
+  type: "all" | EntryType | "transfer";
   status: "all" | "paid" | "pending";
   accountId: string;
   categoryId: string;
@@ -59,25 +60,32 @@ export function ExtratoFilters({ onFilterChange }: ExtratoFiltersProps) {
 
   const [filters, setFilters] = useState<Filters>(defaultFilters);
 
-  // aplica em tempo real (exceto datas)
   const updateFilter = (patch: Partial<Filters>) => {
     const newFilters = { ...filters, ...patch };
     setFilters(newFilters);
     onFilterChange(newFilters);
   };
 
-  // atalhos rápidos
-  const applyQuickFilter = (range: "month" | "7days" | "30days") => {
+  // ✅ 2. ATUALIZAR A FUNÇÃO DE FILTROS RÁPIDOS
+  const applyQuickFilter = (
+    range: "month" | "7days" | "30days" | "last_month"
+  ) => {
+    const today = new Date();
     let dateFrom: Date;
-    let dateTo: Date = endOfDay(new Date());
+    let dateTo: Date = endOfDay(today);
 
     if (range === "month") {
-      dateFrom = startOfMonth(new Date());
-      dateTo = endOfMonth(new Date());
+      dateFrom = startOfMonth(today);
+      dateTo = endOfMonth(today);
+    } else if (range === "last_month") {
+      const lastMonth = subMonths(today, 1);
+      dateFrom = startOfMonth(lastMonth);
+      dateTo = endOfMonth(lastMonth);
     } else if (range === "7days") {
-      dateFrom = startOfDay(subDays(new Date(), 7));
+      dateFrom = startOfDay(subDays(today, 7));
     } else {
-      dateFrom = startOfDay(subDays(new Date(), 30));
+      // 30days
+      dateFrom = startOfDay(subDays(today, 30));
     }
 
     const newFilters = { ...filters, dateFrom, dateTo };
@@ -109,7 +117,6 @@ export function ExtratoFilters({ onFilterChange }: ExtratoFiltersProps) {
       </div>
 
       <CollapsibleContent className="space-y-6 pt-6">
-        {/* FILTRO DE DESCRIÇÃO */}
         <div className="space-y-2">
           <label className="text-sm font-medium">Buscar por Descrição</label>
           <Input
@@ -119,35 +126,37 @@ export function ExtratoFilters({ onFilterChange }: ExtratoFiltersProps) {
             onChange={(e) => updateFilter({ description: e.target.value })}
           />
         </div>
-        {/* Atalhos rápidos */}
-        <div className="flex items-center justify-start gap-2">
-          <div className="space-y-2">
-            <Button
-              size="sm"
-              className="bg-accent text-accent-foreground hover:bg-accent/80"
-              onClick={() => applyQuickFilter("month")}
-            >
-              Este mês
-            </Button>
-          </div>
-          <div className="space-y-2">
-            <Button
-              size="sm"
-              className="bg-accent text-accent-foreground hover:bg-accent/80"
-              onClick={() => applyQuickFilter("7days")}
-            >
-              Últimos 7 dias
-            </Button>
-          </div>
-          <div className="space-y-2">
-            <Button
-              size="sm"
-              className="bg-accent text-accent-foreground hover:bg-accent/80"
-              onClick={() => applyQuickFilter("30days")}
-            >
-              Últimos 30 dias
-            </Button>
-          </div>
+
+        {/* ✅ 3. ADICIONAR O BOTÃO "MÊS ANTERIOR" */}
+        <div className="flex flex-wrap items-center justify-start gap-2">
+          <Button
+            size="sm"
+            className="bg-accent text-accent-foreground hover:bg-accent/80"
+            onClick={() => applyQuickFilter("month")}
+          >
+            Este mês
+          </Button>
+          <Button
+            size="sm"
+            className="bg-accent text-accent-foreground hover:bg-accent/80"
+            onClick={() => applyQuickFilter("last_month")}
+          >
+            Mês Anterior
+          </Button>
+          <Button
+            size="sm"
+            className="bg-accent text-accent-foreground hover:bg-accent/80"
+            onClick={() => applyQuickFilter("7days")}
+          >
+            Últimos 7 dias
+          </Button>
+          <Button
+            size="sm"
+            className="bg-accent text-accent-foreground hover:bg-accent/80"
+            onClick={() => applyQuickFilter("30days")}
+          >
+            Últimos 30 dias
+          </Button>
         </div>
 
         {/* Datas com botão aplicar */}

@@ -55,7 +55,7 @@ export function PageViewLayout({
         {/* Título e Subtítulo */}
         <div className="relative z-10 flex flex-grow flex-col items-center justify-center -mt-14 text-center">
           <h1 className="text-3xl font-semibold">{title}</h1>
-          {subtitle && <p className="text-sm opacity-80 mt-1">{subtitle}</p>}
+          {subtitle && <p className="text-lg opacity-80 mt-1">{subtitle}</p>}
         </div>
       </div>
 
