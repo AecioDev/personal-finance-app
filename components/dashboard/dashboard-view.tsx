@@ -27,6 +27,7 @@ import { Icon } from "@iconify/react/dist/iconify.js";
 import { FinancialEntryPaymentModal } from "../financial-entries/modals/financial-entry-payment-modal";
 import { Input } from "../ui/input";
 import { AccountsCarousel } from "../accounts/accounts-carousel";
+import { useMonthlySummary } from "@/hooks/useMonthlySummary";
 
 type StatusFilter = "pending" | "paid" | "all";
 
@@ -68,57 +69,23 @@ export function DashboardView() {
     }
   }, [errorFinanceData, toast]);
 
-  const { monthlySummary, entriesForMonth } = useMemo(() => {
+  const monthlySummary = useMonthlySummary(
+    financialEntries,
+    accounts,
+    displayDate
+  );
+
+  const entriesForMonth = useMemo(() => {
     const selectedMonth = getMonth(displayDate);
     const selectedYear = getYear(displayDate);
 
-    const entriesInDateRange = financialEntries.filter((entry) => {
+    return financialEntries.filter((entry) => {
       const entryDate = new Date(entry.dueDate);
       return (
         getMonth(entryDate) === selectedMonth &&
         getYear(entryDate) === selectedYear
       );
     });
-
-    const entriesForSummary = entriesInDateRange.filter(
-      (entry) => !entry.isTransfer
-    );
-
-    const totalReceitas = entriesForSummary
-      .filter((e) => e.type === "income" && e.status === "paid")
-      .reduce((acc, e) => acc + (e.paidAmount || 0), 0);
-
-    const totalDespesas = entriesForSummary
-      .filter((e) => e.type === "expense" && e.status === "paid")
-      .reduce((acc, e) => acc + (e.paidAmount || 0), 0);
-
-    const expensesForMonth = entriesForSummary.filter(
-      (e) => e.type === "expense"
-    );
-
-    const totalPrevisto = expensesForMonth.reduce(
-      (acc, e) => acc + e.expectedAmount,
-      0
-    );
-
-    const totalPago = expensesForMonth
-      .filter((e) => e.status === "paid")
-      .reduce((acc, e) => acc + (e.paidAmount || 0), 0);
-
-    const faltaPagar = totalPrevisto - totalPago;
-
-    const summary = {
-      totalPrevisto,
-      totalPago,
-      faltaPagar,
-      totalDespesas,
-      totalReceitas,
-    };
-
-    return {
-      monthlySummary: summary,
-      entriesForMonth: entriesInDateRange,
-    };
   }, [financialEntries, displayDate]);
 
   const filteredEntries = useMemo(() => {
@@ -150,7 +117,6 @@ export function DashboardView() {
   }, [entriesForMonth, activeMainTab, statusFilter, descriptionFilter]);
 
   const nextEntryToPay = useMemo(() => {
-    // ✅ LÓGICA CORRIGIDA AQUI
     const endOfCurrentMonth = endOfMonth(new Date());
 
     return (
@@ -276,51 +242,12 @@ export function DashboardView() {
         </div>
 
         <div className="bg-background rounded-t-[2.5rem] p-4 space-y-4">
-          <div className="grid grid-cols-2 items-center my-4 py-2">
-            <div className="border-r border-gray-500">
-              <p className="text-sm text-foreground/80 font-medium flex items-center justify-center gap-1.5 mb-1">
-                <Icon icon="fa6-solid:arrow-trend-up" className="h-4 w-4" />
-                Total de Receitas
-              </p>
-              <p
-                className={cn(
-                  "text-center font-bold tracking-tight text-accent",
-                  monthlySummary.totalReceitas > 10000 ||
-                    monthlySummary.totalDespesas > 10000
-                    ? "text-3xl"
-                    : "text-3xl"
-                )}
-              >
-                {monthlySummary.totalReceitas.toLocaleString("pt-BR", {
-                  style: "currency",
-                  currency: "BRL",
-                })}
-              </p>
-            </div>
-            <div className="border-l border-gray-500 px-2">
-              <p className="text-sm text-foreground/80 font-medium flex items-center justify-center gap-1.5 mb-1">
-                <Icon icon="fa6-solid:arrow-trend-down" className="h-4 w-4" />
-                Total de Despesas
-              </p>
-              <p
-                className={cn(
-                  "text-center font-bold tracking-tight text-destructive/90",
-                  monthlySummary.totalReceitas > 10000 ||
-                    monthlySummary.totalDespesas > 10000
-                    ? "text-3xl"
-                    : "text-3xl"
-                )}
-              >
-                {monthlySummary.totalDespesas.toLocaleString("pt-BR", {
-                  style: "currency",
-                  currency: "BRL",
-                })}
-              </p>
-            </div>
-          </div>
-
           <MonthlySummaryCard
-            summary={monthlySummary}
+            summary={{
+              receitas: monthlySummary.receitas,
+              despesas: monthlySummary.despesas,
+              resultado: monthlySummary.resultado,
+            }}
             displayDate={displayDate}
             onPreviousMonth={handlePreviousMonth}
             onNextMonth={handleNextMonth}
@@ -372,6 +299,7 @@ export function DashboardView() {
                 <FinancialEntryList
                   entries={filteredEntries}
                   categories={categories}
+                  accounts={accounts}
                 />
               </div>
             </div>

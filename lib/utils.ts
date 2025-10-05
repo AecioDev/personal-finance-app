@@ -35,3 +35,15 @@ export const downloadAsJson = (data: unknown, filename: string) => {
 
   console.log(`Arquivo ${filename} gerado para download.`);
 };
+
+/**
+ * Formata um número como uma string de moeda no formato BRL (Real Brasileiro).
+ * @param value O número a ser formatado.
+ * @returns A string formatada, por exemplo, "R$ 1.234,56".
+ */
+export function formatCurrency(value: number): string {
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  }).format(value);
+}

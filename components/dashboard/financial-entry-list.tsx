@@ -7,18 +7,20 @@ import { cn } from "@/lib/utils";
 import { format, isPast, isToday } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Icon } from "@iconify/react";
-import { Category } from "@/interfaces/finance";
+import { Account, Category } from "@/interfaces/finance";
 import { FinancialEntryDetailsModal } from "../financial-entries/modals/financial-entry-details-modal";
 import { FinancialEntryPaymentModal } from "../financial-entries/modals/financial-entry-payment-modal";
 
 interface FinancialEntryListProps {
   entries: FinancialEntry[];
   categories: Category[];
+  accounts: Account[];
 }
 
 export function FinancialEntryList({
   entries,
   categories,
+  accounts,
 }: FinancialEntryListProps) {
   const [selectedEntry, setSelectedEntry] = useState<FinancialEntry | null>(
     null
@@ -46,6 +48,12 @@ export function FinancialEntryList({
     if (!categoryId) return "mdi:receipt-text-outline";
     const category = categories.find((cat) => cat.id === categoryId);
     return category?.icon || "mdi:help-circle-outline";
+  };
+
+  // ✅ 1. Função para buscar o nome da conta pelo ID
+  const getAccountName = (accountId: string) => {
+    const account = accounts.find((a) => a.id === accountId);
+    return account ? account.name : "Conta desconhecida";
   };
 
   if (sortedEntries.length === 0) {
@@ -149,6 +157,12 @@ export function FinancialEntryList({
                       { style: "currency", currency: "BRL" }
                     )}
                   </p>
+
+                  {/* 👇 2. EXIBINDO O NOME DA CONTA ABAIXO DO VALOR 👇 */}
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {getAccountName(entry.accountId || "")}
+                  </p>
+
                   <p className="text-sm text-muted-foreground">
                     {isTransfer
                       ? `Realizada em: ${format(dueDate, "dd 'de' MMM, yyyy", {
