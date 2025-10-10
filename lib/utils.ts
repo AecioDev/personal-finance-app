@@ -1,5 +1,6 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import * as XLSX from "xlsx";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -47,3 +48,22 @@ export function formatCurrency(value: number): string {
     currency: "BRL",
   }).format(value);
 }
+
+// ✅ NOVA FUNÇÃO PARA EXPORTAR PARA EXCEL
+export const exportToExcel = (
+  data: any[],
+  fileName: string,
+  sheetName: string
+) => {
+  // 1. Cria uma nova "pasta de trabalho" (o arquivo Excel em si)
+  const workbook = XLSX.utils.book_new();
+
+  // 2. Converte nosso array de objetos JSON em uma "planilha"
+  const worksheet = XLSX.utils.json_to_sheet(data);
+
+  // 3. Adiciona a planilha à pasta de trabalho com o nome que definirmos
+  XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
+
+  // 4. Gera o arquivo .xlsx e dispara o download
+  XLSX.writeFile(workbook, `${fileName}.xlsx`);
+};

@@ -4,15 +4,24 @@
 import React, { useMemo, useState } from "react";
 import { useFinance } from "@/components/providers/finance-provider";
 import { ExtratoFilters, Filters } from "./extrato-filters";
-import { startOfMonth, endOfMonth, startOfDay, endOfDay } from "date-fns";
+import {
+  startOfMonth,
+  endOfMonth,
+  startOfDay,
+  endOfDay,
+  format,
+} from "date-fns";
 import { StatementSummaryCard } from "./statement-summary-card";
 import { StatementByDayView } from "./statement-by-day-view";
 import { StatementComparisonView } from "./statement-comparison-view";
 import { Button } from "../ui/button";
+import { exportToExcel } from "@/lib/utils"; // Importamos nossa nova função
+import { Icon } from "@iconify/react"; // Precisaremos do Icon aqui
+import { ptBR } from "date-fns/locale";
 
 export function ExtratoView() {
   const { financialEntries, categories, accounts } = useFinance();
-  const [view, setView] = useState<"extrato" | "comparativo">("extrato");
+  const [view, setView] = useState<"extrato" | "comparativo">("comparativo");
 
   const [filters, setFilters] = useState<Filters>({
     dateFrom: startOfMonth(new Date()),
@@ -124,23 +133,66 @@ export function ExtratoView() {
       });
   }, [financialEntries, filters]);
 
+  // ✅ NOVA FUNÇÃO PARA EXPORTAR OS DADOS
+  const handleExport = () => {
+    if (comparisonEntries.length === 0) {
+      alert("Não há dados para exportar com os filtros atuais.");
+      return;
+    }
+
+    // 1. Mapeamos os dados para um formato mais limpo para o Excel
+    const dataToExport = comparisonEntries.map((entry) => {
+      const diff = (entry.paidAmount ?? 0) - (entry.expectedAmount ?? 0);
+      return {
+        Data: format(new Date(entry.dueDate), "dd/MM/yyyy"),
+        Tipo: entry.type === "income" ? "Receita" : "Despesa",
+        Categoria:
+          categories.find((c) => c.id === entry.categoryId)?.name || "N/A",
+        Descrição: entry.description,
+        "Valor Previsto": entry.expectedAmount,
+        "Valor Realizado": entry.paidAmount,
+        Resultado: diff,
+      };
+    });
+
+    // 2. Definimos o nome do arquivo
+    const fileName = `relatorio_previsto_realizado_${format(
+      new Date(),
+      "yyyy-MM-dd"
+    )}`;
+
+    // 3. Chamamos nossa função de exportação
+    exportToExcel(dataToExport, fileName, "Previsto x Realizado");
+  };
+
   return (
     <div className="space-y-6">
       <ExtratoFilters onFilterChange={setFilters} />
 
-      <div className="flex gap-2">
-        <Button
-          variant={view === "extrato" ? "default" : "outline"}
-          onClick={() => setView("extrato")}
-        >
-          Extrato
-        </Button>
-        <Button
-          variant={view === "comparativo" ? "default" : "outline"}
-          onClick={() => setView("comparativo")}
-        >
-          Previsto x Realizado
-        </Button>
+      <div className="flex justify-between items-center gap-2">
+        {/* Botões da esquerda */}
+        <div className="flex gap-2">
+          <Button
+            variant={view === "extrato" ? "default" : "outline"}
+            onClick={() => setView("extrato")}
+          >
+            Extrato
+          </Button>
+          <Button
+            variant={view === "comparativo" ? "default" : "outline"}
+            onClick={() => setView("comparativo")}
+          >
+            Previsto x Realizado
+          </Button>
+        </div>
+
+        {/* Botão de exportar que só aparece na view 'comparativo' */}
+        {view === "comparativo" && (
+          <Button variant="outline" onClick={handleExport}>
+            <Icon icon="mdi:file-excel-outline" className="mr-2 h-4 w-4" />
+            Exportar
+          </Button>
+        )}
       </div>
 
       {/* ✅ PASSANDO OS NOVOS TOTAIS PARA O CARD */}
